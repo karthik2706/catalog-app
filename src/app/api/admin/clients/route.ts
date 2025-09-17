@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
       prisma.client.findMany({
         where,
         include: {
+          country: true,
+          currency: true,
           _count: {
             select: {
               users: true,
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    const { name, email, phone, address, plan = 'STARTER' } = data
+    const { name, email, phone, address, plan = 'STARTER', countryId, currencyId } = data
 
     // Generate slug from name
     const slug = name
@@ -80,6 +82,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate country and currency exist
+    if (countryId) {
+      const country = await prisma.country.findUnique({ where: { id: countryId } })
+      if (!country) {
+        return NextResponse.json(
+          { error: 'Invalid country selected' },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (currencyId) {
+      const currency = await prisma.currency.findUnique({ where: { id: currencyId } })
+      if (!currency) {
+        return NextResponse.json(
+          { error: 'Invalid currency selected' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Create client
     const client = await prisma.client.create({
       data: {
@@ -89,6 +112,12 @@ export async function POST(request: NextRequest) {
         phone,
         address,
         plan,
+        countryId: countryId || null,
+        currencyId: currencyId || null,
+      },
+      include: {
+        country: true,
+        currency: true,
       },
     })
 
@@ -124,3 +153,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

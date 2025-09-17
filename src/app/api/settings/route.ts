@@ -34,9 +34,17 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get client settings
+    // Get client settings with client info
     let settings = await prisma.clientSettings.findUnique({
-      where: { clientId }
+      where: { clientId },
+      include: {
+        client: {
+          include: {
+            country: true,
+            currency: true
+          }
+        }
+      }
     })
     
     if (!settings) {
@@ -60,7 +68,6 @@ export async function GET(request: NextRequest) {
           email: client.email,
           phone: client.phone,
           address: client.address,
-          currency: 'USD',
           timezone: 'America/New_York',
           lowStockThreshold: 10,
           autoReorder: false,
@@ -98,7 +105,6 @@ export async function PUT(request: NextRequest) {
         email: body.email,
         phone: body.phone,
         address: body.address,
-        currency: body.currency,
         timezone: body.timezone,
         lowStockThreshold: body.lowStockThreshold,
         autoReorder: body.autoReorder,
@@ -111,7 +117,6 @@ export async function PUT(request: NextRequest) {
         email: body.email,
         phone: body.phone,
         address: body.address,
-        currency: body.currency,
         timezone: body.timezone,
         lowStockThreshold: body.lowStockThreshold,
         autoReorder: body.autoReorder,

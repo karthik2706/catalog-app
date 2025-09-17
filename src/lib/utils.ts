@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { DollarSign, Euro, PoundSterling, IndianRupee } from 'lucide-react'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -61,5 +62,20 @@ export function throttle<T extends (...args: any[]) => any>(
       inThrottle = true
       setTimeout(() => (inThrottle = false), limit)
     }
+  }
+}
+
+export function getCurrencyIcon(currencyCode: string) {
+  switch (currencyCode) {
+    case 'USD':
+      return DollarSign
+    case 'EUR':
+      return Euro
+    case 'GBP':
+      return PoundSterling
+    case 'INR':
+      return IndianRupee
+    default:
+      return DollarSign
   }
 }

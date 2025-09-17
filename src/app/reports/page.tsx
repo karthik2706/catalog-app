@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Loading } from '@/components/ui/Loading'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import {
   AlertTriangle,
   TrendingDown,
@@ -48,6 +48,7 @@ export default function ReportsPage() {
   const [error, setError] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [severityFilter, setSeverityFilter] = useState('all')
+  const [clientCurrency, setClientCurrency] = useState<string>('USD')
   const [searchTerm, setSearchTerm] = useState('')
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table')
 
@@ -59,6 +60,7 @@ export default function ReportsPage() {
 
     if (user) {
       fetchLowStockReport()
+      fetchClientCurrency()
     }
   }, [user, authLoading, router])
 
@@ -101,6 +103,23 @@ export default function ReportsPage() {
       console.error('Error fetching low stock report:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchClientCurrency = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      const data = await response.json()
+      if (response.ok && data.client?.currency?.code) {
+        setClientCurrency(data.client.currency.code)
+      }
+    } catch (err) {
+      console.error('Error fetching client currency:', err)
     }
   }
 
@@ -242,7 +261,7 @@ export default function ReportsPage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-slate-600 mb-1">Value at Risk</p>
                   <p className="text-3xl font-bold text-slate-900">
-                    {formatCurrency(report?.totalValueAtRisk || 0)}
+                    {formatCurrency(report?.totalValueAtRisk || 0, clientCurrency)}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">Potential revenue loss</p>
                 </div>
@@ -405,7 +424,7 @@ export default function ReportsPage() {
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-slate-600">Value at Risk</span>
                           <span className="font-semibold text-slate-900">
-                            {formatCurrency(valueAtRisk)}
+                            {formatCurrency(valueAtRisk, clientCurrency)}
                           </span>
                         </div>
                       </div>
@@ -414,7 +433,7 @@ export default function ReportsPage() {
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-slate-600">Unit Price</span>
                           <span className="font-medium text-slate-900">
-                            {formatCurrency(Number(product.price))}
+                            {formatCurrency(Number(product.price), clientCurrency)}
                           </span>
                         </div>
                       </div>
@@ -484,7 +503,7 @@ export default function ReportsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                          {formatCurrency(valueAtRisk)}
+                          {formatCurrency(valueAtRisk, clientCurrency)}
                         </td>
                         <td className="px-6 py-4">
                           <Badge variant={getSeverityColor(severity) as any} size="sm">

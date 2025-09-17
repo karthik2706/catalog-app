@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/Input'
 import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
-import { cn } from '@/lib/utils'
+import { cn, getCurrencyIcon } from '@/lib/utils'
+import { Client } from '@/types'
 import {
   Save,
   Plus,
@@ -28,6 +29,7 @@ import {
   CheckCircle,
   XCircle,
   Bell,
+  Globe,
   BellOff,
   Database,
   Shield,
@@ -54,21 +56,6 @@ interface User {
   isActive: boolean
 }
 
-interface Client {
-  id: string
-  name: string
-  slug: string
-  email: string
-  phone?: string
-  address?: string
-  plan: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'
-  isActive: boolean
-  createdAt: string
-  _count: {
-    users: number
-    products: number
-  }
-}
 
 interface Settings {
   id: string
@@ -82,6 +69,14 @@ interface Settings {
   autoReorder: boolean
   emailNotifications: boolean
   smsNotifications: boolean
+  client?: {
+    id: string
+    currency?: {
+      id: string
+      code: string
+      symbol: string
+    }
+  }
 }
 
 interface Category {
@@ -208,6 +203,8 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<User[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [countries, setCountries] = useState<any[]>([])
+  const [currencies, setCurrencies] = useState<any[]>([])
   
   // Form states
   const [settingsForm, setSettingsForm] = useState({
@@ -237,6 +234,8 @@ export default function SettingsPage() {
     phone: '',
     address: '',
     plan: 'STARTER' as const,
+    countryId: '',
+    currencyId: '',
   })
   
   const [newCategory, setNewCategory] = useState({
@@ -269,7 +268,7 @@ export default function SettingsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [settingsRes, usersRes, clientsRes, categoriesRes] = await Promise.all([
+      const [settingsRes, usersRes, clientsRes, categoriesRes, countriesRes, currenciesRes] = await Promise.all([
         fetch('/api/settings', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -290,6 +289,8 @@ export default function SettingsPage() {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
           },
         }),
+        fetch('/api/countries'),
+        fetch('/api/currencies'),
       ])
 
       if (settingsRes.ok) {
@@ -300,7 +301,7 @@ export default function SettingsPage() {
           email: settingsData.email || '',
           phone: settingsData.phone || '',
           address: settingsData.address || '',
-          currency: settingsData.currency || 'USD',
+          currency: settingsData.client?.currency?.code || 'USD',
           timezone: settingsData.timezone || 'America/New_York',
           lowStockThreshold: settingsData.lowStockThreshold || 10,
           autoReorder: settingsData.autoReorder || false,
@@ -323,6 +324,16 @@ export default function SettingsPage() {
         const categoriesData = await categoriesRes.json()
         setCategories(categoriesData)
       }
+
+      if (countriesRes.ok) {
+        const countriesData = await countriesRes.json()
+        setCountries(countriesData)
+      }
+
+      if (currenciesRes.ok) {
+        const currenciesData = await currenciesRes.json()
+        setCurrencies(currenciesData)
+      }
     } catch (error) {
       console.error('Error fetching data:', error)
       setError('Failed to load data')
@@ -337,7 +348,8 @@ export default function SettingsPage() {
       setError('')
       setSuccess('')
 
-      const response = await fetch('/api/settings', {
+      // Update client settings
+      const settingsResponse = await fetch('/api/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -346,13 +358,42 @@ export default function SettingsPage() {
         body: JSON.stringify(settingsForm),
       })
 
-      if (response.ok) {
-        setSuccess('Settings saved successfully!')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        const errorData = await response.json()
+      if (!settingsResponse.ok) {
+        const errorData = await settingsResponse.json()
         setError(errorData.error || 'Failed to save settings')
+        return
       }
+
+      // Update client currency if it changed
+      const currentClient = settings?.client
+      if (currentClient && settingsForm.currency !== currentClient.currency?.code) {
+        // Find the currency ID for the selected currency
+        const selectedCurrency = currencies.find(c => c.code === settingsForm.currency)
+        if (selectedCurrency) {
+          const clientResponse = await fetch(`/api/admin/clients/${currentClient.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+            body: JSON.stringify({
+              currencyId: selectedCurrency.id
+            }),
+          })
+
+          if (!clientResponse.ok) {
+            const errorData = await clientResponse.json()
+            setError(errorData.error || 'Failed to update currency')
+            return
+          }
+        }
+      }
+
+      setSuccess('Settings saved successfully!')
+      setTimeout(() => setSuccess(''), 3000)
+      
+      // Refresh data to get updated currency
+      fetchData()
     } catch (error) {
       setError('Failed to save settings')
     } finally {
@@ -407,7 +448,7 @@ export default function SettingsPage() {
       if (response.ok) {
         setSuccess('Client created successfully!')
         setClientModalOpen(false)
-        setNewClient({ name: '', email: '', phone: '', address: '', plan: 'STARTER' })
+        setNewClient({ name: '', email: '', phone: '', address: '', plan: 'STARTER', countryId: '', currencyId: '' })
         fetchData()
       } else {
         const errorData = await response.json()
@@ -750,10 +791,11 @@ export default function SettingsPage() {
                             className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${(isUser || isManager) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                             disabled={isUser || isManager}
                           >
-                            <option value="USD">USD</option>
-                            <option value="EUR">EUR</option>
-                            <option value="GBP">GBP</option>
-                            <option value="INR">INR</option>
+                            {currencies.map((currency) => (
+                              <option key={currency.id} value={currency.code}>
+                                {currency.symbol} {currency.code} - {currency.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
                       </div>
@@ -987,11 +1029,23 @@ export default function SettingsPage() {
                                   <span>{client.phone}</span>
                                 </div>
                               )}
+                              {client.country && (
+                                <div className="flex items-center space-x-2">
+                                  <Globe className="w-4 h-4" />
+                                  <span>{client.country.name}</span>
+                                </div>
+                              )}
+                              {client.currency && (
+                                <div className="flex items-center space-x-2">
+                                  {React.createElement(getCurrencyIcon(client.currency.code), { className: "w-4 h-4" })}
+                                  <span>{client.currency.symbol} {client.currency.code}</span>
+                                </div>
+                              )}
                             </div>
                             <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-200">
                               <div className="flex space-x-4 text-xs text-slate-500">
-                                <span>{client._count.users} users</span>
-                                <span>{client._count.products} products</span>
+                                <span>{client._count?.users || 0} users</span>
+                                <span>{client._count?.products || 0} products</span>
                               </div>
                               <div className="flex items-center space-x-1">
                                 {client.isActive ? (
@@ -1231,6 +1285,40 @@ export default function SettingsPage() {
                 rows={3}
                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
               />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Country</label>
+                <select
+                  value={newClient.countryId}
+                  onChange={(e) => setNewClient(prev => ({ ...prev, countryId: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Select Country</option>
+                  {countries.map((country) => (
+                    <option key={country.id} value={country.id}>
+                      {country.name} ({country.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Currency</label>
+                <select
+                  value={newClient.currencyId}
+                  onChange={(e) => setNewClient(prev => ({ ...prev, currencyId: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Select Currency</option>
+                  {currencies.map((currency) => (
+                    <option key={currency.id} value={currency.id}>
+                      {currency.name} ({currency.symbol} {currency.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             
             <div className="space-y-2">

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Loading } from '@/components/ui/Loading'
 import { StaggerWrapper, FadeIn } from '@/components/ui/AnimatedWrapper'
 import { AnimatedCard } from '@/components/ui/AnimatedCard'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import {
   Package,
   AlertTriangle,
@@ -39,6 +39,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<Stats | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [clientCurrency, setClientCurrency] = useState<string>('USD')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -48,6 +49,7 @@ export default function DashboardPage() {
 
     if (user) {
       fetchStats()
+      fetchClientCurrency()
     }
   }, [user, authLoading, router])
 
@@ -71,6 +73,23 @@ export default function DashboardPage() {
       setError('Failed to load dashboard data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchClientCurrency = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      const data = await response.json()
+      if (response.ok && data.client?.currency?.code) {
+        setClientCurrency(data.client.currency.code)
+      }
+    } catch (err) {
+      console.error('Error fetching client currency:', err)
     }
   }
 
@@ -125,8 +144,8 @@ export default function DashboardPage() {
     },
     {
       title: 'Total Value',
-      value: formatCurrency(stats?.totalValue || 0),
-      icon: DollarSign,
+      value: formatCurrency(stats?.totalValue || 0, clientCurrency),
+      icon: getCurrencyIcon(clientCurrency),
       color: 'text-success-600',
       bgColor: 'bg-success-50',
       change: '+8%',
@@ -182,7 +201,10 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="mt-4 sm:mt-0">
-              <Button className="w-full sm:w-auto">
+              <Button 
+                className="w-full sm:w-auto"
+                onClick={() => router.push('/products/new')}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Product
               </Button>

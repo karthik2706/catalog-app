@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input'
 import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { cn, formatCurrency, debounce } from '@/lib/utils'
+import { ImportExportModal } from '@/components/ui/ImportExportModal'
 import {
   Search,
   Filter,
@@ -39,6 +40,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [clientCurrency, setClientCurrency] = useState<string>('USD')
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [sortBy, setSortBy] = useState('name')
@@ -54,6 +56,7 @@ export default function ProductsPage() {
   const [inventoryType, setInventoryType] = useState('ADJUSTMENT')
   const [inventoryReason, setInventoryReason] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [importExportModalOpen, setImportExportModalOpen] = useState(false)
 
   // Debounced search
   const debouncedSearch = debounce(() => {
@@ -70,6 +73,7 @@ export default function ProductsPage() {
     if (user) {
       fetchProducts()
       fetchCategories()
+      fetchClientCurrency()
     }
   }, [user, authLoading, router, page, rowsPerPage, categoryFilter, sortBy, sortOrder])
 
@@ -134,6 +138,23 @@ export default function ProductsPage() {
     }
   }
 
+  const fetchClientCurrency = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      const data = await response.json()
+      if (response.ok && data.client?.currency?.code) {
+        setClientCurrency(data.client.currency.code)
+      }
+    } catch (err) {
+      console.error('Error fetching client currency:', err)
+    }
+  }
+
   const handleSort = (field: string) => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
@@ -177,6 +198,34 @@ export default function ProductsPage() {
     }
   }
 
+  const handleImportProducts = async (productsToImport: Partial<Product>[], overwrite = false) => {
+    try {
+      const response = await fetch('/api/products/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ products: productsToImport, overwrite }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        const error = new Error(errorData.error || 'Failed to import products')
+        // Add duplicate SKUs to error object if present
+        if (errorData.duplicateSKUs) {
+          (error as any).duplicateSKUs = errorData.duplicateSKUs
+        }
+        throw error
+      }
+
+      // Refresh the products list
+      fetchProducts()
+    } catch (error) {
+      throw error
+    }
+  }
+
   const getStockStatus = (product: Product) => {
     if (product.stockLevel <= 0) {
       return { label: 'Out of Stock', variant: 'error' as const, icon: XCircle }
@@ -213,13 +262,13 @@ export default function ProductsPage() {
             </p>
           </div>
           <div className="mt-4 sm:mt-0 flex space-x-3">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setImportExportModalOpen(true)}
+            >
               <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-            <Button variant="outline" size="sm">
-              <Upload className="w-4 h-4 mr-2" />
-              Import
+              Import/Export
             </Button>
             <Button onClick={() => router.push('/products/new')}>
               <Plus className="w-4 h-4 mr-2" />
@@ -381,7 +430,7 @@ export default function ProductsPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-2xl font-bold text-slate-900">
-                            {formatCurrency(Number(product.price))}
+                            {formatCurrency(Number(product.price), clientCurrency)}
                           </p>
                           <p className="text-sm text-slate-500">
                             Stock: {product.stockLevel}
@@ -601,6 +650,15 @@ export default function ProductsPage() {
             </div>
           )}
         </Modal>
+
+        {/* Import/Export Modal */}
+        <ImportExportModal
+          isOpen={importExportModalOpen}
+          onClose={() => setImportExportModalOpen(false)}
+          products={products}
+          onImport={handleImportProducts}
+          onExport={() => {}}
+        />
       </div>
     </DashboardLayout>
   )

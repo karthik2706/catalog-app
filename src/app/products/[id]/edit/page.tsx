@@ -13,6 +13,7 @@ import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
+import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import {
   ArrowLeft,
   Save,
@@ -55,6 +56,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [variationModalOpen, setVariationModalOpen] = useState(false)
   const [productId, setProductId] = useState<string>('')
   const [categories, setCategories] = useState<Category[]>([])
+  const [clientCurrency, setClientCurrency] = useState<string>('USD')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -85,6 +87,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     if (user && productId) {
       fetchProduct()
       fetchCategories()
+      fetchClientCurrency()
     }
   }, [user, authLoading, router, productId])
 
@@ -134,6 +137,23 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       }
     } catch (err) {
       console.error('Error fetching categories:', err)
+    }
+  }
+
+  const fetchClientCurrency = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      const data = await response.json()
+      if (response.ok && data.client?.currency?.code) {
+        setClientCurrency(data.client.currency.code)
+      }
+    } catch (err) {
+      console.error('Error fetching client currency:', err)
     }
   }
 
@@ -371,7 +391,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                     <Card className="card-hover">
                       <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
-                          <DollarSign className="w-5 h-5 text-success-600" />
+                          {React.createElement(getCurrencyIcon(clientCurrency), { className: "w-5 h-5 text-success-600" })}
                           <span>Pricing & Inventory</span>
                         </CardTitle>
                       </CardHeader>
@@ -379,14 +399,20 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Price *</label>
-                            <Input
-                              type="number"
-                              value={formData.price}
-                              onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
-                              placeholder="0.00"
-                              leftIcon={<DollarSign className="w-4 h-4" />}
-                              required
-                            />
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                value={formData.price}
+                                onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
+                                placeholder="0.00"
+                                className="pl-8"
+                                required
+                              />
+                              <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">
+                                {clientCurrency === 'INR' ? '₹' : '$'}
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-500">Product price in {clientCurrency}</p>
                           </div>
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Stock Level</label>
@@ -462,7 +488,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                                 <span>
                                   {variation.name}: {variation.value}
                                   {variation.priceAdjustment ? 
-                                    ` (+$${variation.priceAdjustment})` : ''
+                                    ` (+${clientCurrency === 'INR' ? '₹' : '$'}${variation.priceAdjustment})` : ''
                                   }
                                 </span>
                                 <button
@@ -638,13 +664,18 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Price Adjustment</label>
-              <Input
-                type="number"
-                value={newVariation.priceAdjustment}
-                onChange={(e) => setNewVariation(prev => ({ ...prev, priceAdjustment: parseFloat(e.target.value) || 0 }))}
-                placeholder="0.00"
-                leftIcon={<DollarSign className="w-4 h-4" />}
-              />
+              <div className="relative">
+                <Input
+                  type="number"
+                  value={newVariation.priceAdjustment}
+                  onChange={(e) => setNewVariation(prev => ({ ...prev, priceAdjustment: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0.00"
+                  className="pl-8"
+                />
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">
+                  {clientCurrency === 'INR' ? '₹' : '$'}
+                </div>
+              </div>
               <p className="text-xs text-slate-500">
                 Additional cost for this variation (can be negative)
               </p>

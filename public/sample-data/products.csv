@@ -1,0 +1,13 @@
+name,sku,description,price,category,subcategory,stockLevel,minStock,isActive,variations
+Barcode Scanner,BCS-001,Handheld barcode scanner for inventory management,100,New Test Cat,New Test Sub Cat,25,5,FALSE,[]
+Category Fix Test Product,CFT-001,Testing the fixed category hierarchy,499.99,Electronics,Smartphones,25,5,FALSE,[]
+Headless UI Test Product,HUI-001,Testing the new Headless UI dropdown,199.99,Electronics,Smartphones,20,5,FALSE,[]
+Hierarchical Product,HP-001,A product with both parent and child categories,199.99,Electronics,Smartphones,30,5,FALSE,[]
+MacBook Pro,MBP-16-001,16-inch MacBook Pro,100,Laptops,,8,2,FALSE,[]
+Multi-Category Test Product,MCT-001,Testing the new custom dropdown with multiple categories,149.99,Electronics,Smartphones,25,5,FALSE,[]
+Multi-Currency Test Product 2,MCT-002,Testing multi-currency support,149.99,Electronics,,15,3,FALSE,[]
+Overflow Fixed Product,OFP-001,Testing the fixed overflow issue in category dropdown,100,Electronics,Smartphones,50,10,FALSE,[]
+React Select Test Product,RST-001,Testing the new React Select dropdown with excellent UX,299.99,Electronics,Smartphones,35,8,FALSE,[]
+Shipping Box Small,BOX-S-001,Small shipping box 12x8x6 inches,2.99,Boxes,,100,20,FALSE,[]
+Updated Multi-Category Product,MCP-001,A product that belongs to multiple categories,299.99,Boxes,Boxes,50,10,FALSE,[]
+Z-Index Test Product,ZIP-001,Testing the fixed z-index dropdown,99.99,Electronics,Smartphones,15,3,FALSE,[]

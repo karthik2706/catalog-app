@@ -55,6 +55,36 @@ export interface User {
   updatedAt: Date
 }
 
+export interface Client {
+  id: string
+  name: string
+  slug: string
+  email: string
+  phone?: string
+  address?: string
+  countryId?: string
+  currencyId?: string
+  isActive: boolean
+  plan: string
+  createdAt: Date
+  updatedAt: Date
+  country?: {
+    id: string
+    name: string
+    code: string
+  }
+  currency?: {
+    id: string
+    name: string
+    code: string
+    symbol: string
+  }
+  _count?: {
+    users: number
+    products: number
+  }
+}
+
 export enum Role {
   ADMIN = 'ADMIN',
   MANAGER = 'MANAGER',

@@ -11,6 +11,39 @@ datasource db {
 }
 
 // Multi-tenant SaaS Platform Models
+model Country {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique // ISO 3166-1 alpha-2 country code (e.g., "US", "IN")
+  currencyId  String   // Default currency for this country
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  currency    Currency @relation(fields: [currencyId], references: [id])
+  clients     Client[]
+
+  @@map("countries")
+}
+
+model Currency {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique // ISO 4217 currency code (e.g., "USD", "INR")
+  symbol      String   // Currency symbol (e.g., "$", "₹")
+  decimalPlaces Int    @default(2) // Number of decimal places
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  countries   Country[]
+  clients     Client[]
+
+  @@map("currencies")
+}
+
 model Client {
   id          String   @id @default(cuid())
   name        String
@@ -20,12 +53,16 @@ model Client {
   phone       String?
   address     String?
   logo        String?  // Logo URL
+  countryId   String?  // Client's country
+  currencyId  String?  // Client's currency
   isActive    Boolean  @default(true)
   plan        Plan     @default(STARTER)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
+  country     Country?  @relation(fields: [countryId], references: [id])
+  currency    Currency? @relation(fields: [currencyId], references: [id])
   users       User[]
   products    Product[]
   categories  Category[]
@@ -42,7 +79,6 @@ model ClientSettings {
   email               String
   phone               String?
   address             String?
-  currency            String   @default("USD")
   timezone            String   @default("America/New_York")
   lowStockThreshold   Int      @default(10)
   autoReorder         Boolean  @default(false)

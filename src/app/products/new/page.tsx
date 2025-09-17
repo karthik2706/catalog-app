@@ -13,6 +13,7 @@ import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
+import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import { 
   ArrowLeft, 
   Save, 
@@ -43,6 +44,7 @@ export default function NewProductPage() {
   const [variationModalOpen, setVariationModalOpen] = useState(false)
   const [categories, setCategories] = useState<Array<{id: string, name: string, parentId?: string, children?: any[]}>>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
+  const [clientCurrency, setClientCurrency] = useState<string>('USD')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -56,7 +58,7 @@ export default function NewProductPage() {
     isActive: true,
   })
 
-  // Load categories on component mount
+  // Load categories and currency on component mount
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -78,7 +80,26 @@ export default function NewProductPage() {
         setCategoriesLoading(false)
       }
     }
+
+    const fetchClientCurrency = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const response = await fetch('/api/settings', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+        const data = await response.json()
+        if (response.ok && data.client?.currency?.code) {
+          setClientCurrency(data.client.currency.code)
+        }
+      } catch (err) {
+        console.error('Error fetching client currency:', err)
+      }
+    }
+
     loadCategories()
+    fetchClientCurrency()
   }, [])
 
 
@@ -273,7 +294,7 @@ export default function NewProductPage() {
                     <div className="p-6 border-b border-slate-200">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                          <DollarSign className="w-4 h-4 text-green-600" />
+                          {React.createElement(getCurrencyIcon(clientCurrency), { className: "w-4 h-4 text-green-600" })}
                         </div>
                         <h2 className="text-xl font-semibold text-slate-900">Pricing & Inventory</h2>
                       </div>
@@ -283,7 +304,7 @@ export default function NewProductPage() {
                         <FadeIn delay={0.1}>
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700 flex items-center space-x-1">
-                              <DollarSign className="w-4 h-4" />
+                              {React.createElement(getCurrencyIcon(clientCurrency), { className: "w-4 h-4" })}
                               <span>Price</span>
                               <span className="text-red-500">*</span>
                             </label>
@@ -298,10 +319,10 @@ export default function NewProductPage() {
                                 min="0"
                               />
                               <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">
-                                $
+                                {clientCurrency === 'INR' ? '₹' : '$'}
                               </div>
                             </div>
-                            <p className="text-xs text-slate-500">Product price in USD</p>
+                            <p className="text-xs text-slate-500">Product price in {clientCurrency}</p>
                           </div>
                         </FadeIn>
 
@@ -396,7 +417,7 @@ export default function NewProductPage() {
                               <span>{variation.name}: {variation.value}</span>
                               {variation.priceAdjustment !== 0 && (
                                 <span className="text-xs">
-                                  ({variation.priceAdjustment > 0 ? '+' : ''}${variation.priceAdjustment})
+                                  ({variation.priceAdjustment > 0 ? '+' : ''}{clientCurrency === 'INR' ? '₹' : '$'}{variation.priceAdjustment})
                                 </span>
                               )}
                               <button
@@ -560,7 +581,7 @@ export default function NewProductPage() {
                   step="0.01"
                 />
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">
-                  $
+                  {clientCurrency === 'INR' ? '₹' : '$'}
                 </div>
               </div>
               <p className="text-xs text-slate-500">Additional cost for this variation (can be negative for discounts)</p>
