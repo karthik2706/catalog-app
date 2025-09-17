@@ -1,4 +1,4 @@
-# Quick Stock - Multi-Tenant SaaS Platform
+# Stock Mind - Multi-Tenant SaaS Platform
 
 A comprehensive inventory management system built as a multi-tenant SaaS platform using Next.js, TypeScript, Prisma, and PostgreSQL.
 

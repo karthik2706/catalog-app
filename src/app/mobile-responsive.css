@@ -1,0 +1,133 @@
+/* Mobile Responsive Styles */
+
+/* Ensure minimum width for all containers */
+* {
+  min-width: 0; /* Allow flex items to shrink */
+}
+
+/* Mobile viewport fixes */
+@media (max-width: 640px) {
+  /* Ensure tables are scrollable on mobile */
+  .mobile-table-wrapper table {
+    min-width: 600px; /* Minimum table width */
+  }
+  
+  /* Mobile-friendly cards */
+  .mobile-card {
+    min-width: 280px;
+    max-width: 100%;
+  }
+  
+  /* Mobile-friendly buttons */
+  .mobile-button-group button {
+    min-width: 44px; /* Touch target minimum */
+    min-height: 44px;
+  }
+  
+  /* Mobile-friendly inputs */
+  .mobile-form input,
+  .mobile-form textarea,
+  .mobile-form select {
+    min-width: 200px;
+    max-width: 100%;
+  }
+  
+  /* Mobile-friendly modals */
+  .mobile-modal {
+    max-width: calc(100vw - 2rem);
+    margin: 1rem;
+  }
+  
+  /* Prevent horizontal overflow */
+  .overflow-x-mobile {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Mobile-friendly text */
+  .mobile-text {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  /* Mobile-friendly grid */
+  .mobile-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  /* Mobile-friendly flex containers */
+  .mobile-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  /* Mobile-friendly spacing */
+  .mobile-spacing {
+    padding: 1rem;
+    margin: 0.5rem;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .mobile-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .mobile-flex {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* Desktop adjustments */
+@media (min-width: 1025px) {
+  .mobile-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Ultra-wide screens */
+@media (min-width: 1536px) {
+  .mobile-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Print styles */
+@media print {
+  .mobile-container {
+    max-width: none;
+    padding: 0;
+  }
+  
+  .mobile-card {
+    break-inside: avoid;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .mobile-text {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .mobile-card {
+    background-color: #1f2937;
+    color: #f9fafb;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-card,
+  .mobile-button-group button {
+    transition: none;
+  }
+}

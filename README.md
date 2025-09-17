@@ -1,4 +1,4 @@
-# Retail Catalog & Inventory Management System
+# Stock Mind - Inventory Management System
 
 A comprehensive React + Next.js application for managing retail products and inventory with real-time tracking, reporting, and admin authentication.
 
@@ -32,7 +32,7 @@ A comprehensive React + Next.js application for managing retail products and inv
 
 ```bash
 git clone <repository-url>
-cd catalog-app
+cd stock-mind
 npm install
 ```
 
@@ -42,7 +42,7 @@ Create a `.env.local` file in the root directory:
 
 ```env
 # Database
-DATABASE_URL="postgresql://username:password@localhost:5432/catalog_app"
+DATABASE_URL="postgresql://username:password@localhost:5432/stock_mind"
 
 # JWT Secret (generate a strong secret for production)
 JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
@@ -56,7 +56,7 @@ NEXTAUTH_SECRET="your-nextauth-secret-key"
 
 1. Create a PostgreSQL database:
 ```sql
-CREATE DATABASE catalog_app;
+CREATE DATABASE stock_mind;
 ```
 
 2. Generate and run Prisma migrations:

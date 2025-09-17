@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./mobile-responsive.css";
 import { AuthProvider } from '@/components/AuthProvider';
 
 const geistSans = Geist({
@@ -14,8 +15,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Quick Stock - Inventory Management",
-  description: "A comprehensive inventory management system for quick stock tracking",
+  title: "Stock Mind - Inventory Management",
+  description: "A comprehensive inventory management system for smart stock tracking",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    minimumScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+  },
 };
 
 export default function RootLayout({

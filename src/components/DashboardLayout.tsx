@@ -126,22 +126,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   const Sidebar = () => (
-    <div className="h-full bg-white border-r border-slate-200/50 flex flex-col">
+    <div className="h-full bg-white border-r border-slate-200/50 flex flex-col min-w-0">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-200/50">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
+      <div className="p-4 sm:p-6 border-b border-slate-200/50">
+        <div className="flex items-center space-x-3 min-w-0">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0">
             <ShoppingCart className="w-6 h-6 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Quick Stock</h1>
-            <p className="text-sm text-slate-500">Inventory Management</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">Stock Mind</h1>
+            <p className="text-xs sm:text-sm text-slate-500 truncate">Inventory Management</p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 min-w-0">
         {menuItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.path)
@@ -151,7 +151,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               key={item.text}
               onClick={() => handleNavigation(item.path)}
               className={cn(
-                'w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group',
+                'w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group min-w-0',
                 active
                   ? 'bg-primary-50 text-primary-700 border border-primary-200 shadow-sm'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -159,16 +159,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               <Icon 
                 className={cn(
-                  'w-5 h-5 transition-colors',
+                  'w-5 h-5 transition-colors flex-shrink-0',
                   active ? 'text-primary-600' : 'text-slate-400 group-hover:text-slate-600'
                 )} 
               />
               <div className="flex-1 min-w-0">
-                <div className="font-medium">{item.text}</div>
+                <div className="font-medium truncate">{item.text}</div>
                 <div className="text-xs text-slate-500 truncate">{item.description}</div>
               </div>
               {active && (
-                <div className="w-2 h-2 bg-primary-600 rounded-full" />
+                <div className="w-2 h-2 bg-primary-600 rounded-full flex-shrink-0" />
               )}
             </button>
           )
@@ -176,9 +176,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </nav>
 
       {/* User Info */}
-      <div className="p-4 border-t border-slate-200/50">
-        <div className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50">
-          <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-full flex items-center justify-center">
+      <div className="p-4 border-t border-slate-200/50 min-w-0">
+        <div className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 min-w-0">
+          <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-full flex items-center justify-center flex-shrink-0">
             <User className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
@@ -195,7 +195,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen min-w-mobile bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Mobile Sidebar Overlay */}
       {mobileOpen && (
         <div 
@@ -206,7 +206,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Mobile Sidebar */}
       <div className={cn(
-        'fixed inset-y-0 left-0 z-50 w-80 transform transition-transform duration-300 ease-in-out lg:hidden',
+        'fixed inset-y-0 left-0 z-50 w-80 max-w-[85vw] transform transition-transform duration-300 ease-in-out lg:hidden',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         <Sidebar />
@@ -220,34 +220,37 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       )}
 
       {/* Main Content */}
-      <div className={isDesktop ? "pl-80" : ""}>
+      <div className={cn(
+        "min-w-mobile",
+        isDesktop ? "pl-80" : ""
+      )}>
         {/* Top Navigation */}
         <header className={cn(
-          'sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/50 transition-all duration-200',
+          'sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/50 transition-all duration-200 min-w-mobile',
           isScrolled ? 'shadow-sm' : ''
         )}>
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+          <div className="mobile-container">
+            <div className="flex items-center justify-between h-16 min-w-0">
               {/* Left side */}
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleDrawerToggle}
-                  className="lg:hidden"
+                  className="lg:hidden flex-shrink-0"
                 >
                   <MenuIcon className="w-5 h-5" />
                 </Button>
                 
-                <div className="hidden sm:block">
-                  <h2 className="text-lg font-semibold text-slate-900">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-sm sm:text-lg font-semibold text-slate-900 truncate">
                     {menuItems.find(item => isActive(item.path))?.text || 'Dashboard'}
                   </h2>
                 </div>
               </div>
 
               {/* Right side */}
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-1 sm:space-x-4 flex-shrink-0">
                 {/* Search */}
                 <Button variant="ghost" size="sm" className="hidden sm:flex">
                   <Search className="w-4 h-4" />
@@ -265,35 +268,34 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   </Badge>
                 </Button>
 
-
                 {/* User Menu */}
                 <div className="relative">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-1 sm:space-x-2 min-w-0"
                   >
-                    <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
                       <User className="w-4 h-4 text-white" />
                     </div>
-                    <div className="hidden sm:block text-left">
-                      <div className="text-sm font-medium text-slate-900">
+                    <div className="hidden sm:block text-left min-w-0">
+                      <div className="text-sm font-medium text-slate-900 truncate">
                         {user?.name || 'User'}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-500 truncate">
                         {user?.role || 'USER'}
                       </div>
                     </div>
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                    <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
                   </Button>
 
                   {/* User Dropdown */}
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-strong border border-slate-200/50 py-2 z-50">
+                    <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-strong border border-slate-200/50 py-2 z-50">
                       <div className="px-4 py-3 border-b border-slate-200/50">
-                        <div className="font-medium text-slate-900">{user?.name || 'User'}</div>
-                        <div className="text-sm text-slate-500">{user?.email}</div>
+                        <div className="font-medium text-slate-900 truncate">{user?.name || 'User'}</div>
+                        <div className="text-sm text-slate-500 truncate">{user?.email}</div>
                         <Badge variant="primary" size="sm" className="mt-1">
                           {user?.role || 'USER'}
                         </Badge>
@@ -325,8 +327,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="min-h-screen">
-          <div className="p-4 sm:p-6 lg:p-8">
+        <main className="min-h-screen min-w-mobile">
+          <div className="mobile-container py-4 sm:py-6 lg:py-8">
             {children}
           </div>
         </main>

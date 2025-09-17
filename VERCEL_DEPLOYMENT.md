@@ -1,6 +1,6 @@
 # Vercel Deployment Guide
 
-This guide will help you deploy your catalog application to Vercel with a PostgreSQL database.
+This guide will help you deploy your Stock Mind application to Vercel with a PostgreSQL database.
 
 ## Prerequisites
 
@@ -51,7 +51,7 @@ vercel
    - Set up and deploy? **Yes**
    - Which scope? **Your account**
    - Link to existing project? **No**
-   - What's your project's name? **catalog-app** (or your preferred name)
+   - What's your project's name? **stock-mind** (or your preferred name)
    - In which directory is your code located? **./** (current directory)
 
 ### Method 2: GitHub Integration
@@ -74,7 +74,7 @@ In your Vercel dashboard, go to your project → Settings → Environment Variab
 ```env
 DATABASE_URL=postgresql://username:password@hostname:port/database_name
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-NEXTAUTH_URL=https://your-app-name.vercel.app
+NEXTAUTH_URL=https://your-stock-mind-app.vercel.app
 NEXTAUTH_SECRET=your-nextauth-secret-key
 ```
 
