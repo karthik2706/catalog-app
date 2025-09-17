@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (filters.category) {
-        where.category = filters.category
+        where.categoryId = filters.category
       }
 
       if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
@@ -112,6 +112,25 @@ export async function GET(request: NextRequest) {
           skip,
           take,
           include: {
+            categoryRef: {
+              select: {
+                id: true,
+                name: true,
+                description: true
+              }
+            },
+            categories: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    parentId: true
+                  }
+                }
+              }
+            },
             inventoryHistory: {
               take: 5,
               orderBy: { createdAt: 'desc' },
@@ -178,9 +197,9 @@ export async function POST(request: NextRequest) {
     const body: CreateProductRequest = await request.json()
     
     // Validate required fields
-    if (!body.name || !body.sku || !body.price || !body.category) {
+    if (!body.name || !body.sku || !body.price || !body.categoryId) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, sku, price, category' },
+        { error: 'Missing required fields: name, sku, price, categoryId' },
         { status: 400 }
       )
     }
@@ -202,19 +221,56 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Get category name for backward compatibility
+      const category = await prisma.category.findFirst({
+        where: { id: body.categoryId, clientId }
+      })
+
+      if (!category) {
+        return NextResponse.json(
+          { error: 'Category not found' },
+          { status: 400 }
+        )
+      }
+
       const product = await prisma.product.create({
         data: {
           name: body.name,
           sku: body.sku,
           description: body.description,
           price: body.price,
-          category: body.category,
+          category: category.name, // For backward compatibility
+          categoryId: body.categoryId,
           variations: body.variations || [],
           stockLevel: body.stockLevel || 0,
           minStock: body.minStock || 0,
           clientId, // Ensure tenant isolation
+          categories: body.categoryIds ? {
+            create: body.categoryIds.map((categoryId: string) => ({
+              categoryId
+            }))
+          } : undefined
         },
         include: {
+          categoryRef: {
+            select: {
+              id: true,
+              name: true,
+              description: true
+            }
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  parentId: true
+                }
+              }
+            }
+          },
           inventoryHistory: {
             take: 5,
             orderBy: { createdAt: 'desc' },

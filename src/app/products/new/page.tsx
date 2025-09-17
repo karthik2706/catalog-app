@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
+import { CategorySelect } from '@/components/ui/CategorySelect'
 import { 
   ArrowLeft, 
   Save, 
@@ -40,7 +41,8 @@ export default function NewProductPage() {
   const [variations, setVariations] = useState<ProductVariation[]>([])
   const [newVariation, setNewVariation] = useState({ name: '', value: '', priceAdjustment: 0 })
   const [variationModalOpen, setVariationModalOpen] = useState(false)
-  const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])
+  const [categories, setCategories] = useState<Array<{id: string, name: string, parentId?: string, children?: any[]}>>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,6 +50,7 @@ export default function NewProductPage() {
     description: '',
     price: 0,
     category: '',
+    categoryIds: [] as string[],
     stockLevel: 0,
     minStock: 0,
     isActive: true,
@@ -57,17 +60,27 @@ export default function NewProductPage() {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const response = await fetch('/api/categories')
+        setCategoriesLoading(true)
+        const response = await fetch('/api/categories', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        })
         if (response.ok) {
           const data = await response.json()
           setCategories(data)
+        } else {
+          console.error('Failed to load categories:', response.status, response.statusText)
         }
       } catch (error) {
         console.error('Failed to load categories:', error)
+      } finally {
+        setCategoriesLoading(false)
       }
     }
     loadCategories()
   }, [])
+
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -83,8 +96,8 @@ export default function NewProductPage() {
       setSuccess('')
 
       // Validate required fields
-      if (!formData.name || !formData.sku || !formData.price || !formData.category) {
-        setError('Please fill in all required fields: Name, SKU, Price, and Category')
+      if (!formData.name || !formData.sku || !formData.price || formData.categoryIds.length === 0) {
+        setError('Please fill in all required fields: Name, SKU, Price, and at least one Category')
         return
       }
 
@@ -292,27 +305,6 @@ export default function NewProductPage() {
                           </div>
                         </FadeIn>
 
-                        <FadeIn delay={0.2}>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700 flex items-center space-x-1">
-                              <Tag className="w-4 h-4" />
-                              <span>Category</span>
-                              <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              value={formData.category}
-                              onChange={(e) => handleInputChange('category', e.target.value)}
-                              className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                            >
-                              <option value="">Select a category</option>
-                              {categories.map((category) => (
-                                <option key={category.id} value={category.name}>
-                                  {category.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </FadeIn>
 
                         <FadeIn delay={0.3}>
                           <div className="space-y-2">
@@ -433,6 +425,40 @@ export default function NewProductPage() {
               {/* Sidebar */}
               <div className="lg:col-span-1">
                 <div className="sticky top-8">
+                  {/* Categories Section */}
+                  <Card className="mb-6">
+                    <div className="p-6">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <Tag className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-900">Categories</h3>
+                        <span className="text-red-500">*</span>
+                      </div>
+                      <CategorySelect
+                        categories={categories}
+                        selectedIds={formData.categoryIds}
+                        onSelectionChange={(selectedIds) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            categoryIds: selectedIds
+                          }))
+                        }}
+                        placeholder="Add a category"
+                        disabled={categories.length === 0}
+                        loading={categoriesLoading}
+                      />
+                      {formData.categoryIds.length === 0 && !categoriesLoading && (
+                        <p className="text-sm text-slate-500 mt-2">
+                          {categories.length === 0 
+                            ? 'No categories available. Please contact your administrator to create categories.'
+                            : 'Select at least one category for this product'
+                          }
+                        </p>
+                      )}
+                    </div>
+                  </Card>
+
                   <Card className="mb-6">
                     <div className="p-6">
                       <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
@@ -483,8 +509,8 @@ export default function NewProductPage() {
                           <span className="text-sm text-slate-600">Price</span>
                         </div>
                         <div className="flex items-center space-x-3">
-                          <div className={`w-2 h-2 rounded-full ${formData.category ? 'bg-green-500' : 'bg-slate-300'}`} />
-                          <span className="text-sm text-slate-600">Category</span>
+                          <div className={`w-2 h-2 rounded-full ${formData.categoryIds.length > 0 ? 'bg-green-500' : 'bg-slate-300'}`} />
+                          <span className="text-sm text-slate-600">Categories</span>
                         </div>
                       </div>
                     </div>

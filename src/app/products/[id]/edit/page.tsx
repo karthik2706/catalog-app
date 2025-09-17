@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
+import { CategorySelect } from '@/components/ui/CategorySelect'
 import {
   ArrowLeft,
   Save,
@@ -37,6 +38,8 @@ interface Category {
   id: string
   name: string
   description?: string
+  parentId?: string
+  children?: Category[]
 }
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -59,6 +62,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     description: '',
     price: 0,
     category: '',
+    categoryIds: [] as string[],
     stockLevel: 0,
     minStock: 0,
     isActive: true,
@@ -101,6 +105,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         description: data.description || '',
         price: data.price,
         category: data.category,
+        categoryIds: data.categories?.map((pc: any) => pc.category.id) || [],
         stockLevel: data.stockLevel,
         minStock: data.minStock,
         isActive: data.isActive,
@@ -116,15 +121,22 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories')
+      const response = await fetch('/api/categories', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      })
       const data = await response.json()
       if (response.ok) {
         setCategories(data)
+      } else {
+        console.error('Failed to load categories:', response.status, response.statusText)
       }
     } catch (err) {
       console.error('Error fetching categories:', err)
     }
   }
+
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -211,9 +223,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   }
 
   const formProgress = () => {
-    const fields = ['name', 'sku', 'price', 'category']
+    const fields = ['name', 'sku', 'price']
     const filled = fields.filter(field => formData[field as keyof typeof formData])
-    return Math.round((filled.length / fields.length) * 100)
+    const categoryFilled = formData.categoryIds.length > 0 ? 1 : 0
+    return Math.round(((filled.length + categoryFilled) / (fields.length + 1)) * 100)
   }
 
   if (authLoading || loading) {
@@ -399,22 +412,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Category *</label>
-                            <select
-                              value={formData.category}
-                              onChange={(e) => handleInputChange('category', e.target.value)}
-                              className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                              required
-                            >
-                              <option value="">Select category</option>
-                              {categories.map((category) => (
-                                <option key={category.id} value={category.name}>
-                                  {category.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Status</label>
                             <select
                               value={formData.isActive ? 'true' : 'false'}
@@ -492,6 +489,37 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
               {/* Sidebar */}
               <div className="space-y-6">
+                {/* Categories Section */}
+                <FadeIn delay={0.1}>
+                  <Card className="card-hover">
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Tag className="w-5 h-5 text-purple-600" />
+                        <span>Categories</span>
+                        <span className="text-red-500">*</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CategorySelect
+                        categories={categories}
+                        selectedIds={formData.categoryIds}
+                        onSelectionChange={(selectedIds) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            categoryIds: selectedIds
+                          }))
+                        }}
+                        placeholder="Add a category"
+                        disabled={categories.length === 0}
+                        loading={false}
+                      />
+                      {formData.categoryIds.length === 0 && (
+                        <p className="text-sm text-slate-500 mt-2">Select at least one category for this product</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </FadeIn>
+
                 {/* Form Progress */}
                 <FadeIn delay={0.4}>
                   <Card className="card-hover">

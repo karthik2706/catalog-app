@@ -15,6 +15,25 @@ export async function GET(
       const product = await prisma.product.findUnique({
         where: { id },
         include: {
+          categoryRef: {
+            select: {
+              id: true,
+              name: true,
+              description: true
+            }
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  parentId: true
+                }
+              }
+            }
+          },
           inventoryHistory: {
             orderBy: { createdAt: 'desc' },
             include: {
@@ -86,13 +105,49 @@ export async function PUT(
         }
       }
 
+      // Handle multiple categories if provided
+      const updateData: any = {
+        ...body,
+        updatedAt: new Date()
+      }
+
+      // Remove categoryIds from the update data as we'll handle it separately
+      const { categoryIds, ...restUpdateData } = updateData
+
       const product = await prisma.product.update({
         where: { id },
         data: {
-          ...body,
-          updatedAt: new Date()
+          ...restUpdateData,
+          // Handle multiple categories
+          ...(categoryIds && {
+            categories: {
+              deleteMany: {}, // Remove all existing category associations
+              create: categoryIds.map((categoryId: string) => ({
+                categoryId
+              }))
+            }
+          })
         },
         include: {
+          categoryRef: {
+            select: {
+              id: true,
+              name: true,
+              description: true
+            }
+          },
+          categories: {
+            include: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  parentId: true
+                }
+              }
+            }
+          },
           inventoryHistory: {
             take: 5,
             orderBy: { createdAt: 'desc' },

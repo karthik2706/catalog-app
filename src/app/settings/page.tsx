@@ -88,7 +88,110 @@ interface Category {
   id: string
   name: string
   description?: string
+  parentId?: string
+  sortOrder: number
   createdAt: string
+  children?: Category[]
+}
+
+interface CategoryItemProps {
+  category: Category
+  onEdit: (category: Category) => void
+  onDelete: (categoryId: string) => void
+  onAddSubcategory: (parentId: string) => void
+  level: number
+}
+
+function CategoryItem({ category, onEdit, onDelete, onAddSubcategory, level }: CategoryItemProps) {
+  const [isExpanded, setIsExpanded] = useState(true)
+  const hasChildren = category.children && category.children.length > 0
+
+  return (
+    <div className="space-y-2">
+      <div 
+        className={`flex items-center justify-between p-4 border border-slate-200 rounded-xl ${
+          level > 0 ? 'ml-6 bg-slate-50' : 'bg-white'
+        }`}
+      >
+        <div className="flex items-center space-x-4">
+          {hasChildren && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-1 hover:bg-slate-100 rounded"
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4 text-slate-500" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              )}
+            </button>
+          )}
+          {!hasChildren && <div className="w-6" />}
+          
+          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
+            <Tag className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h3 className="font-medium text-slate-900">{category.name}</h3>
+              {level > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  Subcategory
+                </Badge>
+              )}
+            </div>
+            {category.description && (
+              <p className="text-sm text-slate-500">{category.description}</p>
+            )}
+            <p className="text-xs text-slate-400">
+              Created {new Date(category.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAddSubcategory(category.id)}
+            className="text-primary-600 hover:bg-primary-50"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline ml-1">Add Sub</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onEdit(category)}
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDelete(category.id)}
+            className="text-error-600 hover:bg-error-50"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+      
+      {hasChildren && isExpanded && (
+        <div className="space-y-2">
+          {category.children!.map((child) => (
+            <CategoryItem
+              key={child.id}
+              category={child}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onAddSubcategory={onAddSubcategory}
+              level={level + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function SettingsPage() {
@@ -139,6 +242,8 @@ export default function SettingsPage() {
   const [newCategory, setNewCategory] = useState({
     name: '',
     description: '',
+    parentId: '',
+    sortOrder: 0,
   })
   
   // Modal states
@@ -407,7 +512,7 @@ export default function SettingsPage() {
       if (response.ok) {
         setSuccess('Category created successfully!')
         setCategoryModalOpen(false)
-        setNewCategory({ name: '', description: '' })
+        setNewCategory({ name: '', description: '', parentId: '', sortOrder: 0 })
         fetchData()
       } else {
         const errorData = await response.json()
@@ -425,6 +530,8 @@ export default function SettingsPage() {
     setNewCategory({
       name: category.name,
       description: category.description || '',
+      parentId: category.parentId || '',
+      sortOrder: category.sortOrder || 0,
     })
     setEditCategoryModalOpen(true)
   }
@@ -799,39 +906,17 @@ export default function SettingsPage() {
                     <CardContent>
                       <div className="space-y-4">
                         {categories.map((category) => (
-                          <div key={category.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
-                                <Tag className="w-5 h-5 text-white" />
-                              </div>
-                              <div>
-                                <h3 className="font-medium text-slate-900">{category.name}</h3>
-                                {category.description && (
-                                  <p className="text-sm text-slate-500">{category.description}</p>
-                                )}
-                                <p className="text-xs text-slate-400">
-                                  Created {new Date(category.createdAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEditCategory(category)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDeleteCategory(category.id)}
-                                className="text-error-600 hover:bg-error-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
+                          <CategoryItem
+                            key={category.id}
+                            category={category}
+                            onEdit={handleEditCategory}
+                            onDelete={handleDeleteCategory}
+                            onAddSubcategory={(parentId) => {
+                              setNewCategory(prev => ({ ...prev, parentId, sortOrder: 0 }))
+                              setCategoryModalOpen(true)
+                            }}
+                            level={0}
+                          />
                         ))}
                         
                         {categories.length === 0 && (
@@ -1183,9 +1268,17 @@ export default function SettingsPage() {
         <Modal
           isOpen={categoryModalOpen}
           onClose={() => setCategoryModalOpen(false)}
-          title="Add New Category"
+          title={newCategory.parentId ? "Add Subcategory" : "Add New Category"}
         >
           <div className="space-y-6">
+            {newCategory.parentId && (
+              <div className="p-3 bg-primary-50 border border-primary-200 rounded-lg">
+                <p className="text-sm text-primary-700">
+                  <strong>Parent Category:</strong> {categories.find(c => c.id === newCategory.parentId)?.name || 'Unknown'}
+                </p>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Category Name</label>
               <Input
@@ -1205,6 +1298,36 @@ export default function SettingsPage() {
                 rows={3}
                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
               />
+            </div>
+
+            {!newCategory.parentId && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Parent Category (Optional)</label>
+                <select
+                  value={newCategory.parentId}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, parentId: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Select parent category (or leave empty for main category)</option>
+                  {categories.filter(c => !c.parentId).map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Sort Order</label>
+              <Input
+                type="number"
+                value={newCategory.sortOrder}
+                onChange={(e) => setNewCategory(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
+                placeholder="0"
+                className="w-32"
+              />
+              <p className="text-xs text-slate-500">Lower numbers appear first</p>
             </div>
             
             <div className="flex justify-end space-x-3 pt-4">
@@ -1251,6 +1374,34 @@ export default function SettingsPage() {
                 rows={3}
                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Parent Category</label>
+              <select
+                value={newCategory.parentId || ''}
+                onChange={(e) => setNewCategory(prev => ({ ...prev, parentId: e.target.value || '' }))}
+                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">No parent (main category)</option>
+                {categories.filter(c => !c.parentId && c.id !== editingCategory?.id).map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Sort Order</label>
+              <Input
+                type="number"
+                value={newCategory.sortOrder}
+                onChange={(e) => setNewCategory(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
+                placeholder="0"
+                className="w-32"
+              />
+              <p className="text-xs text-slate-500">Lower numbers appear first</p>
             </div>
             
             <div className="flex justify-end space-x-3 pt-4">

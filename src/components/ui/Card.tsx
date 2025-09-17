@@ -23,7 +23,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     },
     ref
   ) => {
-    const baseClasses = 'bg-white rounded-2xl overflow-hidden'
+    const baseClasses = 'bg-white rounded-2xl'
     
     const variants = {
       default: 'shadow-soft border border-slate-200/50',

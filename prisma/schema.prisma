@@ -97,6 +97,7 @@ model Product {
   client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   inventoryHistory InventoryHistory[]
   categoryRef      Category?         @relation(fields: [categoryId], references: [id])
+  categories       ProductCategory[] // Many-to-many relationship with categories
 
   // Ensure SKU is unique within a client
   @@unique([sku, clientId])
@@ -128,16 +129,36 @@ model Category {
   description String?
   isActive    Boolean  @default(true)
   clientId    String   // Required for multi-tenancy
+  parentId    String?  // For hierarchical categories
+  sortOrder   Int      @default(0) // For custom ordering
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
-  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  products Product[]
+  client     Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  products   Product[]         // Legacy relation
+  parent     Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children   Category[]        @relation("CategoryHierarchy")
+  productCategories ProductCategory[] // Many-to-many relationship with products
 
-  // Ensure category name is unique within a client
-  @@unique([name, clientId])
+  // Ensure category name is unique within a client and parent
+  @@unique([name, clientId, parentId])
   @@map("categories")
+}
+
+model ProductCategory {
+  id         String   @id @default(cuid())
+  productId  String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  // Relations
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  // Ensure unique product-category combination
+  @@unique([productId, categoryId])
+  @@map("product_categories")
 }
 
 enum Role {

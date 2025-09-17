@@ -4,7 +4,21 @@ export interface Product {
   sku: string
   description?: string
   price: number
-  category: string
+  categoryId: string
+  categoryRef?: {
+    id: string
+    name: string
+    description?: string
+  }
+  categories?: {
+    id: string
+    category: {
+      id: string
+      name: string
+      description?: string
+      parentId?: string
+    }
+  }[]
   variations?: ProductVariation[]
   stockLevel: number
   minStock: number
@@ -61,7 +75,8 @@ export interface CreateProductRequest {
   sku: string
   description?: string
   price: number
-  category: string
+  categoryId: string
+  categoryIds?: string[] // For multiple categories
   variations?: ProductVariation[]
   stockLevel?: number
   minStock?: number

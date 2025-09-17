@@ -34,20 +34,41 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get categories from the categories table for this client
+    // Get categories from the categories table for this client with hierarchy
+    // Only fetch parent categories (parentId is null), children will be fetched via relation
     const categories = await prisma.category.findMany({
       where: {
         clientId,
-        isActive: true
+        isActive: true,
+        parentId: null  // Only fetch parent categories
       },
-      orderBy: {
-        name: 'asc'
-      },
+      orderBy: [
+        { parentId: 'asc' },
+        { sortOrder: 'asc' },
+        { name: 'asc' }
+      ],
       select: {
         id: true,
         name: true,
         description: true,
-        createdAt: true
+        parentId: true,
+        sortOrder: true,
+        createdAt: true,
+        children: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            parentId: true,
+            sortOrder: true,
+            createdAt: true
+          },
+          orderBy: [
+            { sortOrder: 'asc' },
+            { name: 'asc' }
+          ]
+        }
       }
     })
     
@@ -70,24 +91,41 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { category, description } = body
+    const { category, name, description, parentId, sortOrder } = body
 
-    if (!category || typeof category !== 'string') {
+    // Accept both 'category' and 'name' fields for backward compatibility
+    const categoryName = (category || name)?.trim()
+
+    if (!categoryName || typeof categoryName !== 'string') {
       return NextResponse.json({ error: 'Category name is required' }, { status: 400 })
     }
 
-    const categoryName = category.trim()
+    // If parentId is provided, validate that the parent exists and belongs to the same client
+    if (parentId) {
+      const parentCategory = await prisma.category.findFirst({
+        where: {
+          id: parentId,
+          clientId,
+          isActive: true
+        }
+      })
 
-    // Check if category already exists for this client
+      if (!parentCategory) {
+        return NextResponse.json({ error: 'Parent category not found' }, { status: 400 })
+      }
+    }
+
+    // Check if category already exists for this client and parent
     const existingCategory = await prisma.category.findFirst({
       where: {
         name: categoryName,
-        clientId
+        clientId,
+        parentId: parentId || null
       }
     })
 
     if (existingCategory) {
-      return NextResponse.json({ error: 'Category already exists' }, { status: 400 })
+      return NextResponse.json({ error: 'Category already exists at this level' }, { status: 400 })
     }
 
     // Create new category for this client
@@ -95,12 +133,16 @@ export async function POST(request: NextRequest) {
       data: {
         name: categoryName,
         description: description || null,
+        parentId: parentId || null,
+        sortOrder: sortOrder || 0,
         clientId
       },
       select: {
         id: true,
         name: true,
         description: true,
+        parentId: true,
+        sortOrder: true,
         createdAt: true
       }
     })
@@ -131,25 +173,56 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { category, description } = body
+    const { category, name, description, parentId, sortOrder } = body
 
-    if (!category || typeof category !== 'string') {
+    // Accept both 'category' and 'name' fields for backward compatibility
+    const categoryName = (category || name)?.trim()
+
+    if (!categoryName || typeof categoryName !== 'string') {
       return NextResponse.json({ error: 'Category name is required' }, { status: 400 })
     }
 
-    const categoryName = category.trim()
+    // Get current category to check its current parent
+    const currentCategory = await prisma.category.findFirst({
+      where: { id: categoryId, clientId }
+    })
 
-    // Check if category already exists for this client (excluding current category)
+    if (!currentCategory) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+    }
+
+    // If parentId is provided, validate that the parent exists and belongs to the same client
+    if (parentId) {
+      const parentCategory = await prisma.category.findFirst({
+        where: {
+          id: parentId,
+          clientId,
+          isActive: true
+        }
+      })
+
+      if (!parentCategory) {
+        return NextResponse.json({ error: 'Parent category not found' }, { status: 400 })
+      }
+
+      // Prevent circular references
+      if (parentId === categoryId) {
+        return NextResponse.json({ error: 'Category cannot be its own parent' }, { status: 400 })
+      }
+    }
+
+    // Check if category already exists for this client and parent (excluding current category)
     const existingCategory = await prisma.category.findFirst({
       where: {
         name: categoryName,
         clientId,
+        parentId: parentId || null,
         id: { not: categoryId }
       }
     })
 
     if (existingCategory) {
-      return NextResponse.json({ error: 'Category name already exists' }, { status: 400 })
+      return NextResponse.json({ error: 'Category name already exists at this level' }, { status: 400 })
     }
 
     // Update category for this client
@@ -160,12 +233,16 @@ export async function PUT(request: NextRequest) {
       },
       data: {
         name: categoryName,
-        description: description || null
+        description: description || null,
+        parentId: parentId || null,
+        sortOrder: sortOrder !== undefined ? sortOrder : currentCategory.sortOrder
       },
       select: {
         id: true,
         name: true,
         description: true,
+        parentId: true,
+        sortOrder: true,
         createdAt: true
       }
     })
