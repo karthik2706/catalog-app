@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Retail Catalog & Inventory Management",
-  description: "A comprehensive retail catalog and inventory management system",
+  title: "Quick Stock - Inventory Management",
+  description: "A comprehensive inventory management system for quick stock tracking",
 };
 
 export default function RootLayout({

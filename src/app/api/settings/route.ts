@@ -10,7 +10,7 @@ export async function GET() {
       // Create default settings if none exist
       settings = await prisma.settings.create({
         data: {
-          companyName: 'Retail Catalog & Inventory Management',
+          companyName: 'Quick Stock - Inventory Management',
           email: 'admin@company.com',
           phone: '+1 (555) 123-4567',
           address: '123 Business St, City, State 12345',

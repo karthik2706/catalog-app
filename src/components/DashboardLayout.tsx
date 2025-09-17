@@ -16,7 +16,6 @@ import {
   Settings,
   User,
   LogOut,
-  Plus,
   Search,
   Bell,
   ChevronDown,
@@ -135,7 +134,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <ShoppingCart className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Retail Catalog</h1>
+            <h1 className="text-xl font-bold text-slate-900">Quick Stock</h1>
             <p className="text-sm text-slate-500">Inventory Management</p>
           </div>
         </div>
@@ -266,11 +265,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   </Badge>
                 </Button>
 
-                {/* Add New */}
-                <Button size="sm" className="hidden sm:flex">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add New
-                </Button>
 
                 {/* User Menu */}
                 <div className="relative">
