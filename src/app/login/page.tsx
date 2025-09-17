@@ -41,7 +41,10 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      router.push('/')
+      // Add a small delay to ensure authentication state is updated
+      setTimeout(() => {
+        router.push('/')
+      }, 100)
     } catch (err: any) {
       setError(err.message)
     } finally {

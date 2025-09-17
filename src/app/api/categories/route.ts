@@ -10,12 +10,16 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
@@ -23,22 +27,42 @@ function getClientIdFromRequest(request: NextRequest): string | null {
   return null
 }
 
+function getClientIdFromRequest(request: NextRequest): string | null {
+  const user = getUserFromRequest(request)
+  if (!user) {
+    return null
+  }
+  
+  // For super admin, we need to get clientId from the request body or headers
+  if (user.role === 'SUPER_ADMIN') {
+    // For super admin, we'll need to handle this differently
+    // For now, return null to maintain existing behavior
+    return null
+  }
+  
+  return user.clientId || null
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Client context required' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
-    // Get categories from the categories table for this client with hierarchy
+    // For super admin, show all categories; for regular users, show client-specific categories
+    const isSuperAdmin = user.role === 'SUPER_ADMIN'
+    const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
+
+    // Get categories from the categories table with hierarchy
     // Only fetch parent categories (parentId is null), children will be fetched via relation
     const categories = await prisma.category.findMany({
       where: {
-        clientId,
+        ...whereClause,
         isActive: true,
         parentId: null  // Only fetch parent categories
       },
@@ -81,17 +105,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Client context required' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
     const body = await request.json()
-    const { category, name, description, parentId, sortOrder } = body
+    const { category, name, description, parentId, sortOrder, clientId: requestClientId } = body
+
+    // Determine clientId based on user role
+    let clientId: string
+    if (user.role === 'SUPER_ADMIN') {
+      // For super admin, require a clientId in the request body
+      if (!requestClientId) {
+        return NextResponse.json(
+          { error: 'Client ID required for super admin' },
+          { status: 400 }
+        )
+      }
+      clientId = requestClientId
+    } else if (!user.clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    } else {
+      clientId = user.clientId
+    }
 
     // Accept both 'category' and 'name' fields for backward compatibility
     const categoryName = (category || name)?.trim()
@@ -156,12 +200,12 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Client context required' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
@@ -173,7 +217,27 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { category, name, description, parentId, sortOrder } = body
+    const { category, name, description, parentId, sortOrder, clientId: requestClientId } = body
+
+    // Determine clientId based on user role
+    let clientId: string
+    if (user.role === 'SUPER_ADMIN') {
+      // For super admin, require a clientId in the request body
+      if (!requestClientId) {
+        return NextResponse.json(
+          { error: 'Client ID required for super admin' },
+          { status: 400 }
+        )
+      }
+      clientId = requestClientId
+    } else if (!user.clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    } else {
+      clientId = user.clientId
+    }
 
     // Accept both 'category' and 'name' fields for backward compatibility
     const categoryName = (category || name)?.trim()
@@ -256,20 +320,41 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Client context required' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
     const { searchParams } = new URL(request.url)
     const categoryId = searchParams.get('id')
+    const requestClientId = searchParams.get('clientId')
 
     if (!categoryId) {
       return NextResponse.json({ error: 'Category ID is required' }, { status: 400 })
+    }
+
+    // Determine clientId based on user role
+    let clientId: string
+    if (user.role === 'SUPER_ADMIN') {
+      // For super admin, require a clientId in the query params
+      if (!requestClientId) {
+        return NextResponse.json(
+          { error: 'Client ID required for super admin' },
+          { status: 400 }
+        )
+      }
+      clientId = requestClientId
+    } else if (!user.clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    } else {
+      clientId = user.clientId
     }
 
     // Check if any products use this category for this client

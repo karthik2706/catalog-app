@@ -11,40 +11,38 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
-  // Try to get client ID from JWT token
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
   }
-
-  // Try to get from tenant header (set by middleware)
-  const tenantSlug = request.headers.get('x-tenant-slug')
-  if (tenantSlug) {
-    // In a real implementation, you'd fetch the client ID from the slug
-    // For now, we'll return null and handle it in the route
-    return null
-  }
-
   return null
 }
 
 // GET /api/products - Get all products with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Client context required' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
+
+    // For super admin, show all products; for regular users, show client-specific products
+    const isSuperAdmin = user.role === 'SUPER_ADMIN'
+    const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
 
     const { searchParams } = new URL(request.url)
     
@@ -68,7 +66,7 @@ export async function GET(request: NextRequest) {
 
       // Build where clause with tenant isolation
       const where: any = {
-        clientId, // Ensure tenant isolation
+        ...whereClause, // Use the appropriate where clause for super admin or client
         isActive: true,
       }
 
@@ -185,16 +183,36 @@ export async function GET(request: NextRequest) {
 // POST /api/products - Create a new product
 export async function POST(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Client context required' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
     const body: CreateProductRequest = await request.json()
+    
+    // Determine clientId based on user role
+    let clientId: string
+    if (user.role === 'SUPER_ADMIN') {
+      // For super admin, require a clientId in the request body
+      if (!body.clientId) {
+        return NextResponse.json(
+          { error: 'Client ID required for super admin' },
+          { status: 400 }
+        )
+      }
+      clientId = body.clientId
+    } else if (!user.clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    } else {
+      clientId = user.clientId
+    }
     
     // Validate required fields
     if (!body.name || !body.sku || !body.price || !body.categoryId) {

@@ -236,6 +236,7 @@ export default function SettingsPage() {
     plan: 'STARTER' as const,
     countryId: '',
     currencyId: '',
+    password: '',
   })
   
   const [newCategory, setNewCategory] = useState({
@@ -243,6 +244,7 @@ export default function SettingsPage() {
     description: '',
     parentId: '',
     sortOrder: 0,
+    clientId: '',
   })
   
   // Modal states
@@ -448,7 +450,7 @@ export default function SettingsPage() {
       if (response.ok) {
         setSuccess('Client created successfully!')
         setClientModalOpen(false)
-        setNewClient({ name: '', email: '', phone: '', address: '', plan: 'STARTER', countryId: '', currencyId: '' })
+        setNewClient({ name: '', email: '', phone: '', address: '', plan: 'STARTER', countryId: '', currencyId: '', password: '' })
         fetchData()
       } else {
         const errorData = await response.json()
@@ -541,19 +543,24 @@ export default function SettingsPage() {
       setSaving(true)
       setError('')
 
+      // For super admin, we need to include clientId in the request
+      const requestBody = user?.role === 'SUPER_ADMIN' 
+        ? { ...newCategory, clientId: newCategory.clientId }
+        : newCategory
+
       const response = await fetch('/api/categories', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify(newCategory),
+        body: JSON.stringify(requestBody),
       })
 
       if (response.ok) {
         setSuccess('Category created successfully!')
         setCategoryModalOpen(false)
-        setNewCategory({ name: '', description: '', parentId: '', sortOrder: 0 })
+        setNewCategory({ name: '', description: '', parentId: '', sortOrder: 0, clientId: '' })
         fetchData()
       } else {
         const errorData = await response.json()
@@ -675,16 +682,15 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="p-4 sm:p-6 lg:p-8">
+      <div className="space-y-6">
           <FadeIn>
             {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-slate-900 flex items-center space-x-3">
-                <SettingsIcon className="w-8 h-8 text-primary-600" />
-                <span>Settings</span>
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center space-x-2 sm:space-x-3">
+                <SettingsIcon className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600 flex-shrink-0" />
+                <span className="truncate">Settings</span>
               </h1>
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-sm sm:text-base text-slate-600">
                 Manage your application settings, users, and clients
               </p>
             </div>
@@ -709,27 +715,28 @@ export default function SettingsPage() {
             )}
 
             {/* Tabs */}
-            <div className="mb-8">
-              <div className="border-b border-slate-200">
-                <nav className="-mb-px flex space-x-8">
+            <div className="mb-6 sm:mb-8">
+              <div className="border-b border-slate-200 overflow-x-auto">
+                <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max">
                   {[
-                    { id: 'general', label: 'General Settings', icon: SettingsIcon },
-                    { id: 'categories', label: 'Category Management', icon: Tag },
-                    ...(isUser ? [] : [{ id: 'users', label: 'User Management', icon: Users }]),
-                    ...(isSuperAdmin ? [{ id: 'clients', label: 'Client Management', icon: Building2 }] : []),
+                    { id: 'general', label: 'General Settings', icon: SettingsIcon, shortLabel: 'General' },
+                    { id: 'categories', label: 'Category Management', icon: Tag, shortLabel: 'Categories' },
+                    ...(isUser ? [] : [{ id: 'users', label: 'User Management', icon: Users, shortLabel: 'Users' }]),
+                    ...(isSuperAdmin ? [{ id: 'clients', label: 'Client Management', icon: Building2, shortLabel: 'Clients' }] : []),
                   ].map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       className={cn(
-                        'flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm',
+                        'flex items-center space-x-1 sm:space-x-2 py-2 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap',
                         activeTab === tab.id
                           ? 'border-primary-500 text-primary-600'
                           : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                       )}
                     >
-                      <tab.icon className="w-4 h-4" />
-                      <span>{tab.label}</span>
+                      <tab.icon className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                      <span className="hidden sm:inline">{tab.label}</span>
+                      <span className="sm:hidden">{tab.shortLabel}</span>
                     </button>
                   ))}
                 </nav>
@@ -1322,6 +1329,17 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Password</label>
+              <Input
+                type="password"
+                value={newClient.password}
+                onChange={(e) => setNewClient(prev => ({ ...prev, password: e.target.value }))}
+                placeholder="Enter password for client admin"
+                leftIcon={<Shield className="w-4 h-4" />}
+              />
+            </div>
+            
+            <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Plan</label>
               <select
                 value={newClient.plan}
@@ -1343,7 +1361,7 @@ export default function SettingsPage() {
               </Button>
               <Button
                 onClick={handleCreateClient}
-                disabled={saving || !newClient.name || !newClient.email}
+                disabled={saving || !newClient.name || !newClient.email || !newClient.password}
                 loading={saving}
               >
                 Create Client
@@ -1359,6 +1377,24 @@ export default function SettingsPage() {
           title={newCategory.parentId ? "Add Subcategory" : "Add New Category"}
         >
           <div className="space-y-6">
+            {isSuperAdmin && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Company</label>
+                <select
+                  value={newCategory.clientId}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, clientId: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Select company</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {newCategory.parentId && (
               <div className="p-3 bg-primary-50 border border-primary-200 rounded-lg">
                 <p className="text-sm text-primary-700">
@@ -1427,7 +1463,7 @@ export default function SettingsPage() {
               </Button>
               <Button
                 onClick={handleCreateCategory}
-                disabled={saving || !newCategory.name}
+                disabled={saving || !newCategory.name || (isSuperAdmin && !newCategory.clientId)}
                 loading={saving}
               >
                 Create Category
@@ -1443,6 +1479,24 @@ export default function SettingsPage() {
           title="Edit Category"
         >
           <div className="space-y-6">
+            {isSuperAdmin && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Company</label>
+                <select
+                  value={newCategory.clientId}
+                  onChange={(e) => setNewCategory(prev => ({ ...prev, clientId: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Select company</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Category Name</label>
               <Input
@@ -1509,7 +1563,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </Modal>
-      </div>
     </DashboardLayout>
   )
 }

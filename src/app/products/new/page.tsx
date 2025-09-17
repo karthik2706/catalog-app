@@ -180,6 +180,8 @@ export default function NewProductPage() {
         },
         body: JSON.stringify({
           ...formData,
+          categoryId: formData.categoryIds[0], // Send first selected category as categoryId
+          categoryIds: formData.categoryIds, // Keep categoryIds for multiple categories
           variations,
           images: images.filter(img => img.uploaded).map(img => ({
             id: img.id,

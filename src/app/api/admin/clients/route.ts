@@ -62,7 +62,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    const { name, email, phone, address, plan = 'STARTER', countryId, currencyId } = data
+    const { name, email, phone, address, plan = 'STARTER', countryId, currencyId, password } = data
+
+    // Validate required fields
+    if (!name || !email || !password) {
+      return NextResponse.json(
+        { error: 'Name, email, and password are required' },
+        { status: 400 }
+      )
+    }
 
     // Generate slug from name
     const slug = name
@@ -133,7 +141,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Create default admin user
-    const hashedPassword = await bcrypt.hash('password123', 10)
+    const hashedPassword = await bcrypt.hash(password, 10)
     await prisma.user.create({
       data: {
         email,

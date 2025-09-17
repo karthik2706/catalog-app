@@ -60,26 +60,11 @@ export function middleware(request: NextRequest) {
     return response
   }
 
-  // Handle main domain - redirect to admin or show landing page
+  // Handle main domain - allow access to dashboard for authenticated users
   if (pathname === '/') {
-    const token = request.cookies.get('token')?.value
-    
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-        
-        if (decoded.role === 'SUPER_ADMIN') {
-          return NextResponse.redirect(new URL('/admin', request.url))
-        } else if (decoded.clientSlug) {
-          return NextResponse.redirect(new URL(`https://${decoded.clientSlug}.localhost:3000`, request.url))
-        }
-      } catch (error) {
-        // Token is invalid, continue to login
-      }
-    }
-    
-    // Show landing page or redirect to login
-    return NextResponse.redirect(new URL('/login', request.url))
+    // Let the client-side authentication handle the redirect logic
+    // This allows the dashboard to load and then redirect if needed
+    return NextResponse.next()
   }
 
   return NextResponse.next()

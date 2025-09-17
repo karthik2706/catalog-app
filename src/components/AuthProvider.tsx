@@ -58,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token)
       localStorage.setItem('token', data.token)
       localStorage.setItem('user', JSON.stringify(data.user))
+      
+      // Also set cookie for middleware
+      document.cookie = `token=${data.token}; path=/; max-age=86400; secure; samesite=strict`
     } catch (error) {
       console.error('Login error:', error)
       throw error
@@ -95,6 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    
+    // Also clear cookie
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
   }
 
   return (
