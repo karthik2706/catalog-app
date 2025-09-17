@@ -13,7 +13,7 @@ import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
-import { MediaUploadNew as MediaUpload, MediaFile } from '@/components/ui/MediaUploadNew'
+import { MediaUploadPresigned as MediaUpload, MediaFile } from '@/components/ui/MediaUploadPresigned'
 import { MediaGrid } from '@/components/ui/MediaPreview'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import { 

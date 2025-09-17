@@ -138,6 +138,14 @@ export function MediaUploadNew({
         body: formData,
       })
 
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('Non-JSON response for', mediaFile.file.name, ':', text)
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
+      }
+
       const result = await response.json()
       console.log('Upload response for', mediaFile.file.name, ':', result)
 

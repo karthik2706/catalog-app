@@ -5,6 +5,15 @@ import { S3_CONFIG, validateFileType, generateS3Key } from '@/lib/aws'
 import { processImageFile, processVideoFile, uploadToS3 } from '@/lib/s3-upload'
 import jwt from 'jsonwebtoken'
 
+// Configure body size limit for file uploads
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+  },
+}
+
 interface JWTPayload {
   userId: string
   email: string
@@ -38,6 +47,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      )
+    }
+
+    // Check content length before processing
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: 'File too large. Maximum size is 50MB.' },
+        { status: 413 }
       )
     }
 

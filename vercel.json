@@ -2,6 +2,9 @@
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/upload-media/route.ts": {
+      "maxDuration": 60
     }
   },
   "installCommand": "npm install && npx prisma generate",
