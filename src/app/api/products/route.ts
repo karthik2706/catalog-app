@@ -245,6 +245,10 @@ export async function POST(request: NextRequest) {
           stockLevel: body.stockLevel || 0,
           minStock: body.minStock || 0,
           clientId, // Ensure tenant isolation
+          // Media fields
+          images: body.images || [],
+          videos: body.videos || [],
+          thumbnailUrl: body.thumbnailUrl || null,
           categories: body.categoryIds ? {
             create: body.categoryIds.map((categoryId: string) => ({
               categoryId

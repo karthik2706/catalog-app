@@ -12,6 +12,7 @@ import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { cn, formatCurrency, debounce } from '@/lib/utils'
 import { ImportExportModal } from '@/components/ui/ImportExportModal'
+import { MediaPreview } from '@/components/ui/MediaPreview'
 import {
   Search,
   Filter,
@@ -403,6 +404,20 @@ export default function ProductsPage() {
                     </div>
 
                     <div className="space-y-3">
+                      {/* Product Media */}
+                      {product.thumbnailUrl && (
+                        <div className="w-full h-32 bg-slate-100 rounded-lg overflow-hidden">
+                          <img
+                            src={product.thumbnailUrl}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                        </div>
+                      )}
+                      
                       <div>
                         <h3 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors">
                           {product.name}
@@ -471,9 +486,26 @@ export default function ProductsPage() {
                       <tr key={product.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
-                              <Package className="w-5 h-5 text-white" />
-                            </div>
+                            {product.thumbnailUrl ? (
+                              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                <img
+                                  src={product.thumbnailUrl}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                    e.currentTarget.nextElementSibling.style.display = 'flex'
+                                  }}
+                                />
+                                <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center hidden">
+                                  <Package className="w-5 h-5 text-white" />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                                <Package className="w-5 h-5 text-white" />
+                              </div>
+                            )}
                             <div>
                               <p className="font-medium text-slate-900">{product.name}</p>
                               {product.description && (

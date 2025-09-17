@@ -126,6 +126,13 @@ model Product {
   minStock    Int      @default(0)
   isActive    Boolean  @default(true)
   clientId    String   // Required for multi-tenancy
+  
+  // Media fields
+  media       Json?    // Array of media URLs and metadata (images and videos)
+  images      Json?    // Array of image URLs and metadata
+  videos      Json?    // Array of video URLs and metadata
+  thumbnailUrl String? // Primary thumbnail URL
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

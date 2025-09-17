@@ -13,6 +13,8 @@ import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
+import { MediaUploadNew as MediaUpload, MediaFile } from '@/components/ui/MediaUploadNew'
+import { MediaGrid } from '@/components/ui/MediaPreview'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import { 
   ArrowLeft, 
@@ -30,7 +32,8 @@ import {
   Settings,
   Palette,
   Ruler,
-  Sparkles
+  Sparkles,
+  Image as ImageIcon
 } from 'lucide-react'
 
 export default function NewProductPage() {
@@ -57,6 +60,12 @@ export default function NewProductPage() {
     minStock: 0,
     isActive: true,
   })
+
+  // Media upload state
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
+  const [images, setImages] = useState<MediaFile[]>([])
+  const [videos, setVideos] = useState<MediaFile[]>([])
+  const [thumbnailUrl, setThumbnailUrl] = useState<string>('')
 
   // Load categories and currency on component mount
   useEffect(() => {
@@ -110,6 +119,47 @@ export default function NewProductPage() {
     }))
   }
 
+  // Media handling functions
+  const handleMediaUpload = (files: MediaFile[]) => {
+    setMediaFiles(files)
+    
+    // Separate images and videos
+    const imageFiles = files.filter(file => file.file.type.startsWith('image/'))
+    const videoFiles = files.filter(file => file.file.type.startsWith('video/'))
+    
+    setImages(imageFiles)
+    setVideos(videoFiles)
+    
+    // Set first image as thumbnail if no thumbnail is selected
+    if (!thumbnailUrl && imageFiles.length > 0) {
+      setThumbnailUrl(imageFiles[0].url || imageFiles[0].preview)
+    }
+  }
+
+  const handleRemoveMedia = (fileId: string) => {
+    const updatedFiles = mediaFiles.filter(file => file.id !== fileId)
+    setMediaFiles(updatedFiles)
+    
+    // Update images and videos arrays
+    const imageFiles = updatedFiles.filter(file => file.file.type.startsWith('image/'))
+    const videoFiles = updatedFiles.filter(file => file.file.type.startsWith('video/'))
+    
+    setImages(imageFiles)
+    setVideos(videoFiles)
+    
+    // If removed file was thumbnail, set new thumbnail
+    if (thumbnailUrl && updatedFiles.length > 0) {
+      const firstImage = imageFiles.find(file => file.url === thumbnailUrl)
+      if (!firstImage && imageFiles.length > 0) {
+        setThumbnailUrl(imageFiles[0].url || imageFiles[0].preview)
+      }
+    }
+  }
+
+  const handleSetThumbnail = (url: string) => {
+    setThumbnailUrl(url)
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true)
@@ -131,6 +181,27 @@ export default function NewProductPage() {
         body: JSON.stringify({
           ...formData,
           variations,
+          images: images.filter(img => img.uploaded).map(img => ({
+            id: img.id,
+            url: img.url,
+            thumbnailUrl: img.thumbnailUrl,
+            key: img.key,
+            fileName: img.file.name,
+            fileSize: img.file.size,
+            fileType: img.file.type,
+            uploadedAt: new Date(),
+          })),
+          videos: videos.filter(vid => vid.uploaded).map(vid => ({
+            id: vid.id,
+            url: vid.url,
+            thumbnailUrl: vid.thumbnailUrl,
+            key: vid.key,
+            fileName: vid.file.name,
+            fileSize: vid.file.size,
+            fileType: vid.file.type,
+            uploadedAt: new Date(),
+          })),
+          thumbnailUrl,
         }),
       })
 
@@ -510,6 +581,74 @@ export default function NewProductPage() {
                           )}
                         </Button>
                       </div>
+                    </div>
+                  </Card>
+
+                  {/* Media Upload */}
+                  <Card className="mb-8">
+                    <div className="p-6 border-b border-slate-200">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                          <ImageIcon className="w-4 h-4 text-green-600" />
+                        </div>
+                        <h2 className="text-xl font-semibold text-slate-900">Product Media</h2>
+                      </div>
+                    </div>
+                    <div className="p-6">
+                      <MediaUpload
+                        onFilesChange={handleMediaUpload}
+                        files={mediaFiles}
+                        sku={formData.sku || 'temp-sku'}
+                        maxFiles={10}
+                        acceptedTypes={['image/*', 'video/*']}
+                        maxSize={50 * 1024 * 1024} // 50MB
+                        className="mb-6"
+                      />
+                      
+                      {/* Media Preview */}
+                      {mediaFiles.length > 0 && (
+                        <div className="space-y-4">
+                          <div>
+                            <h3 className="text-sm font-medium text-slate-700 mb-3">Uploaded Media</h3>
+                            <MediaGrid
+                              files={mediaFiles}
+                              onRemove={(fileId) => setMediaFiles(prev => prev.filter(f => f.id !== fileId))}
+                              size="md"
+                            />
+                          </div>
+                          
+                          {/* Thumbnail Selection */}
+                          {images.length > 0 && (
+                            <div>
+                              <h3 className="text-sm font-medium text-slate-700 mb-3">Select Thumbnail</h3>
+                              <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                                {images.map((image) => (
+                                  <button
+                                    key={image.id}
+                                    onClick={() => handleSetThumbnail(image.url || image.preview)}
+                                    className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                                      thumbnailUrl === (image.url || image.preview)
+                                        ? 'border-primary-500 ring-2 ring-primary-200'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                                  >
+                                    <img
+                                      src={image.url || image.preview}
+                                      alt={image.file.name}
+                                      className="w-full h-20 object-cover"
+                                    />
+                                    {thumbnailUrl === (image.url || image.preview) && (
+                                      <div className="absolute inset-0 bg-primary-500 bg-opacity-20 flex items-center justify-center">
+                                        <CheckCircle className="w-6 h-6 text-primary-600" />
+                                      </div>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </Card>
 

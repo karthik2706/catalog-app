@@ -111,6 +111,17 @@ export async function PUT(
         updatedAt: new Date()
       }
 
+      // Debug: Log the received data
+      console.log('Received update data:', {
+        media: body.media,
+        mediaCount: body.media ? body.media.length : 0,
+        mediaDetails: body.media ? body.media.map((m: any) => ({ 
+          fileName: m.fileName, 
+          hasUrl: !!m.url, 
+          hasKey: !!m.key 
+        })) : []
+      })
+
       // Remove categoryIds from the update data as we'll handle it separately
       const { categoryIds, ...restUpdateData } = updateData
 
@@ -158,6 +169,17 @@ export async function PUT(
             }
           }
         }
+      })
+
+      // Debug: Log what was actually saved
+      console.log('Product updated successfully:', {
+        id: product.id,
+        mediaCount: product.media ? JSON.parse(JSON.stringify(product.media)).length : 0,
+        mediaDetails: product.media ? JSON.parse(JSON.stringify(product.media)).map((m: any) => ({ 
+          fileName: m.fileName, 
+          hasUrl: !!m.url, 
+          hasKey: !!m.key 
+        })) : []
       })
 
       return NextResponse.json(product)

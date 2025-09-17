@@ -13,6 +13,7 @@ import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
+import { MediaUploadNew as MediaUpload, MediaFile } from '@/components/ui/MediaUploadNew'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -57,6 +58,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [productId, setProductId] = useState<string>('')
   const [categories, setCategories] = useState<Category[]>([])
   const [clientCurrency, setClientCurrency] = useState<string>('USD')
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
+  const [uploading, setUploading] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -114,6 +117,22 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         isActive: data.isActive,
       })
       setVariations(data.variations || [])
+      
+      // Load existing media files
+      if (data.media && data.media.length > 0) {
+        const existingMedia: MediaFile[] = data.media.map((media: any, index: number) => ({
+          id: `existing-${index}`,
+          file: new File([], media.fileName || 'existing-file'),
+          preview: media.url,
+          url: media.url,
+          thumbnailUrl: media.thumbnailUrl,
+          key: media.key,
+          progress: 100,
+          uploading: false,
+          uploaded: true,
+        }))
+        setMediaFiles(existingMedia)
+      }
     } catch (err: any) {
       setError(err.message)
       console.error('Error fetching product:', err)
@@ -171,6 +190,22 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       setError('')
       setSuccess('')
 
+      // Check if there are any files still uploading
+      const uploadingFiles = mediaFiles.filter(f => f.uploading)
+      if (uploadingFiles.length > 0) {
+        setError(`Please wait for ${uploadingFiles.length} file(s) to finish uploading before saving.`)
+        setSaving(false)
+        return
+      }
+
+      // Check if there are any files with errors
+      const errorFiles = mediaFiles.filter(f => f.error)
+      if (errorFiles.length > 0) {
+        setError(`Please fix upload errors for ${errorFiles.length} file(s) before saving.`)
+        setSaving(false)
+        return
+      }
+
       const response = await fetch(`/api/products/${productId}`, {
         method: 'PUT',
         headers: {
@@ -180,6 +215,31 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         body: JSON.stringify({
           ...formData,
           variations,
+          media: (() => {
+            const processedMedia = mediaFiles.map(file => ({
+              url: file.url,
+              thumbnailUrl: file.thumbnailUrl,
+              key: file.key,
+              fileName: file.file.name,
+              type: file.file.type,
+              size: file.file.size,
+              uploaded: file.uploaded,
+              error: file.error
+            }))
+            console.log('Processing media files:', mediaFiles.length, 'total files')
+            console.log('Media files details:', mediaFiles.map(f => ({ 
+              id: f.id, 
+              name: f.file.name, 
+              uploaded: f.uploaded, 
+              hasUrl: !!f.url, 
+              error: f.error 
+            })))
+            console.log('Raw mediaFiles state:', JSON.stringify(mediaFiles, null, 2))
+            const filteredMedia = processedMedia.filter(media => media.url)
+            console.log('Filtered media (with URLs):', filteredMedia.length, 'files')
+            console.log('Filtered media details:', filteredMedia.map(m => ({ fileName: m.fileName, hasUrl: !!m.url })))
+            return filteredMedia
+          })(),
         }),
       })
 
@@ -241,6 +301,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const handleRemoveVariation = (id: string) => {
     setVariations(prev => prev.filter(v => v.id !== id))
   }
+
+  const handleMediaFilesChange = (files: MediaFile[]) => {
+    setMediaFiles(files)
+  }
+
+  const handleMediaRemove = (fileId: string) => {
+    setMediaFiles(prev => prev.filter(f => f.id !== fileId))
+  }
+
 
   const formProgress = () => {
     const fields = ['name', 'sku', 'price']
@@ -305,12 +374,17 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   </Button>
                   <Button
                     onClick={handleSave}
-                    disabled={saving}
+                    disabled={saving || mediaFiles.some(f => f.uploading) || mediaFiles.some(f => f.error)}
                     loading={saving}
                     className="flex items-center space-x-2"
                   >
                     <Save className="w-4 h-4" />
-                    <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+                    <span>
+                      {saving ? 'Saving...' : 
+                       mediaFiles.some(f => f.uploading) ? 'Uploading...' :
+                       mediaFiles.some(f => f.error) ? 'Fix Upload Errors' :
+                       'Save Changes'}
+                    </span>
                   </Button>
                 </div>
               </div>
@@ -505,6 +579,82 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                             <Layers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                             <p>No variations added yet</p>
                             <p className="text-sm">Click "Add Variation" to get started</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </FadeIn>
+
+                  {/* Media Upload */}
+                  <FadeIn delay={0.4}>
+                    <Card className="card-hover">
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <FileText className="w-5 h-5 text-blue-600" />
+                          <span>Product Media</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-slate-600">
+                            Upload images and videos for this product
+                          </p>
+                          {mediaFiles.some(f => f.uploading) && (
+                            <div className="flex items-center space-x-2 text-blue-600">
+                              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="text-sm font-medium">
+                                {mediaFiles.filter(f => f.uploading).length} file(s) uploading...
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <MediaUpload
+                          onFilesChange={handleMediaFilesChange}
+                          files={mediaFiles}
+                          sku={formData.sku}
+                          maxFiles={10}
+                          acceptedTypes={['image/*', 'video/*']}
+                          maxSize={50 * 1024 * 1024} // 50MB
+                          className="w-full"
+                        />
+
+                        {mediaFiles.length > 0 && (
+                          <div className="mt-4">
+                            <p className="text-sm font-medium text-slate-700 mb-2">
+                              Uploaded Media ({mediaFiles.length})
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {mediaFiles.map((file) => (
+                                <div key={file.id} className="relative group">
+                                  <div className="aspect-square bg-slate-100 rounded-lg overflow-hidden">
+                                    {file.thumbnailUrl ? (
+                                      <img
+                                        src={file.thumbnailUrl}
+                                        alt="Product media"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : file.preview ? (
+                                      <img
+                                        src={file.preview}
+                                        alt="Product media"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center">
+                                        <FileText className="w-8 h-8 text-slate-400" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => handleMediaRemove(file.id)}
+                                    className="absolute -top-2 -right-2 bg-error-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </CardContent>

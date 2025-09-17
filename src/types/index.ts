@@ -23,6 +23,13 @@ export interface Product {
   stockLevel: number
   minStock: number
   isActive: boolean
+  
+  // Media fields
+  media?: MediaFile[]
+  images?: MediaFile[]
+  videos?: MediaFile[]
+  thumbnailUrl?: string
+  
   createdAt: Date
   updatedAt: Date
 }
@@ -32,6 +39,17 @@ export interface ProductVariation {
   name: string
   value: string
   priceAdjustment?: number
+}
+
+export interface MediaFile {
+  id: string
+  url: string
+  thumbnailUrl?: string
+  key: string
+  fileName: string
+  fileSize: number
+  fileType: string
+  uploadedAt: Date
 }
 
 export interface InventoryHistory {
@@ -110,6 +128,9 @@ export interface CreateProductRequest {
   variations?: ProductVariation[]
   stockLevel?: number
   minStock?: number
+  images?: MediaFile[]
+  videos?: MediaFile[]
+  thumbnailUrl?: string
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> {

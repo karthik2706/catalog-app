@@ -1,0 +1,181 @@
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+
+// AWS S3 Configuration
+export const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+  },
+})
+
+export const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'quick-stock-media'
+export const AWS_REGION = process.env.AWS_REGION || 'us-east-1'
+
+// S3 Configuration Constants
+export const S3_CONFIG = {
+  bucket: S3_BUCKET_NAME,
+  region: AWS_REGION,
+  baseUrl: `https://${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com`,
+  allowedFileTypes: {
+    images: ['image/jpeg', 'image/png', 'image/webp'],
+    videos: ['video/mp4', 'video/webm'],
+  },
+  maxFileSize: 50 * 1024 * 1024, // 50MB
+  imageOptimization: {
+    quality: 85,
+    maxWidth: 1920,
+    maxHeight: 1080,
+    thumbnailWidth: 300,
+    thumbnailHeight: 300,
+  },
+}
+
+// File validation helper
+export function validateFileType(file: File): { valid: boolean; error?: string } {
+  const allowedTypes = [
+    ...S3_CONFIG.allowedFileTypes.images,
+    ...S3_CONFIG.allowedFileTypes.videos,
+  ]
+  
+  if (!allowedTypes.includes(file.type)) {
+    return {
+      valid: false,
+      error: `File type ${file.type} is not allowed. Allowed types: ${allowedTypes.join(', ')}`
+    }
+  }
+  
+  if (file.size > S3_CONFIG.maxFileSize) {
+    return {
+      valid: false,
+      error: `File size ${(file.size / 1024 / 1024).toFixed(2)}MB exceeds maximum allowed size of ${S3_CONFIG.maxFileSize / 1024 / 1024}MB`
+    }
+  }
+  
+  return { valid: true }
+}
+
+// Generate S3 key for file upload with proper folder structure
+export function generateS3Key(
+  fileName: string, 
+  clientId: string, 
+  sku: string, 
+  fileType: 'image' | 'video' = 'image'
+): string {
+  const timestamp = Date.now()
+  const randomString = Math.random().toString(36).substring(2, 15)
+  const extension = fileName.split('.').pop()
+  
+  // Clean SKU to be filesystem-safe (remove special characters)
+  const cleanSku = sku.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase()
+  
+  // Structure: clients/{clientId}/products/{sku}/media/{fileType}/{timestamp}-{random}.{ext}
+  return `clients/${clientId}/products/${cleanSku}/media/${fileType}/${timestamp}-${randomString}.${extension}`
+}
+
+// Generate thumbnail S3 key
+export function generateThumbnailS3Key(
+  fileName: string, 
+  clientId: string, 
+  sku: string
+): string {
+  const timestamp = Date.now()
+  const randomString = Math.random().toString(36).substring(2, 15)
+  
+  // Clean SKU to be filesystem-safe
+  const cleanSku = sku.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase()
+  
+  // Structure: clients/{clientId}/products/{sku}/media/thumbnails/{timestamp}-{random}.jpg
+  return `clients/${clientId}/products/${cleanSku}/media/thumbnails/${timestamp}-${randomString}.jpg`
+}
+
+// Generate folder path for a product's media
+export function generateProductMediaFolder(clientId: string, sku: string): string {
+  const cleanSku = sku.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase()
+  return `clients/${clientId}/products/${cleanSku}/media`
+}
+
+// Generate signed URL for private files
+export async function generateSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+  try {
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: key,
+    })
+    return await getSignedUrl(s3Client, command, { expiresIn })
+  } catch (error: any) {
+    console.error('Error generating signed URL:', error)
+    throw new Error(`Failed to generate signed URL: ${error.message}`)
+  }
+}
+
+// Check if a signed URL is expired or about to expire (within 1 day)
+export function isUrlExpired(url: string): boolean {
+  try {
+    const urlObj = new URL(url)
+    const expires = urlObj.searchParams.get('X-Amz-Expires')
+    const date = urlObj.searchParams.get('X-Amz-Date')
+    
+    if (expires && date) {
+      const expiresIn = parseInt(expires)
+      const urlDate = new Date(date)
+      const expirationTime = new Date(urlDate.getTime() + (expiresIn * 1000))
+      const now = new Date()
+      const timeUntilExpiry = expirationTime.getTime() - now.getTime()
+      
+      // Consider expired if less than 1 day (86400000 ms) remaining
+      return timeUntilExpiry < 86400000
+    }
+    return true // If no expiration info, consider expired
+  } catch (error) {
+    console.error('Error checking URL expiration:', error)
+    return true // If error parsing, consider expired
+  }
+}
+
+// Refresh signed URLs for existing media
+export async function refreshMediaUrls(media: any[]): Promise<any[]> {
+  try {
+    console.log('Refreshing media URLs for', media.length, 'items')
+    const refreshedMedia = await Promise.all(
+      media.map(async (item, index) => {
+        if (item.key) {
+          try {
+            // Only refresh if URL is expired or about to expire
+            const shouldRefresh = !item.url || isUrlExpired(item.url)
+            console.log(`Item ${index}: shouldRefresh=${shouldRefresh}, hasUrl=${!!item.url}`)
+            
+            if (shouldRefresh) {
+              console.log(`Refreshing URLs for item ${index} with key:`, item.key)
+              const newUrl = await generateSignedUrl(item.key, 7 * 24 * 60 * 60) // 7 days
+              const newThumbnailUrl = item.thumbnailKey 
+                ? await generateSignedUrl(item.thumbnailKey, 7 * 24 * 60 * 60) // 7 days
+                : undefined
+              
+              console.log(`Successfully refreshed URLs for item ${index}`)
+              return {
+                ...item,
+                url: newUrl,
+                thumbnailUrl: newThumbnailUrl || item.thumbnailUrl
+              }
+            }
+            
+            console.log(`No refresh needed for item ${index}`)
+            return item // Return original if no refresh needed
+          } catch (error) {
+            console.error('Error refreshing URL for key:', item.key, error)
+            return item // Return original if refresh fails
+          }
+        }
+        console.log(`Item ${index} has no key, skipping`)
+        return item
+      })
+    )
+    console.log('Media URL refresh completed')
+    return refreshedMedia
+  } catch (error) {
+    console.error('Error refreshing media URLs:', error)
+    return media // Return original if refresh fails
+  }
+}
