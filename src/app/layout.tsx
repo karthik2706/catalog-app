@@ -17,13 +17,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Stock Mind - Inventory Management",
   description: "A comprehensive inventory management system for smart stock tracking",
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    minimumScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-  },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({

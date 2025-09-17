@@ -10,12 +10,16 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
@@ -25,9 +29,34 @@ function getClientIdFromRequest(request: NextRequest): string | null {
 
 export async function GET(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // For super admin, return global settings or default settings
+    if (user.role === 'SUPER_ADMIN') {
+      const defaultSettings = {
+        companyName: 'Stock Mind Platform',
+        email: 'admin@stockmind.com',
+        phone: '',
+        address: '',
+        timezone: 'America/New_York',
+        lowStockThreshold: 10,
+        autoReorder: false,
+        emailNotifications: true,
+        smsNotifications: false,
+        isSuperAdmin: true
+      }
+      return NextResponse.json(defaultSettings)
+    }
+
+    // For regular users, get client-specific settings
+    if (!user.clientId) {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -36,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     // Get client settings with client info
     let settings = await prisma.clientSettings.findUnique({
-      where: { clientId },
+      where: { clientId: user.clientId },
       include: {
         client: {
           include: {
@@ -50,7 +79,7 @@ export async function GET(request: NextRequest) {
     if (!settings) {
       // Get client info to create default settings
       const client = await prisma.client.findUnique({
-        where: { id: clientId }
+        where: { id: user.clientId }
       })
       
       if (!client) {
@@ -63,7 +92,7 @@ export async function GET(request: NextRequest) {
       // Create default settings for this client
       settings = await prisma.clientSettings.create({
         data: {
-          clientId,
+          clientId: user.clientId,
           companyName: client.name,
           email: client.email,
           phone: client.phone,
@@ -86,9 +115,25 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // For super admin, settings are read-only
+    if (user.role === 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Super admin settings are read-only' },
+        { status: 403 }
+      )
+    }
+
+    // For regular users, update client-specific settings
+    if (!user.clientId) {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -99,7 +144,7 @@ export async function PUT(request: NextRequest) {
     
     // Update or create client settings
     const settings = await prisma.clientSettings.upsert({
-      where: { clientId },
+      where: { clientId: user.clientId },
       update: {
         companyName: body.companyName,
         email: body.email,
@@ -112,7 +157,7 @@ export async function PUT(request: NextRequest) {
         smsNotifications: body.smsNotifications,
       },
       create: {
-        clientId,
+        clientId: user.clientId,
         companyName: body.companyName,
         email: body.email,
         phone: body.phone,

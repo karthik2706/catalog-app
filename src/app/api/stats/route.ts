@@ -10,12 +10,16 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
@@ -25,46 +29,53 @@ function getClientIdFromRequest(request: NextRequest): string | null {
 
 export async function GET(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Client context required' },
-        { status: 400 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
-    // Get total products count for this client
+    // For super admin, show global stats; for regular users, show client-specific stats
+    const isSuperAdmin = user.role === 'SUPER_ADMIN'
+    const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
+
+    // Get total products count
     const totalProducts = await prisma.product.count({
-      where: { clientId }
+      where: whereClause
     })
 
-    // Get low stock products count (stock level <= min stock) for this client
+    // Get low stock products count (stock level <= min stock)
     const lowStockProducts = await prisma.product.count({
       where: {
-        clientId,
+        ...whereClause,
         stockLevel: {
           lte: prisma.product.fields.minStock
         }
       }
     })
 
-    // Get total categories count for this client
+    // Get total categories count
     const totalCategories = await prisma.category.count({
       where: { 
-        clientId,
+        ...whereClause,
         isActive: true
       }
     })
 
-    // Get total users count for this client
+    // Get total users count
     const totalUsers = await prisma.user.count({
-      where: { clientId }
+      where: isSuperAdmin ? {} : { clientId: user.clientId }
     })
 
-    // Get total value of inventory for this client
+    // Get total clients count (only for super admin)
+    const totalClients = isSuperAdmin ? await prisma.client.count() : 0
+
+    // Get total value of inventory
     const products = await prisma.product.findMany({
-      where: { clientId },
+      where: whereClause,
       select: {
         price: true,
         stockLevel: true
@@ -75,13 +86,13 @@ export async function GET(request: NextRequest) {
       return sum + (Number(product.price) * product.stockLevel)
     }, 0)
 
-    // Get recent inventory activity (last 7 days) for this client
+    // Get recent inventory activity (last 7 days)
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
     const recentActivity = await prisma.inventoryHistory.count({
       where: {
-        clientId,
+        ...whereClause,
         createdAt: {
           gte: sevenDaysAgo
         }
@@ -93,8 +104,10 @@ export async function GET(request: NextRequest) {
       lowStockProducts,
       totalCategories,
       totalUsers,
+      totalClients,
       totalValue,
-      recentActivity
+      recentActivity,
+      isSuperAdmin
     }
 
     return NextResponse.json(stats)
