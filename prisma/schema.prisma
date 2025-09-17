@@ -10,25 +10,77 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Multi-tenant SaaS Platform Models
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique // For subdomain routing
+  domain      String?  // Custom domain support
+  email       String
+  phone       String?
+  address     String?
+  logo        String?  // Logo URL
+  isActive    Boolean  @default(true)
+  plan        Plan     @default(STARTER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users       User[]
+  products    Product[]
+  categories  Category[]
+  settings    ClientSettings?
+  inventoryHistory InventoryHistory[]
+
+  @@map("clients")
+}
+
+model ClientSettings {
+  id                  String   @id @default(cuid())
+  clientId            String   @unique
+  companyName         String
+  email               String
+  phone               String?
+  address             String?
+  currency            String   @default("USD")
+  timezone            String   @default("America/New_York")
+  lowStockThreshold   Int      @default(10)
+  autoReorder         Boolean  @default(false)
+  emailNotifications  Boolean  @default(true)
+  smsNotifications    Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_settings")
+}
+
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
+  email     String
   password  String
   name      String?
   role      Role     @default(ADMIN)
+  clientId  String?  // Null for super admin users
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
+  client           Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   inventoryHistory InventoryHistory[]
 
+  // Ensure email is unique within a client (or globally for super admins)
+  @@unique([email, clientId])
   @@map("users")
 }
 
 model Product {
   id          String   @id @default(cuid())
   name        String
-  sku         String   @unique
+  sku         String
   description String?
   price       Decimal  @db.Decimal(10, 2)
   category    String   // Keep for backward compatibility
@@ -37,13 +89,17 @@ model Product {
   stockLevel  Int      @default(0)
   minStock    Int      @default(0)
   isActive    Boolean  @default(true)
+  clientId    String   // Required for multi-tenancy
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
+  client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   inventoryHistory InventoryHistory[]
-  categoryRef      Category? @relation(fields: [categoryId], references: [id])
+  categoryRef      Category?         @relation(fields: [categoryId], references: [id])
 
+  // Ensure SKU is unique within a client
+  @@unique([sku, clientId])
   @@map("products")
 }
 
@@ -54,51 +110,47 @@ model InventoryHistory {
   type        InventoryType
   reason      String?
   userId      String?
+  clientId    String   // For tenant isolation
   createdAt   DateTime @default(now())
 
   // Relations
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   user    User?   @relation(fields: [userId], references: [id])
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@map("inventory_history")
 }
 
-model Settings {
-  id                  String   @id @default(cuid())
-  companyName         String   @default("Retail Catalog & Inventory Management")
-  email               String   @default("admin@company.com")
-  phone               String   @default("+1 (555) 123-4567")
-  address             String   @default("123 Business St, City, State 12345")
-  currency            String   @default("USD")
-  timezone            String   @default("America/New_York")
-  lowStockThreshold   Int      @default(10)
-  autoReorder         Boolean  @default(false)
-  emailNotifications  Boolean  @default(true)
-  smsNotifications    Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  @@map("settings")
-}
 
 model Category {
   id          String   @id @default(cuid())
-  name        String   @unique
+  name        String
   description String?
   isActive    Boolean  @default(true)
+  clientId    String   // Required for multi-tenancy
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
-  products    Product[]
+  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  products Product[]
 
+  // Ensure category name is unique within a client
+  @@unique([name, clientId])
   @@map("categories")
 }
 
 enum Role {
-  ADMIN
-  MANAGER
-  USER
+  SUPER_ADMIN  // Platform administrators
+  ADMIN        // Client administrators
+  MANAGER      // Client managers
+  USER         // Client users
+}
+
+enum Plan {
+  STARTER      // Basic plan
+  PROFESSIONAL // Professional plan
+  ENTERPRISE   // Enterprise plan
 }
 
 enum InventoryType {

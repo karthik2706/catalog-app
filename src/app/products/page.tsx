@@ -93,7 +93,12 @@ export default function ProductsPage() {
         sortOrder,
       })
 
-      const response = await fetch(`/api/products?${params}`)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/products?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
       const data = await response.json()
 
       if (!response.ok) {
@@ -112,12 +117,17 @@ export default function ProductsPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/products')
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/categories', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
       const data = await response.json()
       
       if (response.ok) {
-        const uniqueCategories = [...new Set(data.products.map((p: Product) => p.category))]
-        setCategories(uniqueCategories)
+        const categoryNames = data.map((cat: any) => cat.name)
+        setCategories(categoryNames)
       }
     } catch (err) {
       console.error('Error fetching categories:', err)

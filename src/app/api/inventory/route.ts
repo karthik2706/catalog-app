@@ -1,10 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { InventoryUpdateRequest } from '@/types'
+import jwt from 'jsonwebtoken'
+
+interface JWTPayload {
+  userId: string
+  email: string
+  role: string
+  clientId?: string
+  clientSlug?: string
+}
+
+function getClientIdFromRequest(request: NextRequest): string | null {
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
+      return decoded.clientId || null
+    } catch (error) {
+      console.error('Error decoding token:', error)
+    }
+  }
+  return null
+}
 
 // POST /api/inventory - Update inventory for a product
 export async function POST(request: NextRequest) {
   try {
+    const clientId = getClientIdFromRequest(request)
+    
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    }
+
     const body: InventoryUpdateRequest = await request.json()
     
     // Validate required fields
@@ -15,9 +46,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if product exists
-    const product = await prisma.product.findUnique({
-      where: { id: body.productId }
+    // Check if product exists and belongs to this client
+    const product = await prisma.product.findFirst({
+      where: { 
+        id: body.productId,
+        clientId
+      }
     })
 
     if (!product) {
@@ -53,7 +87,8 @@ export async function POST(request: NextRequest) {
           quantity: body.quantity,
           type: body.type,
           reason: body.reason,
-          userId: body.userId || null
+          userId: body.userId || null,
+          clientId
         },
         include: {
           user: {
@@ -81,6 +116,15 @@ export async function POST(request: NextRequest) {
 // GET /api/inventory - Get inventory history with filtering
 export async function GET(request: NextRequest) {
   try {
+    const clientId = getClientIdFromRequest(request)
+    
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     
     const productId = searchParams.get('productId')
@@ -89,7 +133,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: any = { clientId }
     if (productId) where.productId = productId
     if (type) where.type = type
 

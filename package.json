@@ -12,7 +12,9 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "setup": "npm install && npm run db:generate && npm run db:push"
+    "db:seed-saas": "tsx prisma/seed-saas.ts",
+    "setup": "npm install && npm run db:generate && npm run db:push",
+    "setup-saas": "npm install && npm run db:generate && npm run db:push && npm run db:seed-saas"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

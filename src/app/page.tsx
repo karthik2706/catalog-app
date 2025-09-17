@@ -54,7 +54,12 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/stats')
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
       if (response.ok) {
         const data = await response.json()
         setStats(data)

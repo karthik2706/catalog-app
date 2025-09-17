@@ -8,25 +8,37 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
-    const { name, email, role } = body
+    const { name, email, role, clientId } = body
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          }
+        }
+      }
     })
 
     if (!existingUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if email is being changed and if it already exists
+    // Check if email is being changed and if it already exists within the same client
     if (email && email !== existingUser.email) {
-      const emailExists = await prisma.user.findUnique({
-        where: { email }
+      const emailExists = await prisma.user.findFirst({
+        where: { 
+          email,
+          clientId: clientId || existingUser.clientId
+        }
       })
 
       if (emailExists) {
-        return NextResponse.json({ error: 'Email already exists' }, { status: 400 })
+        return NextResponse.json({ error: 'Email already exists in this company' }, { status: 400 })
       }
     }
 
@@ -37,14 +49,24 @@ export async function PUT(
         name: name || existingUser.name,
         email: email || existingUser.email,
         role: role || existingUser.role,
+        clientId: clientId || existingUser.clientId,
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        clientId: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
+        client: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          }
+        }
       }
     })
 

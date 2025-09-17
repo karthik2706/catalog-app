@@ -1,11 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { mockStore } from '@/lib/mockStore'
 import { CreateProductRequest, ProductFilters } from '@/types'
+import jwt from 'jsonwebtoken'
+
+interface JWTPayload {
+  userId: string
+  email: string
+  role: string
+  clientId?: string
+  clientSlug?: string
+}
+
+function getClientIdFromRequest(request: NextRequest): string | null {
+  // Try to get client ID from JWT token
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
+      return decoded.clientId || null
+    } catch (error) {
+      console.error('Error decoding token:', error)
+    }
+  }
+
+  // Try to get from tenant header (set by middleware)
+  const tenantSlug = request.headers.get('x-tenant-slug')
+  if (tenantSlug) {
+    // In a real implementation, you'd fetch the client ID from the slug
+    // For now, we'll return null and handle it in the route
+    return null
+  }
+
+  return null
+}
 
 // GET /api/products - Get all products with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
+    const clientId = getClientIdFromRequest(request)
+    
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     
     const filters: ProductFilters = {
@@ -26,8 +66,9 @@ export async function GET(request: NextRequest) {
       const skip = ((filters.page || 1) - 1) * (filters.limit || 10)
       const take = filters.limit || 10
 
-      // Build where clause
+      // Build where clause with tenant isolation
       const where: any = {
+        clientId, // Ensure tenant isolation
         isActive: true,
       }
 
@@ -125,6 +166,15 @@ export async function GET(request: NextRequest) {
 // POST /api/products - Create a new product
 export async function POST(request: NextRequest) {
   try {
+    const clientId = getClientIdFromRequest(request)
+    
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    }
+
     const body: CreateProductRequest = await request.json()
     
     // Validate required fields
@@ -137,9 +187,12 @@ export async function POST(request: NextRequest) {
 
     try {
       // Try to create in database first
-      // Check if SKU already exists
-      const existingProduct = await prisma.product.findUnique({
-        where: { sku: body.sku }
+      // Check if SKU already exists within the client
+      const existingProduct = await prisma.product.findFirst({
+        where: { 
+          sku: body.sku,
+          clientId 
+        }
       })
 
       if (existingProduct) {
@@ -159,6 +212,7 @@ export async function POST(request: NextRequest) {
           variations: body.variations || [],
           stockLevel: body.stockLevel || 0,
           minStock: body.minStock || 0,
+          clientId, // Ensure tenant isolation
         },
         include: {
           inventoryHistory: {

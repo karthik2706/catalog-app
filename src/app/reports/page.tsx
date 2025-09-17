@@ -65,7 +65,12 @@ export default function ReportsPage() {
   const fetchLowStockReport = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/products?lowStock=true&limit=1000')
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/products?lowStock=true&limit=1000', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
       const data = await response.json()
 
       if (!response.ok) {

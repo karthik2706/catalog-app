@@ -15,14 +15,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find user in database
-    const user = await prisma.user.findUnique({
-      where: { email }
+    // Find user in database with client information
+    const user = await prisma.user.findFirst({
+      where: { email },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            isActive: true,
+            plan: true,
+          }
+        }
+      }
     })
 
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
+        { status: 401 }
+      )
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: 'Account is inactive' },
+        { status: 401 }
+      )
+    }
+
+    // For client users, check if their client is active
+    if (user.clientId && (!user.client || !user.client.isActive)) {
+      return NextResponse.json(
+        { error: 'Client account is inactive' },
         { status: 401 }
       )
     }
@@ -37,9 +64,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate JWT token
+    // Generate JWT token with client information
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
+      { 
+        userId: user.id, 
+        email: user.email, 
+        role: user.role,
+        clientId: user.clientId,
+        clientSlug: user.client?.slug
+      },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     )
@@ -50,6 +83,8 @@ export async function POST(request: NextRequest) {
         email: user.email,
         name: user.name,
         role: user.role,
+        clientId: user.clientId,
+        client: user.client,
         createdAt: user.createdAt
       },
       token

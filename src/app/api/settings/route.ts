@@ -1,19 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import jwt from 'jsonwebtoken'
 
-export async function GET() {
+interface JWTPayload {
+  userId: string
+  email: string
+  role: string
+  clientId?: string
+  clientSlug?: string
+}
+
+function getClientIdFromRequest(request: NextRequest): string | null {
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
+      return decoded.clientId || null
+    } catch (error) {
+      console.error('Error decoding token:', error)
+    }
+  }
+  return null
+}
+
+export async function GET(request: NextRequest) {
   try {
-    // Get or create default settings
-    let settings = await prisma.settings.findFirst()
+    const clientId = getClientIdFromRequest(request)
+    
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    }
+
+    // Get client settings
+    let settings = await prisma.clientSettings.findUnique({
+      where: { clientId }
+    })
     
     if (!settings) {
-      // Create default settings if none exist
-      settings = await prisma.settings.create({
+      // Get client info to create default settings
+      const client = await prisma.client.findUnique({
+        where: { id: clientId }
+      })
+      
+      if (!client) {
+        return NextResponse.json(
+          { error: 'Client not found' },
+          { status: 404 }
+        )
+      }
+
+      // Create default settings for this client
+      settings = await prisma.clientSettings.create({
         data: {
-          companyName: 'Quick Stock - Inventory Management',
-          email: 'admin@company.com',
-          phone: '+1 (555) 123-4567',
-          address: '123 Business St, City, State 12345',
+          clientId,
+          companyName: client.name,
+          email: client.email,
+          phone: client.phone,
+          address: client.address,
           currency: 'USD',
           timezone: 'America/New_York',
           lowStockThreshold: 10,
@@ -33,47 +79,46 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const clientId = getClientIdFromRequest(request)
+    
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
     
-    // Get existing settings or create new ones
-    let settings = await prisma.settings.findFirst()
-    
-    if (settings) {
-      // Update existing settings
-      settings = await prisma.settings.update({
-        where: { id: settings.id },
-        data: {
-          companyName: body.companyName,
-          email: body.email,
-          phone: body.phone,
-          address: body.address,
-          currency: body.currency,
-          timezone: body.timezone,
-          lowStockThreshold: body.lowStockThreshold,
-          autoReorder: body.autoReorder,
-          emailNotifications: body.emailNotifications,
-          smsNotifications: body.smsNotifications,
-        }
-      })
-    } else {
-      // Create new settings
-      settings = await prisma.settings.create({
-        data: {
-          companyName: body.companyName,
-          email: body.email,
-          phone: body.phone,
-          address: body.address,
-          currency: body.currency,
-          timezone: body.timezone,
-          lowStockThreshold: body.lowStockThreshold,
-          autoReorder: body.autoReorder,
-          emailNotifications: body.emailNotifications,
-          smsNotifications: body.smsNotifications,
-        }
-      })
-    }
-    
-    console.log('Settings updated:', settings)
+    // Update or create client settings
+    const settings = await prisma.clientSettings.upsert({
+      where: { clientId },
+      update: {
+        companyName: body.companyName,
+        email: body.email,
+        phone: body.phone,
+        address: body.address,
+        currency: body.currency,
+        timezone: body.timezone,
+        lowStockThreshold: body.lowStockThreshold,
+        autoReorder: body.autoReorder,
+        emailNotifications: body.emailNotifications,
+        smsNotifications: body.smsNotifications,
+      },
+      create: {
+        clientId,
+        companyName: body.companyName,
+        email: body.email,
+        phone: body.phone,
+        address: body.address,
+        currency: body.currency,
+        timezone: body.timezone,
+        lowStockThreshold: body.lowStockThreshold,
+        autoReorder: body.autoReorder,
+        emailNotifications: body.emailNotifications,
+        smsNotifications: body.smsNotifications,
+      }
+    })
     
     return NextResponse.json(settings)
   } catch (error) {
