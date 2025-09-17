@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(ADMIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  inventoryHistory InventoryHistory[]
+
+  @@map("users")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  sku         String   @unique
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  category    String   // Keep for backward compatibility
+  categoryId  String?  // New foreign key to categories table
+  variations  Json?    // Store product variations as JSON
+  stockLevel  Int      @default(0)
+  minStock    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  inventoryHistory InventoryHistory[]
+  categoryRef      Category? @relation(fields: [categoryId], references: [id])
+
+  @@map("products")
+}
+
+model InventoryHistory {
+  id          String   @id @default(cuid())
+  productId   String
+  quantity    Int      // Positive for additions, negative for subtractions
+  type        InventoryType
+  reason      String?
+  userId      String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@map("inventory_history")
+}
+
+model Settings {
+  id                  String   @id @default(cuid())
+  companyName         String   @default("Retail Catalog & Inventory Management")
+  email               String   @default("admin@company.com")
+  phone               String   @default("+1 (555) 123-4567")
+  address             String   @default("123 Business St, City, State 12345")
+  currency            String   @default("USD")
+  timezone            String   @default("America/New_York")
+  lowStockThreshold   Int      @default(10)
+  autoReorder         Boolean  @default(false)
+  emailNotifications  Boolean  @default(true)
+  smsNotifications    Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  products    Product[]
+
+  @@map("categories")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum InventoryType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  RETURN
+  DAMAGE
+  TRANSFER
+}

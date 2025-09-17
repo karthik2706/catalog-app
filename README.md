@@ -1,36 +1,214 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Retail Catalog & Inventory Management System
 
-## Getting Started
+A comprehensive React + Next.js application for managing retail products and inventory with real-time tracking, reporting, and admin authentication.
 
-First, run the development server:
+## Features
+
+- **Product Management**: Full CRUD operations for products with SKU, pricing, categories, and variations
+- **Inventory Tracking**: Real-time stock level updates with detailed history
+- **Search & Filtering**: Advanced product search with category and price filters
+- **Low Stock Reports**: Automated reporting for products below minimum stock levels
+- **User Authentication**: Secure admin access with JWT-based authentication
+- **Responsive Design**: Material UI components with mobile-friendly interface
+- **Dashboard Analytics**: Overview of inventory metrics and key performance indicators
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript, Material UI
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Database**: PostgreSQL
+- **Authentication**: JWT tokens with bcrypt password hashing
+- **Styling**: Material UI with custom theme
+
+## Prerequisites
+
+- Node.js 18+ 
+- PostgreSQL database
+- npm or yarn package manager
+
+## Local Setup
+
+### 1. Clone and Install Dependencies
+
+```bash
+git clone <repository-url>
+cd catalog-app
+npm install
+```
+
+### 2. Environment Configuration
+
+Create a `.env.local` file in the root directory:
+
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/catalog_app"
+
+# JWT Secret (generate a strong secret for production)
+JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
+
+# NextAuth (if using NextAuth.js)
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-nextauth-secret-key"
+```
+
+### 3. Database Setup
+
+1. Create a PostgreSQL database:
+```sql
+CREATE DATABASE catalog_app;
+```
+
+2. Generate and run Prisma migrations:
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+3. (Optional) Seed the database with sample data:
+```bash
+npx prisma db seed
+```
+
+### 4. Start Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will be available at `http://localhost:3000`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Endpoints
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - User login
 
-## Learn More
+### Products
+- `GET /api/products` - Get all products (with filtering and pagination)
+- `POST /api/products` - Create new product
+- `GET /api/products/[id]` - Get single product
+- `PUT /api/products/[id]` - Update product
+- `DELETE /api/products/[id]` - Soft delete product
 
-To learn more about Next.js, take a look at the following resources:
+### Inventory
+- `POST /api/inventory` - Update inventory levels
+- `GET /api/inventory` - Get inventory history
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Query Parameters for Products API
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `search` - Search by name, SKU, or description
+- `category` - Filter by category
+- `minPrice` / `maxPrice` - Price range filter
+- `inStock` - Show only products with stock > 0
+- `lowStock` - Show only low stock products
+- `sortBy` - Sort by: name, price, stockLevel, createdAt
+- `sortOrder` - Sort order: asc, desc
+- `page` - Page number (default: 1)
+- `limit` - Items per page (default: 10)
 
-## Deploy on Vercel
+## Database Schema
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Products Table
+- `id` - Unique identifier
+- `name` - Product name
+- `sku` - Stock Keeping Unit (unique)
+- `description` - Product description
+- `price` - Product price (decimal)
+- `category` - Product category
+- `variations` - Product variations (JSON)
+- `stockLevel` - Current stock level
+- `minStock` - Minimum stock threshold
+- `isActive` - Product status
+- `createdAt` / `updatedAt` - Timestamps
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Inventory History Table
+- `id` - Unique identifier
+- `productId` - Reference to product
+- `quantity` - Quantity change (positive/negative)
+- `type` - Type of change (PURCHASE, SALE, ADJUSTMENT, etc.)
+- `reason` - Reason for change
+- `userId` - User who made the change
+- `createdAt` - Timestamp
+
+### Users Table
+- `id` - Unique identifier
+- `email` - User email (unique)
+- `password` - Hashed password
+- `name` - User display name
+- `role` - User role (ADMIN, MANAGER, USER)
+- `createdAt` / `updatedAt` - Timestamps
+
+## Deployment
+
+### Vercel Deployment
+
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Set environment variables in Vercel dashboard
+4. Deploy
+
+### Environment Variables for Production
+
+```env
+DATABASE_URL="your-production-database-url"
+JWT_SECRET="your-production-jwt-secret"
+NEXTAUTH_URL="https://your-domain.com"
+NEXTAUTH_SECRET="your-production-nextauth-secret"
+```
+
+### Database Migration
+
+```bash
+npx prisma db push
+```
+
+## Usage
+
+1. **First Time Setup**: Register an admin account
+2. **Add Products**: Use the "Add Product" button to create new products
+3. **Manage Inventory**: Click the inventory icon to update stock levels
+4. **View Reports**: Check the Reports page for low stock alerts
+5. **Search & Filter**: Use the search bar and filters to find specific products
+
+## Features in Detail
+
+### Product Management
+- Create products with detailed information
+- Support for product variations (size, color, etc.)
+- Category-based organization
+- SKU-based identification
+
+### Inventory Tracking
+- Real-time stock level updates
+- Detailed inventory history
+- Multiple inventory change types
+- User attribution for changes
+
+### Reporting
+- Low stock alerts
+- Category-wise analysis
+- Value at risk calculations
+- CSV export functionality
+
+### Security
+- JWT-based authentication
+- Password hashing with bcrypt
+- Role-based access control
+- Secure API endpoints
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
+
+## Support
+
+For support and questions, please open an issue in the GitHub repository.
