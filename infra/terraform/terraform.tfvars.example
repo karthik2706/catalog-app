@@ -1,0 +1,63 @@
+# Stock Mind Visual Search Infrastructure Configuration
+# Copy this file to terraform.tfvars and update with your values
+
+# Basic Configuration
+aws_region  = "us-east-1"
+environment = "dev"
+
+# S3 Configuration
+s3_bucket_name = "your-stock-mind-media-bucket"  # Must be globally unique
+allowed_origins = [
+  "https://your-domain.com",
+  "https://your-app.vercel.app",
+  "http://localhost:3000"  # For development
+]
+
+# SQS Configuration
+sqs_queue_name           = "stock-mind-media-queue"
+sqs_visibility_timeout   = 300      # 5 minutes
+sqs_message_retention    = 1209600  # 14 days
+sqs_receive_wait_time    = 20       # Long polling
+sqs_max_message_size     = 262144   # 256KB
+sqs_max_receive_count    = 3        # Before sending to DLQ
+
+# Monitoring Configuration
+queue_depth_threshold = 1000
+log_retention_days   = 30
+
+# Optional: VPC Configuration
+# vpc_id = "vpc-12345678"  # Leave empty for default VPC
+
+# Optional: Database Configuration
+# database_host = "your-database-host.amazonaws.com"
+# database_port = 5432
+# database_name = "stock_mind"
+
+# Optional: Embedding Service Configuration
+# embedding_service_url = "http://your-embedding-service.com"
+
+# Optional: Notification Configuration
+# notification_email = "alerts@your-domain.com"
+# notification_phone = "+1234567890"
+
+# Optional: Scaling Configuration
+# min_worker_instances = 1
+# max_worker_instances = 10
+# enable_auto_scaling = false
+
+# Optional: Instance Configuration
+# worker_instance_type = "t3.medium"
+# worker_ami_id = "ami-12345678"  # Leave empty for latest Amazon Linux 2
+# worker_key_name = "your-key-pair"
+
+# Optional: Auto Scaling Configuration
+# scale_up_cooldown   = 300
+# scale_down_cooldown = 300
+
+# Additional Tags
+tags = {
+  Project     = "stock-mind"
+  Environment = "dev"
+  Owner       = "your-team"
+  CostCenter  = "engineering"
+}

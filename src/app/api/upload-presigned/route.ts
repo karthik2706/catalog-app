@@ -12,12 +12,16 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
@@ -25,11 +29,26 @@ function getClientIdFromRequest(request: NextRequest): string | null {
   return null
 }
 
+function getClientIdFromRequest(request: NextRequest): string | null {
+  const user = getUserFromRequest(request)
+  if (!user) {
+    return null
+  }
+  
+  // For super admin, we need to get clientId from the request body
+  if (user.role === 'SUPER_ADMIN') {
+    // We'll handle this in the main function
+    return null
+  }
+  
+  return user.clientId || null
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -37,7 +56,27 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { fileName, fileType, fileSize, sku } = body
+    const { fileName, fileType, fileSize, sku, clientId: requestClientId } = body
+
+    // Determine clientId based on user role
+    let clientId: string
+    if (user.role === 'SUPER_ADMIN') {
+      // For super admin, require a clientId in the request body
+      if (!requestClientId) {
+        return NextResponse.json(
+          { error: 'Client ID required for super admin' },
+          { status: 400 }
+        )
+      }
+      clientId = requestClientId
+    } else if (!user.clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    } else {
+      clientId = user.clientId
+    }
 
     if (!fileName || !fileType || !sku) {
       return NextResponse.json(

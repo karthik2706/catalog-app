@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Loading } from '@/components/ui/Loading'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
-import { refreshMediaUrls } from '@/lib/aws'
+// Removed direct import of refreshMediaUrls - now using API endpoint
 import {
   ArrowLeft,
   Edit3,
@@ -89,31 +89,54 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       try {
         console.log('Refreshing media URLs...')
         
-        // Refresh images
-        if (data.images && data.images.length > 0) {
-          console.log('Refreshing', data.images.length, 'images')
-          const refreshedImages = await refreshMediaUrls(data.images)
-          data.images = refreshedImages
-          console.log('Images refreshed successfully')
-        }
+        // Collect all media that needs refreshing
+        const allMedia = [
+          ...(data.images || []),
+          ...(data.videos || []),
+          ...(data.media || [])
+        ]
         
-        // Refresh videos
-        if (data.videos && data.videos.length > 0) {
-          console.log('Refreshing', data.videos.length, 'videos')
-          const refreshedVideos = await refreshMediaUrls(data.videos)
-          data.videos = refreshedVideos
-          console.log('Videos refreshed successfully')
+        if (allMedia.length > 0) {
+          console.log('Refreshing', allMedia.length, 'media items')
+          
+          const response = await fetch('/api/media/refresh-urls', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ media: allMedia })
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            const refreshedMedia = result.media
+            
+            // Separate back into images, videos, and legacy media
+            data.images = refreshedMedia.filter(m => 
+              m.fileType?.startsWith('image/') || 
+              m.type?.startsWith('image/') ||
+              (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
+            )
+            
+            data.videos = refreshedMedia.filter(m => 
+              m.fileType?.startsWith('video/') || 
+              m.type?.startsWith('video/') ||
+              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+            )
+            
+            data.media = refreshedMedia.filter(m => 
+              !m.fileType?.startsWith('image/') && 
+              !m.fileType?.startsWith('video/') &&
+              !m.type?.startsWith('image/') && 
+              !m.type?.startsWith('video/') &&
+              !(m.url && /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov)$/i.test(m.url))
+            )
+            
+            console.log('All media URLs refreshed successfully')
+          } else {
+            console.error('Failed to refresh media URLs:', response.statusText)
+          }
         }
-        
-        // Refresh legacy media
-        if (data.media && data.media.length > 0) {
-          console.log('Refreshing', data.media.length, 'legacy media')
-          const refreshedMedia = await refreshMediaUrls(data.media)
-          data.media = refreshedMedia
-          console.log('Legacy media refreshed successfully')
-        }
-        
-        console.log('All media URLs refreshed successfully')
       } catch (error) {
         console.error('Error refreshing media URLs:', error)
         // Continue with original media if refresh fails
@@ -412,6 +435,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                       onError={(e) => {
                                         console.error('Image load error:', e)
                                         console.error('Image URL:', displayUrl)
+                                        console.error('Media object:', media)
                                       }}
                                       onLoad={() => {
                                         console.log('Image loaded successfully:', displayUrl)

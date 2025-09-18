@@ -3,7 +3,10 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { S3_CONFIG, validateFileType, generateS3Key } from '@/lib/aws'
 import { processImageFile, processVideoFile, uploadToS3 } from '@/lib/s3-upload'
+import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
+import { validateImageSecurity, processImageForSecurity, generateSecureFilename, sanitizeS3Key } from '@/lib/security'
+import { createApiLogger, PerformanceTimer } from '@/lib/log'
 
 // Configure body size limit for file uploads
 export const config = {
@@ -90,6 +93,46 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
+    // Security validation and processing
+    const logger = createApiLogger('/api/upload-media');
+    const timer = new PerformanceTimer('media_upload');
+    
+    // Validate image security
+    const securityValidation = await validateImageSecurity(buffer, file.name, 50 * 1024 * 1024);
+    if (!securityValidation.valid) {
+      logger.warn('Image security validation failed', { 
+        reason: securityValidation.reason,
+        fileName: file.name,
+        clientId 
+      });
+      return NextResponse.json(
+        { error: 'Image validation failed', reason: securityValidation.reason },
+        { status: 400 }
+      );
+    }
+
+    // Process image for security if it's an image
+    let processedBuffer = buffer;
+    if (file.type.startsWith('image/')) {
+      const processedImage = await processImageForSecurity(buffer, {
+        maxWidth: 2048,
+        maxHeight: 2048,
+        quality: 85,
+        stripExif: true,
+        stripMetadata: true,
+      });
+      
+      processedBuffer = processedImage.buffer;
+      
+      logger.info('Image processed for security', {
+        originalSize: buffer.length,
+        processedSize: processedBuffer.length,
+        dimensions: `${processedImage.metadata.width}x${processedImage.metadata.height}`,
+        hasExif: processedImage.metadata.hasExif,
+        clientId,
+      });
+    }
+
     let processedFile
     let uploadResult
 
@@ -98,10 +141,10 @@ export async function POST(request: NextRequest) {
       let fileType: 'image' | 'video' = 'image'
       if (S3_CONFIG.allowedFileTypes.images.includes(file.type)) {
         fileType = 'image'
-        processedFile = await processImageFile(buffer, file.name, file.type)
+        processedFile = await processImageFile(processedBuffer, file.name, file.type)
       } else if (S3_CONFIG.allowedFileTypes.videos.includes(file.type)) {
         fileType = 'video'
-        processedFile = await processVideoFile(buffer, file.name, file.type)
+        processedFile = await processVideoFile(processedBuffer, file.name, file.type)
       } else {
         return NextResponse.json(
           { error: 'Unsupported file type' },
@@ -113,10 +156,100 @@ export async function POST(request: NextRequest) {
       uploadResult = await uploadToS3(processedFile, clientId, sku, fileType)
 
       if (!uploadResult.success) {
+        logger.error('S3 upload failed', { 
+          error: uploadResult.error,
+          fileName: file.name,
+          clientId 
+        });
         return NextResponse.json(
           { error: uploadResult.error || 'Upload failed' },
           { status: 500 }
         )
+      }
+
+      // Log successful upload
+      const uploadDuration = timer.end();
+      logger.logMediaUpload(
+        file.name,
+        processedBuffer.length,
+        file.type,
+        uploadResult.s3Key || 'unknown',
+        clientId
+      );
+
+      // Find the product by SKU to get productId
+      const product = await prisma.product.findFirst({
+        where: {
+          sku: sku,
+          clientId: clientId,
+        },
+        select: {
+          id: true,
+        },
+      })
+
+      if (!product) {
+        console.warn(`Product not found for SKU: ${sku} in client: ${clientId}`)
+        // Continue with upload success but log the warning
+      }
+
+      // Create or upsert Media row for the uploaded file
+      let mediaRow = null
+      if (product && uploadResult.key) {
+        try {
+          // Get image dimensions if it's an image
+          let width: number | undefined
+          let height: number | undefined
+          let durationMs: number | undefined
+
+          if (fileType === 'image') {
+            try {
+              const sharp = require('sharp')
+              const metadata = await sharp(processedFile.buffer).metadata()
+              width = metadata.width
+              height = metadata.height
+            } catch (error) {
+              console.warn('Could not extract image dimensions:', error)
+            }
+          }
+
+          // For videos, duration would need to be extracted using ffmpeg
+          // For now, we'll leave it undefined
+          if (fileType === 'video') {
+            // TODO: Extract video duration using ffmpeg
+            durationMs = undefined
+          }
+
+          mediaRow = await prisma.media.upsert({
+            where: {
+              s3Key: uploadResult.key,
+            },
+            create: {
+              productId: product.id,
+              clientId: clientId,
+              kind: fileType,
+              s3Key: uploadResult.key,
+              width: width,
+              height: height,
+              durationMs: durationMs,
+              status: 'pending',
+            },
+            update: {
+              // Update metadata if the file is re-uploaded
+              width: width,
+              height: height,
+              durationMs: durationMs,
+              status: 'pending', // Reset to pending for reprocessing
+              error: null, // Clear any previous errors
+              updatedAt: new Date(),
+            },
+          })
+
+          console.log(`Created/updated Media row for ${fileType}: ${uploadResult.key}`)
+        } catch (error) {
+          console.error('Failed to create Media row:', error)
+          // Don't fail the upload if Media row creation fails
+        }
       }
 
       return NextResponse.json({
@@ -127,7 +260,16 @@ export async function POST(request: NextRequest) {
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
+        mediaId: mediaRow?.id, // Include Media row ID if created
       })
+
+      // TODO: Backfill Media rows for historical Product.images/videos JSON data
+      // This should be implemented as a separate migration script that:
+      // 1. Iterates through all products with existing images/videos JSON
+      // 2. Creates Media rows for each URL in the JSON arrays
+      // 3. Extracts metadata (width, height, duration) where possible
+      // 4. Sets status to 'completed' for existing media
+      // 5. Generates embeddings for existing media (separate worker process)
 
     } catch (error) {
       console.error('File processing error:', error)

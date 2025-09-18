@@ -11,8 +11,11 @@ import { Input } from '@/components/ui/Input'
 import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { cn, formatCurrency, debounce } from '@/lib/utils'
+import { generateSignedUrl } from '@/lib/aws'
 import { ImportExportModal } from '@/components/ui/ImportExportModal'
 import { MediaPreview } from '@/components/ui/MediaPreview'
+import SearchByImageModal from '@/components/SearchByImageModal'
+import ProductTile from '@/components/ProductTile'
 import {
   Search,
   Filter,
@@ -38,6 +41,22 @@ import { Product, ProductFilters } from '@/types'
 export default function ProductsPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+
+  // Helper function to get display URL for media
+  const getMediaDisplayUrl = async (media: any): Promise<string | null> => {
+    if (media.url) {
+      return media.url
+    }
+    if (media.s3Key) {
+      try {
+        return await generateSignedUrl(media.s3Key, 7 * 24 * 60 * 60) // 7 days
+      } catch (error) {
+        console.error('Error generating signed URL:', error)
+        return null
+      }
+    }
+    return null
+  }
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -49,7 +68,7 @@ export default function ProductsPage() {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(12)
   const [totalProducts, setTotalProducts] = useState(0)
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<Array<{id: string, name: string}>>([])
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false)
@@ -58,6 +77,7 @@ export default function ProductsPage() {
   const [inventoryReason, setInventoryReason] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [importExportModalOpen, setImportExportModalOpen] = useState(false)
+  const [searchByImageModalOpen, setSearchByImageModalOpen] = useState(false)
 
   // Debounced search
   const debouncedSearch = debounce(() => {
@@ -86,6 +106,8 @@ export default function ProductsPage() {
     }
   }, [searchTerm])
 
+  // Note: Media URL generation is now handled by the ProductTile component
+
   const fetchProducts = async () => {
     try {
       setLoading(true)
@@ -110,6 +132,10 @@ export default function ProductsPage() {
         throw new Error(data.error || 'Failed to fetch products')
       }
 
+      console.log('Products data received:', data.products)
+      console.log('First product media:', data.products[0]?.media)
+      console.log('First product images:', data.products[0]?.images)
+      console.log('First product thumbnailUrl:', data.products[0]?.thumbnailUrl)
       setProducts(data.products)
       setTotalProducts(data.pagination.total)
     } catch (err: any) {
@@ -131,8 +157,7 @@ export default function ProductsPage() {
       const data = await response.json()
       
       if (response.ok) {
-        const categoryNames = data.map((cat: any) => cat.name)
-        setCategories(categoryNames)
+        setCategories(data)
       }
     } catch (err) {
       console.error('Error fetching categories:', err)
@@ -227,6 +252,46 @@ export default function ProductsPage() {
     }
   }
 
+  const handleSearchByImage = async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const token = localStorage.getItem('token')
+    
+    // Get tenant slug from JWT token
+    let tenantSlug = 'enterprise' // Default fallback for SUPER_ADMIN
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        if (payload.clientSlug) {
+          tenantSlug = payload.clientSlug
+        } else if (payload.role === 'SUPER_ADMIN') {
+          // For SUPER_ADMIN, use a default tenant
+          tenantSlug = 'enterprise'
+        }
+      } catch (e) {
+        console.warn('Could not parse JWT token for tenant slug')
+      }
+    }
+    
+    const response = await fetch('/api/search/by-image', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'x-tenant-slug': tenantSlug,
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Search failed')
+    }
+
+    const data = await response.json()
+    return data.results || []
+  }
+
   const getStockStatus = (product: Product) => {
     if (product.stockLevel <= 0) {
       return { label: 'Out of Stock', variant: 'error' as const, icon: XCircle }
@@ -266,6 +331,14 @@ export default function ProductsPage() {
             <Button 
               variant="outline" 
               size="sm"
+              onClick={() => setSearchByImageModalOpen(true)}
+            >
+              <Search className="w-4 h-4 mr-2" />
+              Search by Image
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
               onClick={() => setImportExportModalOpen(true)}
             >
               <Download className="w-4 h-4 mr-2" />
@@ -301,8 +374,8 @@ export default function ProductsPage() {
                 >
                   <option value="">All Categories</option>
                   {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
+                    <option key={category.id} value={category.name}>
+                      {category.name}
                     </option>
                   ))}
                 </select>
@@ -365,189 +438,35 @@ export default function ProductsPage() {
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {products.map((product) => {
-              const stockStatus = getStockStatus(product)
-              const StatusIcon = stockStatus.icon
+              // Debug logging for VFJ-NK-0001
+              if (product.sku === 'VFJ-NK-0001') {
+                console.log('Products Page - Passing to ProductTile:', {
+                  product: {
+                    id: product.id,
+                    sku: product.sku,
+                    name: product.name,
+                    thumbnailUrl: product.thumbnailUrl,
+                    images: product.images,
+                    videos: product.videos,
+                    media: product.media
+                  },
+                  imagesType: typeof product.images,
+                  imagesLength: product.images?.length,
+                  firstImage: product.images?.[0],
+                  firstImageType: typeof product.images?.[0]
+                })
+              }
               
               return (
-                <Card key={product.id} className="card-hover group">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-                        <Package className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="flex space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/products/${product.id}`)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/products/${product.id}/edit`)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedProduct(product)
-                            setInventoryModalOpen(true)
-                          }}
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {/* Product Media */}
-                      <div className="w-full h-32 bg-slate-100 rounded-lg overflow-hidden">
-                        {(() => {
-                          // Get all media (images, videos, legacy media)
-                          const allImages = [
-                            ...(product.images || []),
-                            ...(product.media?.filter(m => 
-                              m.fileType?.startsWith('image/') || 
-                              m.type?.startsWith('image/') ||
-                              (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
-                            ) || [])
-                          ]
-                          const allVideos = [
-                            ...(product.videos || []),
-                            ...(product.media?.filter(m => 
-                              m.fileType?.startsWith('video/') || 
-                              m.type?.startsWith('video/') ||
-                              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
-                            ) || [])
-                          ]
-                          const allMedia = [...allImages, ...allVideos]
-                          
-                          // Show thumbnail first, then first image, then first video
-                          const displayMedia = product.thumbnailUrl || 
-                            allImages[0]?.url || 
-                            allVideos[0]?.url || 
-                            allMedia[0]?.url
-                          
-                          if (!displayMedia) {
-                            return (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Package className="w-8 h-8 text-slate-400" />
-                              </div>
-                            )
-                          }
-                          
-                          const isVideo = allVideos.some(v => v.url === displayMedia) || 
-                            displayMedia.includes('.mp4') || 
-                            displayMedia.includes('.webm')
-                          
-                          if (isVideo) {
-                            return (
-                              <video
-                                src={displayMedia}
-                                className="w-full h-full object-cover"
-                                muted
-                                loop
-                                playsInline
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none'
-                                  e.currentTarget.nextElementSibling.style.display = 'flex'
-                                }}
-                              />
-                            )
-                          } else {
-                            return (
-                              <img
-                                src={displayMedia}
-                                alt={product.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none'
-                                  e.currentTarget.nextElementSibling.style.display = 'flex'
-                                }}
-                              />
-                            )
-                          }
-                        })()}
-                        
-                        {/* Fallback icon */}
-                        <div className="w-full h-full flex items-center justify-center hidden">
-                          <Package className="w-8 h-8 text-slate-400" />
-                        </div>
-                        
-                        {/* Media count indicator */}
-                        {(() => {
-                          const imageCount = (product.images || []).length + 
-                            (product.media?.filter(m => 
-                              m.fileType?.startsWith('image/') || 
-                              m.type?.startsWith('image/') ||
-                              (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
-                            ) || []).length
-                          const videoCount = (product.videos || []).length + 
-                            (product.media?.filter(m => 
-                              m.fileType?.startsWith('video/') || 
-                              m.type?.startsWith('video/') ||
-                              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
-                            ) || []).length
-                          const totalCount = imageCount + videoCount
-                          
-                          if (totalCount > 1) {
-                            return (
-                              <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                                {imageCount > 0 && `${imageCount}📷`}
-                                {imageCount > 0 && videoCount > 0 && ' '}
-                                {videoCount > 0 && `${videoCount}🎥`}
-                              </div>
-                            )
-                          }
-                          return null
-                        })()}
-                      </div>
-                      
-                      <div>
-                        <h3 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors">
-                          {product.name}
-                        </h3>
-                        <p className="text-sm text-slate-500 mt-1">
-                          SKU: {product.sku}
-                        </p>
-                        {product.description && (
-                          <p className="text-sm text-slate-600 mt-2 line-clamp-2">
-                            {product.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <Badge variant="default" size="sm">
-                          {product.category}
-                        </Badge>
-                        <Badge variant={stockStatus.variant} size="sm">
-                          <StatusIcon className="w-3 h-3 mr-1" />
-                          {stockStatus.label}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-2xl font-bold text-slate-900">
-                            {formatCurrency(Number(product.price), clientCurrency)}
-                          </p>
-                          <p className="text-sm text-slate-500">
-                            Stock: {product.stockLevel}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-slate-500">Min Stock</p>
-                          <p className="font-medium text-slate-900">{product.minStock}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <ProductTile
+                  key={product.id}
+                  product={product}
+                  clientCurrency={clientCurrency}
+                  onInventoryClick={(product) => {
+                    setSelectedProduct(product)
+                    setInventoryModalOpen(true)
+                  }}
+                />
               )
             })}
           </div>
@@ -575,103 +494,9 @@ export default function ProductsPage() {
                       <tr key={product.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
-                            {(() => {
-                              // Get all media (images, videos, legacy media)
-                              const allImages = [
-                                ...(product.images || []),
-                                ...(product.media?.filter(m => 
-                                  m.fileType?.startsWith('image/') || 
-                                  m.type?.startsWith('image/') ||
-                                  (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
-                                ) || [])
-                              ]
-                              const allVideos = [
-                                ...(product.videos || []),
-                                ...(product.media?.filter(m => 
-                                  m.fileType?.startsWith('video/') || 
-                                  m.type?.startsWith('video/') ||
-                                  (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
-                                ) || [])
-                              ]
-                              const allMedia = [...allImages, ...allVideos]
-                              
-                              // Show thumbnail first, then first image, then first video
-                              const displayMedia = product.thumbnailUrl || 
-                                allImages[0]?.url || 
-                                allVideos[0]?.url || 
-                                allMedia[0]?.url
-                              
-                              if (!displayMedia) {
-                                return (
-                                  <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
-                                    <Package className="w-5 h-5 text-white" />
-                                  </div>
-                                )
-                              }
-                              
-                              const isVideo = allVideos.some(v => v.url === displayMedia) || 
-                                displayMedia.includes('.mp4') || 
-                                displayMedia.includes('.webm')
-                              
-                              return (
-                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
-                                  {isVideo ? (
-                                    <video
-                                      src={displayMedia}
-                                      className="w-full h-full object-cover"
-                                      muted
-                                      loop
-                                      playsInline
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none'
-                                        e.currentTarget.nextElementSibling.style.display = 'flex'
-                                      }}
-                                    />
-                                  ) : (
-                                    <img
-                                      src={displayMedia}
-                                      alt={product.name}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none'
-                                        e.currentTarget.nextElementSibling.style.display = 'flex'
-                                      }}
-                                    />
-                                  )}
-                                  
-                                  {/* Fallback icon */}
-                                  <div className="w-full h-full bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center hidden">
-                                    <Package className="w-5 h-5 text-white" />
-                                  </div>
-                                  
-                                  {/* Media count indicator */}
-                                  {(() => {
-                                    const imageCount = (product.images || []).length + 
-                                      (product.media?.filter(m => 
-                                        m.fileType?.startsWith('image/') || 
-                                        m.type?.startsWith('image/') ||
-                                        (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
-                                      ) || []).length
-                                    const videoCount = (product.videos || []).length + 
-                                      (product.media?.filter(m => 
-                                        m.fileType?.startsWith('video/') || 
-                                        m.type?.startsWith('video/') ||
-                                        (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
-                                      ) || []).length
-                                    const totalCount = imageCount + videoCount
-                                    
-                                    if (totalCount > 1) {
-                                      return (
-                                        <div className="absolute -top-1 -right-1 bg-black/70 text-white text-xs px-1 py-0.5 rounded text-[10px]">
-                                          {totalCount}
-                                        </div>
-                                      )
-                                    }
-                                    return null
-                                  })()}
-                                </div>
-                              )
-                            })()}
+                            <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                              <Package className="w-5 h-5 text-white" />
+                            </div>
                             <div>
                               <p className="font-medium text-slate-900">{product.name}</p>
                               {product.description && (
@@ -856,6 +681,13 @@ export default function ProductsPage() {
           products={products}
           onImport={handleImportProducts}
           onExport={() => {}}
+        />
+
+        {/* Search by Image Modal */}
+        <SearchByImageModal
+          isOpen={searchByImageModalOpen}
+          onClose={() => setSearchByImageModalOpen(false)}
+          onSearch={handleSearchByImage}
         />
       </div>
     </DashboardLayout>

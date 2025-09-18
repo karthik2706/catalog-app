@@ -692,6 +692,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                           acceptedTypes={['image/*', 'video/*']}
                           maxSize={50 * 1024 * 1024} // 50MB
                           className="w-full"
+                          clientId={product?.clientId}
                         />
                         
                         {/* Debug: Show current mediaFiles state */}

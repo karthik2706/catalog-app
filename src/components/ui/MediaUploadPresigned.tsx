@@ -6,6 +6,7 @@ import { MediaFile } from './MediaUploadNew'
 import { Button } from './Button'
 import { Loading } from './Loading'
 import { S3_CONFIG } from '@/lib/aws'
+import { useAuth } from '@/components/AuthProvider'
 import { 
   Upload, 
   X, 
@@ -25,6 +26,7 @@ interface MediaUploadPresignedProps {
   acceptedTypes?: string[]
   maxSize?: number
   className?: string
+  clientId?: string // For SUPER_ADMIN users
 }
 
 export function MediaUploadPresigned({ 
@@ -34,8 +36,10 @@ export function MediaUploadPresigned({
   maxFiles = 10, 
   acceptedTypes = ['image/*', 'video/*'],
   maxSize = 50 * 1024 * 1024,
-  className = '' 
+  className = '',
+  clientId: propClientId
 }: MediaUploadPresignedProps) {
+  const { token, user } = useAuth()
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
 
@@ -84,10 +88,30 @@ export function MediaUploadPresigned({
     // Start uploading files with the updated files list
     console.log('Starting upload process...')
     await uploadFiles(newMediaFiles, updatedFiles)
-  }, [files, onFilesChange, sku])
+  }, [files, onFilesChange, sku, token, user, propClientId])
 
   const uploadFiles = async (filesToUpload: MediaFile[], currentFilesList: MediaFile[]) => {
     console.log('uploadFiles called with:', filesToUpload.length, 'files')
+    console.log('Current token:', token ? 'Present' : 'Missing')
+    console.log('Token from localStorage:', localStorage.getItem('token') ? 'Present' : 'Missing')
+    
+    // Check if user is authenticated - try context token first, then localStorage
+    const authToken = token || localStorage.getItem('token')
+    if (!authToken) {
+      console.error('No authentication token available')
+      const errorFiles = filesToUpload.map(f => ({
+        ...f,
+        uploading: false,
+        error: 'Authentication required. Please log in.'
+      }))
+      const updatedFiles = currentFilesList.map(f => {
+        const errorFile = errorFiles.find(ef => ef.id === f.id)
+        return errorFile || f
+      })
+      onFilesChange(updatedFiles)
+      return
+    }
+    
     setUploading(true)
     
     // Use the provided current files list instead of the component state
@@ -106,17 +130,24 @@ export function MediaUploadPresigned({
 
         // Get pre-signed URL
         console.log('Requesting pre-signed URL for:', mediaFile.file.name)
+        // Determine clientId for the request
+        let requestClientId = undefined
+        if (user?.role === 'SUPER_ADMIN' && propClientId) {
+          requestClientId = propClientId
+        }
+
         const presignedResponse = await fetch('/api/upload-presigned', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${authToken}`,
           },
           body: JSON.stringify({
             fileName: mediaFile.file.name,
             fileType: mediaFile.file.type,
             fileSize: mediaFile.file.size,
             sku: sku,
+            ...(requestClientId && { clientId: requestClientId }),
           }),
         })
 
@@ -147,9 +178,10 @@ export function MediaUploadPresigned({
           throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
         }
 
-        // Generate the final URL using the S3_CONFIG
-        const finalUrl = `https://${S3_CONFIG.bucket}.s3.${S3_CONFIG.region}.amazonaws.com/${key}`
-        console.log('Generated final URL:', finalUrl)
+        // Use the signed URL directly from the server response (it already has the correct region)
+        // Remove the query parameters to get the clean S3 URL
+        const finalUrl = signedUrl.split('?')[0]
+        console.log('Using signed URL as final URL:', finalUrl)
 
         // Update file status to uploaded
         currentFiles = currentFiles.map(f => {

@@ -69,6 +69,7 @@ model Client {
   categories  Category[]
   settings    ClientSettings?
   inventoryHistory InventoryHistory[]
+  media       Media[]
 
   @@map("clients")
 }
@@ -128,8 +129,7 @@ model Product {
   isActive    Boolean  @default(true)
   clientId    String   // Required for multi-tenancy
   
-  // Media fields
-  media       Json?    // Array of media URLs and metadata (images and videos)
+  // Media fields (legacy - kept for backward compatibility)
   images      Json?    // Array of image URLs and metadata
   videos      Json?    // Array of video URLs and metadata
   thumbnailUrl String? // Primary thumbnail URL
@@ -142,6 +142,7 @@ model Product {
   inventoryHistory InventoryHistory[]
   categoryRef      Category?         @relation(fields: [categoryId], references: [id])
   categories       ProductCategory[] // Many-to-many relationship with categories
+  media            Media[]
 
   // Ensure SKU is unique within a client
   @@unique([sku, clientId])
@@ -225,4 +226,61 @@ enum InventoryType {
   RETURN
   DAMAGE
   TRANSFER
+}
+
+// Visual Search Models
+model Media {
+  id          BigInt   @id @default(autoincrement())
+  productId   String   // FK to products(id) - using cuid
+  clientId    String   // FK to clients(id) - for tenant isolation
+  kind        String   // 'image' or 'video'
+  s3Key       String   @unique
+  width       Int?
+  height      Int?
+  durationMs  Int?     // For videos
+  status      String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  imageEmbedding  ImageEmbedding?
+  videoFrames     VideoFrame[]
+
+  @@map("media")
+}
+
+model ImageEmbedding {
+  mediaId    BigInt @id
+  embedding  Unsupported("vector") // VECTOR(512) - pgvector type
+
+  // Relations
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@map("image_embeddings")
+}
+
+model VideoFrame {
+  id         BigInt @id @default(autoincrement())
+  mediaId    BigInt
+  tsMs       Int    // Timestamp in milliseconds
+  frameS3Key String
+
+  // Relations
+  media           Media            @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  frameEmbedding  FrameEmbedding?
+
+  @@map("video_frames")
+}
+
+model FrameEmbedding {
+  frameId    BigInt @id
+  embedding  Unsupported("vector") // VECTOR(512) - pgvector type
+
+  // Relations
+  frame VideoFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
+
+  @@map("frame_embeddings")
 }

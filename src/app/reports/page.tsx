@@ -327,8 +327,8 @@ export default function ReportsPage() {
                   className="input w-full"
                 >
                   <option value="">All Categories</option>
-                  {Object.keys(report?.categories || {}).map((category) => (
-                    <option key={category} value={category}>
+                  {Object.keys(report?.categories || {}).map((category, index) => (
+                    <option key={`${category}-${index}`} value={category}>
                       {category} ({report?.categories[category]})
                     </option>
                   ))}

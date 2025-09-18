@@ -3,7 +3,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 // AWS S3 Configuration
 export const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
+  region: process.env.AWS_REGION || 'us-east-2',
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
@@ -11,7 +11,7 @@ export const s3Client = new S3Client({
 })
 
 export const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'quick-stock-media'
-export const AWS_REGION = process.env.AWS_REGION || 'us-east-1'
+export const AWS_REGION = process.env.AWS_REGION || 'us-east-2'
 
 // S3 Configuration Constants
 export const S3_CONFIG = {
@@ -30,6 +30,15 @@ export const S3_CONFIG = {
     thumbnailWidth: 300,
     thumbnailHeight: 300,
   },
+}
+
+// Function to get current S3 configuration (useful for client-side components)
+export function getCurrentS3Config() {
+  return {
+    bucket: process.env.S3_BUCKET_NAME || 'quick-stock-media',
+    region: process.env.AWS_REGION || 'us-east-1',
+    baseUrl: `https://${process.env.S3_BUCKET_NAME || 'quick-stock-media'}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com`,
+  }
 }
 
 // File validation helper
@@ -99,6 +108,15 @@ export function generateProductMediaFolder(clientId: string, sku: string): strin
 // Generate signed URL for private files
 export async function generateSignedUrl(key: string, expiresIn: number = 3600, region?: string): Promise<string> {
   try {
+    console.log('Generating signed URL for:', {
+      key,
+      expiresIn,
+      region,
+      bucket: S3_BUCKET_NAME,
+      hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+      hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY
+    })
+    
     // Use the provided region or default to the configured region
     const targetRegion = region || AWS_REGION
     
@@ -115,9 +133,23 @@ export async function generateSignedUrl(key: string, expiresIn: number = 3600, r
       Bucket: S3_BUCKET_NAME,
       Key: key,
     })
-    return await getSignedUrl(client, command, { expiresIn })
+    
+    const signedUrl = await getSignedUrl(client, command, { expiresIn })
+    console.log('Generated signed URL successfully:', {
+      key,
+      signedUrl: signedUrl.substring(0, 100) + '...',
+      hasSignature: signedUrl.includes('X-Amz-Signature')
+    })
+    
+    return signedUrl
   } catch (error: any) {
-    console.error('Error generating signed URL:', error)
+    console.error('Error generating signed URL:', {
+      key,
+      error: error.message,
+      stack: error.stack,
+      bucket: S3_BUCKET_NAME,
+      region: region || AWS_REGION
+    })
     throw new Error(`Failed to generate signed URL: ${error.message}`)
   }
 }
@@ -176,9 +208,11 @@ export async function refreshMediaUrls(media: any[]): Promise<any[]> {
             if (shouldRefresh) {
               console.log(`Refreshing URLs for item ${index} with key:`, item.key)
               
-              // Extract region from existing URL if available
-              const region = item.url ? extractRegionFromUrl(item.url) : null
-              console.log(`Item ${index} region:`, region || 'default')
+              // Always use the current configured region instead of extracting from old URL
+              const region = AWS_REGION // Use current configured region
+              console.log(`Item ${index} using current region:`, region)
+              console.log(`AWS_REGION constant value:`, AWS_REGION)
+              console.log(`process.env.AWS_REGION:`, process.env.AWS_REGION)
               
               const newUrl = await generateSignedUrl(item.key, 7 * 24 * 60 * 60, region) // 7 days
               const newThumbnailUrl = item.thumbnailKey 

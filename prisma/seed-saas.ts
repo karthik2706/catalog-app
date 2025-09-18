@@ -75,7 +75,6 @@ async function main() {
         email: client.email,
         phone: client.phone,
         address: client.address,
-        currency: 'USD',
         timezone: 'America/New_York',
         lowStockThreshold: 10,
         autoReorder: false,
@@ -113,21 +112,24 @@ async function main() {
     ]
 
     for (const categoryData of categories) {
-      await prisma.category.upsert({
+      const existingCategory = await prisma.category.findFirst({
         where: {
-          name_clientId: {
-            name: categoryData.name,
-            clientId: client.id,
-          }
-        },
-        update: {},
-        create: {
           name: categoryData.name,
-          description: categoryData.description,
           clientId: client.id,
-          isActive: true,
-        },
+          parentId: null,
+        }
       })
+
+      if (!existingCategory) {
+        await prisma.category.create({
+          data: {
+            name: categoryData.name,
+            description: categoryData.description,
+            clientId: client.id,
+            isActive: true,
+          },
+        })
+      }
     }
 
     // Create sample products for each client

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { CreateProductRequest, ProductFilters } from '@/types'
 import jwt from 'jsonwebtoken'
+import { generateSignedUrl } from '@/lib/aws'
 
 interface JWTPayload {
   userId: string
@@ -26,6 +27,178 @@ function getUserFromRequest(request: NextRequest): { userId: string; role: strin
     }
   }
   return null
+}
+
+// Helper function to process media and generate signed URLs
+async function processMediaWithUrls(products: any[]): Promise<any[]> {
+  console.log('processMediaWithUrls called with:', {
+    productCount: products.length,
+    productsWithMedia: products.filter(p => p.media && p.media.length > 0).length,
+    productsWithLegacyImages: products.filter(p => p.images && p.images.length > 0).length
+  })
+  
+  const processedProducts = await Promise.all(
+    products.map(async (product) => {
+      console.log('Processing product:', {
+        sku: product.sku,
+        hasMedia: !!(product.media && product.media.length > 0),
+        hasLegacyImages: !!(product.images && product.images.length > 0),
+        mediaCount: product.media?.length || 0,
+        legacyImageCount: product.images?.length || 0
+      })
+      
+      let processedMedia = []
+      let processedImages = []
+      let processedVideos = []
+      
+      // Process new media table
+      if (product.media && product.media.length > 0) {
+        processedMedia = await Promise.all(
+          product.media.map(async (media: any) => {
+            try {
+              const signedUrl = await generateSignedUrl(media.s3Key, 7 * 24 * 60 * 60) // 7 days
+              console.log('Generated signed URL for new media:', {
+                s3Key: media.s3Key,
+                signedUrl: signedUrl,
+                isSigned: signedUrl.includes('X-Amz-Signature'),
+                hasSignature: signedUrl.includes('X-Amz-Signature')
+              })
+              
+              // Ensure we have a valid signed URL
+              if (!signedUrl || !signedUrl.includes('X-Amz-Signature')) {
+                throw new Error('Generated URL is not properly signed')
+              }
+              
+              return {
+                ...media,
+                url: signedUrl,
+                key: media.s3Key, // Map s3Key to key for compatibility
+                fileName: media.s3Key.split('/').pop() || 'unknown', // Extract filename from s3Key
+                fileType: media.kind === 'image' ? 'image/jpeg' : 'video/mp4', // Default types
+                fileSize: 0, // Not stored in Media table
+                uploadedAt: media.createdAt,
+                id: media.id.toString() // Convert BigInt to string
+              }
+            } catch (error) {
+              console.error('Error generating signed URL for media:', {
+                s3Key: media.s3Key,
+                error: error.message,
+                stack: error.stack
+              })
+              return {
+                ...media,
+                url: null,
+                key: media.s3Key,
+                fileName: media.s3Key.split('/').pop() || 'unknown',
+                fileType: media.kind === 'image' ? 'image/jpeg' : 'video/mp4',
+                fileSize: 0,
+                uploadedAt: media.createdAt,
+                id: media.id.toString()
+              }
+            }
+          })
+        )
+        
+        // Separate images and videos for backward compatibility
+        processedImages = processedMedia.filter(m => m.kind === 'image')
+        processedVideos = processedMedia.filter(m => m.kind === 'video')
+      }
+      
+      // Process legacy images field
+      if (product.images && product.images.length > 0) {
+        console.log('Processing legacy images for', product.sku, ':', product.images)
+        processedImages = await Promise.all(
+          product.images.map(async (image: any) => {
+            try {
+              // Always generate a new signed URL for security and consistency
+              const s3Key = image.key || image.s3Key
+              if (s3Key) {
+                const signedUrl = await generateSignedUrl(s3Key, 7 * 24 * 60 * 60) // 7 days
+                console.log('Generated signed URL for legacy image:', {
+                  s3Key: s3Key,
+                  signedUrl: signedUrl.substring(0, 100) + '...',
+                  isSigned: signedUrl.includes('X-Amz-Signature')
+                })
+                
+                return {
+                  ...image,
+                  url: signedUrl
+                }
+              }
+              
+              // If no s3Key, return original image
+              return image
+            } catch (error) {
+              console.error('Error processing legacy image:', {
+                image: image,
+                error: error.message
+              })
+              return image
+            }
+          })
+        )
+      }
+      
+      // Process legacy videos field
+      if (product.videos && product.videos.length > 0) {
+        console.log('Processing legacy videos for', product.sku, ':', product.videos)
+        processedVideos = await Promise.all(
+          product.videos.map(async (video: any) => {
+            try {
+              // Always generate a new signed URL for security and consistency
+              const s3Key = video.key || video.s3Key
+              if (s3Key) {
+                const signedUrl = await generateSignedUrl(s3Key, 7 * 24 * 60 * 60) // 7 days
+                console.log('Generated signed URL for legacy video:', {
+                  s3Key: s3Key,
+                  signedUrl: signedUrl.substring(0, 100) + '...',
+                  isSigned: signedUrl.includes('X-Amz-Signature')
+                })
+                
+                return {
+                  ...video,
+                  url: signedUrl
+                }
+              }
+              
+              // If no s3Key, return original video
+              return video
+            } catch (error) {
+              console.error('Error processing legacy video:', {
+                video: video,
+                error: error.message
+              })
+              return video
+            }
+          })
+        )
+      }
+      
+      const result = {
+        ...product,
+        media: processedMedia,
+        images: processedImages,
+        videos: processedVideos
+      }
+      
+      // Debug logging for KB-002
+      if (product.sku === 'KB-002') {
+        console.log('Final result for KB-002:', {
+          sku: result.sku,
+          images: result.images,
+          videos: result.videos,
+          media: result.media,
+          processedImagesLength: processedImages.length,
+          processedVideosLength: processedVideos.length,
+          processedMediaLength: processedMedia.length
+        })
+      }
+      
+      return result
+    })
+  )
+  
+  return processedProducts
 }
 
 // GET /api/products - Get all products with filtering and pagination
@@ -109,24 +282,7 @@ export async function GET(request: NextRequest) {
           orderBy,
           skip,
           take,
-          select: {
-            id: true,
-            name: true,
-            sku: true,
-            description: true,
-            price: true,
-            category: true,
-            categoryId: true,
-            variations: true,
-            stockLevel: true,
-            minStock: true,
-            isActive: true,
-            images: true,
-            videos: true,
-            media: true,
-            thumbnailUrl: true,
-            createdAt: true,
-            updatedAt: true,
+          include: {
             categoryRef: {
               select: {
                 id: true,
@@ -160,11 +316,69 @@ export async function GET(request: NextRequest) {
         prisma.product.count({ where })
       ])
 
+      // Fetch media data separately and attach to products
+      const productIds = allProducts.map(p => p.id)
+      console.log('Fetching media for product IDs:', productIds)
+      
+      const mediaData = productIds.length > 0 ? await prisma.media.findMany({
+        where: {
+          productId: { in: productIds }
+        },
+        select: {
+          id: true,
+          productId: true,
+          kind: true,
+          s3Key: true,
+          width: true,
+          height: true,
+          durationMs: true,
+          status: true,
+          error: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }) : []
+
+      console.log('Raw media data from database:', {
+        mediaCount: mediaData.length,
+        mediaData: mediaData.map(m => ({ id: m.id, productId: m.productId, kind: m.kind, s3Key: m.s3Key }))
+      })
+
+      // Group media by productId
+      const mediaByProduct = mediaData.reduce((acc, media) => {
+        if (!acc[media.productId]) {
+          acc[media.productId] = []
+        }
+        acc[media.productId].push(media)
+        return acc
+      }, {} as Record<string, any[]>)
+
+      console.log('Media grouped by product:', mediaByProduct)
+
+      // Attach media to products
+      const productsWithMedia = allProducts.map(product => ({
+        ...product,
+        media: mediaByProduct[product.id] || []
+      }))
+
+      console.log('Products with media attached:', {
+        productCount: productsWithMedia.length,
+        firstProduct: {
+          id: productsWithMedia[0]?.id,
+          sku: productsWithMedia[0]?.sku,
+          mediaCount: productsWithMedia[0]?.media?.length,
+          media: productsWithMedia[0]?.media,
+          images: productsWithMedia[0]?.images,
+          videos: productsWithMedia[0]?.videos,
+          thumbnailUrl: productsWithMedia[0]?.thumbnailUrl
+        }
+      })
+
       // Filter for low stock items if requested
-      let products = allProducts
+      let products = productsWithMedia
       let filteredTotal = total
       if (filters.lowStock) {
-        products = allProducts.filter(product => 
+        products = productsWithMedia.filter(product => 
           product.stockLevel !== null && 
           product.minStock !== null && 
           product.stockLevel <= product.minStock
@@ -172,8 +386,23 @@ export async function GET(request: NextRequest) {
         filteredTotal = products.length
       }
 
+      // Process media to generate signed URLs
+      console.log('Processing products for media URLs:', {
+        productCount: products.length,
+        productsWithMedia: products.filter(p => p.media && p.media.length > 0).length,
+        firstProductMedia: products[0]?.media
+      })
+      const processedProducts = await processMediaWithUrls(products)
+      console.log('Processed products:', {
+        processedCount: processedProducts.length,
+        firstProcessedMedia: processedProducts[0]?.media,
+        firstProductImages: processedProducts[0]?.images,
+        firstProductVideos: processedProducts[0]?.videos,
+        firstProductThumbnail: processedProducts[0]?.thumbnailUrl
+      })
+
       return NextResponse.json({
-        products,
+        products: processedProducts,
         pagination: {
           page: filters.page || 1,
           limit: filters.limit || 10,
