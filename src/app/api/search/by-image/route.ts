@@ -10,6 +10,7 @@ import { validateImageSecurity, processImageForSecurity } from '@/lib/security';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const EMBEDDING_SERVICE_URL = process.env.EMBEDDING_SERVICE_URL || 'http://localhost:8000';
+const EMBEDDING_HEALTH_URL = `${EMBEDDING_SERVICE_URL}/healthz`;
 
 interface EmbeddingResponse {
   embedding: number[];
@@ -220,7 +221,7 @@ async function handleSearchByImage(request: NextRequest, user: JWTPayload) {
     );
 
     // Return search results
-    return NextResponse.json({
+    const response: any = {
       success: true,
       results: enrichedResults,
       total: enrichedResults.length,
@@ -231,7 +232,20 @@ async function handleSearchByImage(request: NextRequest, user: JWTPayload) {
         model: embeddingResponse.model,
         device: embeddingResponse.device,
       }
-    });
+    };
+
+    // Include raw scores in development
+    if (process.env.NODE_ENV !== 'production') {
+      response.debug = {
+        rawScores: enrichedResults.map(r => ({
+          productName: r.productName,
+          rawScore: r.score,
+          similarityPercent: r.similarityPercent
+        }))
+      };
+    }
+
+    return NextResponse.json(response);
 
   } catch (error: any) {
     const totalDuration = timer.end();

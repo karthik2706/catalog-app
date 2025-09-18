@@ -296,7 +296,12 @@ export default function SearchByImageModal({ isOpen, onClose, onSearch }: Search
                             )}
                           </div>
                           <p className="text-xs text-gray-500 mt-1">
-                            Similarity: {Math.round(Math.abs(result.score) * 100)}%
+                            Similarity: {Math.min(100, Math.max(0, Math.round((1 - result.score) * 50)))}%
+                            {process.env.NODE_ENV !== 'production' && (
+                              <span className="block text-xs text-gray-400">
+                                score: {result.score.toFixed(4)}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>

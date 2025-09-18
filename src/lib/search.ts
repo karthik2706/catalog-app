@@ -5,6 +5,7 @@ export interface SearchResult {
   productId: string;
   productName: string;
   score: number;
+  similarityPercent: number;
   match: {
     type: 'image' | 'video';
     tsMs?: number;
@@ -16,6 +17,7 @@ export interface ImageMatch {
   productId: string;
   productName: string;
   score: number;
+  similarityPercent: number;
   s3Key: string;
   width?: number;
   height?: number;
@@ -58,6 +60,7 @@ export async function searchSimilarImages(
       p.id as "productId",
       p.name as "productName",
       ie.embedding <#> $1::vector as score,
+      ((1 - (ie.embedding <#> $1::vector)) * 50) as "similarityPercent",
       m."s3Key",
       m.width,
       m.height
@@ -72,7 +75,12 @@ export async function searchSimilarImages(
 
   try {
     const result = await query<ImageMatch>(sql, [embeddingArray, clientId, limit]);
-    return result.rows;
+    
+    // Filter out poor matches (similarityPercent < 60 means very different)
+    const filteredResults = result.rows.filter(match => match.similarityPercent >= 60);
+    
+    // If we have good matches, return them; otherwise return the best available
+    return filteredResults.length > 0 ? filteredResults : result.rows.slice(0, 3);
   } catch (error) {
     console.error('Error searching similar images:', error);
     throw new Error('Failed to search similar images');
@@ -157,11 +165,12 @@ export async function searchSimilarProducts(
     for (const match of imageMatches) {
       const existing = productMap.get(match.productId);
       
-      if (!existing || match.score > existing.score) {
+      if (!existing || match.score < existing.score) {
         productMap.set(match.productId, {
           productId: match.productId,
           productName: match.productName,
           score: match.score,
+          similarityPercent: match.similarityPercent,
           match: {
             type: 'image',
             thumbUrl: match.s3Key, // This would need to be converted to full URL
@@ -174,7 +183,7 @@ export async function searchSimilarProducts(
     for (const match of videoMatches) {
       const existing = productMap.get(match.productId);
       
-      if (!existing || match.score > existing.score) {
+      if (!existing || match.score < existing.score) {
         productMap.set(match.productId, {
           productId: match.productId,
           productName: match.productName,
@@ -188,9 +197,9 @@ export async function searchSimilarProducts(
       }
     }
 
-    // Convert to array and sort by score (higher is better for cosine similarity)
+    // Convert to array and sort by score (lower is better for negative cosine similarity)
     const results = Array.from(productMap.values())
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => a.score - b.score)
       .slice(0, limit);
 
     return results;

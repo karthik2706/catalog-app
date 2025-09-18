@@ -20,6 +20,7 @@
     "e2e:test": "tsx scripts/e2e_visual_search_check.ts",
     "e2e:cleanup": "tsx scripts/e2e_visual_search_check.ts --cleanup-only",
     "backfill:media": "tsx scripts/backfill_media_from_products.ts",
+    "reembed": "tsx scripts/reembed_all.ts",
     "create:users": "tsx scripts/create-test-users.ts",
     "postinstall": "prisma generate"
   },
