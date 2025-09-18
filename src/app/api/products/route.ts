@@ -109,7 +109,24 @@ export async function GET(request: NextRequest) {
           orderBy,
           skip,
           take,
-          include: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            description: true,
+            price: true,
+            category: true,
+            categoryId: true,
+            variations: true,
+            stockLevel: true,
+            minStock: true,
+            isActive: true,
+            images: true,
+            videos: true,
+            media: true,
+            thumbnailUrl: true,
+            createdAt: true,
+            updatedAt: true,
             categoryRef: {
               select: {
                 id: true,

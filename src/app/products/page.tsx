@@ -405,18 +405,107 @@ export default function ProductsPage() {
 
                     <div className="space-y-3">
                       {/* Product Media */}
-                      {product.thumbnailUrl && (
-                        <div className="w-full h-32 bg-slate-100 rounded-lg overflow-hidden">
-                          <img
-                            src={product.thumbnailUrl}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none'
-                            }}
-                          />
+                      <div className="w-full h-32 bg-slate-100 rounded-lg overflow-hidden">
+                        {(() => {
+                          // Get all media (images, videos, legacy media)
+                          const allImages = [
+                            ...(product.images || []),
+                            ...(product.media?.filter(m => 
+                              m.fileType?.startsWith('image/') || 
+                              m.type?.startsWith('image/') ||
+                              (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
+                            ) || [])
+                          ]
+                          const allVideos = [
+                            ...(product.videos || []),
+                            ...(product.media?.filter(m => 
+                              m.fileType?.startsWith('video/') || 
+                              m.type?.startsWith('video/') ||
+                              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+                            ) || [])
+                          ]
+                          const allMedia = [...allImages, ...allVideos]
+                          
+                          // Show thumbnail first, then first image, then first video
+                          const displayMedia = product.thumbnailUrl || 
+                            allImages[0]?.url || 
+                            allVideos[0]?.url || 
+                            allMedia[0]?.url
+                          
+                          if (!displayMedia) {
+                            return (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-8 h-8 text-slate-400" />
+                              </div>
+                            )
+                          }
+                          
+                          const isVideo = allVideos.some(v => v.url === displayMedia) || 
+                            displayMedia.includes('.mp4') || 
+                            displayMedia.includes('.webm')
+                          
+                          if (isVideo) {
+                            return (
+                              <video
+                                src={displayMedia}
+                                className="w-full h-full object-cover"
+                                muted
+                                loop
+                                playsInline
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                  e.currentTarget.nextElementSibling.style.display = 'flex'
+                                }}
+                              />
+                            )
+                          } else {
+                            return (
+                              <img
+                                src={displayMedia}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                  e.currentTarget.nextElementSibling.style.display = 'flex'
+                                }}
+                              />
+                            )
+                          }
+                        })()}
+                        
+                        {/* Fallback icon */}
+                        <div className="w-full h-full flex items-center justify-center hidden">
+                          <Package className="w-8 h-8 text-slate-400" />
                         </div>
-                      )}
+                        
+                        {/* Media count indicator */}
+                        {(() => {
+                          const imageCount = (product.images || []).length + 
+                            (product.media?.filter(m => 
+                              m.fileType?.startsWith('image/') || 
+                              m.type?.startsWith('image/') ||
+                              (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
+                            ) || []).length
+                          const videoCount = (product.videos || []).length + 
+                            (product.media?.filter(m => 
+                              m.fileType?.startsWith('video/') || 
+                              m.type?.startsWith('video/') ||
+                              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+                            ) || []).length
+                          const totalCount = imageCount + videoCount
+                          
+                          if (totalCount > 1) {
+                            return (
+                              <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                {imageCount > 0 && `${imageCount}📷`}
+                                {imageCount > 0 && videoCount > 0 && ' '}
+                                {videoCount > 0 && `${videoCount}🎥`}
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
+                      </div>
                       
                       <div>
                         <h3 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors">
@@ -486,26 +575,103 @@ export default function ProductsPage() {
                       <tr key={product.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
-                            {product.thumbnailUrl ? (
-                              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                                <img
-                                  src={product.thumbnailUrl}
-                                  alt={product.name}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none'
-                                    e.currentTarget.nextElementSibling.style.display = 'flex'
-                                  }}
-                                />
-                                <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center hidden">
-                                  <Package className="w-5 h-5 text-white" />
+                            {(() => {
+                              // Get all media (images, videos, legacy media)
+                              const allImages = [
+                                ...(product.images || []),
+                                ...(product.media?.filter(m => 
+                                  m.fileType?.startsWith('image/') || 
+                                  m.type?.startsWith('image/') ||
+                                  (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
+                                ) || [])
+                              ]
+                              const allVideos = [
+                                ...(product.videos || []),
+                                ...(product.media?.filter(m => 
+                                  m.fileType?.startsWith('video/') || 
+                                  m.type?.startsWith('video/') ||
+                                  (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+                                ) || [])
+                              ]
+                              const allMedia = [...allImages, ...allVideos]
+                              
+                              // Show thumbnail first, then first image, then first video
+                              const displayMedia = product.thumbnailUrl || 
+                                allImages[0]?.url || 
+                                allVideos[0]?.url || 
+                                allMedia[0]?.url
+                              
+                              if (!displayMedia) {
+                                return (
+                                  <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-white" />
+                                  </div>
+                                )
+                              }
+                              
+                              const isVideo = allVideos.some(v => v.url === displayMedia) || 
+                                displayMedia.includes('.mp4') || 
+                                displayMedia.includes('.webm')
+                              
+                              return (
+                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
+                                  {isVideo ? (
+                                    <video
+                                      src={displayMedia}
+                                      className="w-full h-full object-cover"
+                                      muted
+                                      loop
+                                      playsInline
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none'
+                                        e.currentTarget.nextElementSibling.style.display = 'flex'
+                                      }}
+                                    />
+                                  ) : (
+                                    <img
+                                      src={displayMedia}
+                                      alt={product.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none'
+                                        e.currentTarget.nextElementSibling.style.display = 'flex'
+                                      }}
+                                    />
+                                  )}
+                                  
+                                  {/* Fallback icon */}
+                                  <div className="w-full h-full bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center hidden">
+                                    <Package className="w-5 h-5 text-white" />
+                                  </div>
+                                  
+                                  {/* Media count indicator */}
+                                  {(() => {
+                                    const imageCount = (product.images || []).length + 
+                                      (product.media?.filter(m => 
+                                        m.fileType?.startsWith('image/') || 
+                                        m.type?.startsWith('image/') ||
+                                        (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
+                                      ) || []).length
+                                    const videoCount = (product.videos || []).length + 
+                                      (product.media?.filter(m => 
+                                        m.fileType?.startsWith('video/') || 
+                                        m.type?.startsWith('video/') ||
+                                        (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+                                      ) || []).length
+                                    const totalCount = imageCount + videoCount
+                                    
+                                    if (totalCount > 1) {
+                                      return (
+                                        <div className="absolute -top-1 -right-1 bg-black/70 text-white text-xs px-1 py-0.5 rounded text-[10px]">
+                                          {totalCount}
+                                        </div>
+                                      )
+                                    }
+                                    return null
+                                  })()}
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
-                                <Package className="w-5 h-5 text-white" />
-                              </div>
-                            )}
+                              )
+                            })()}
                             <div>
                               <p className="font-medium text-slate-900">{product.name}</p>
                               {product.description && (

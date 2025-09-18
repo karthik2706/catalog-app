@@ -13,7 +13,7 @@ import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
-import { MediaUploadNew as MediaUpload, MediaFile } from '@/components/ui/MediaUploadNew'
+import { MediaUploadPresigned as MediaUpload, MediaFile } from '@/components/ui/MediaUploadPresigned'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -119,18 +119,59 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       setVariations(data.variations || [])
       
       // Load existing media files
-      if (data.media && data.media.length > 0) {
-        const existingMedia: MediaFile[] = data.media.map((media: any, index: number) => ({
-          id: `existing-${index}`,
-          file: new File([], media.fileName || 'existing-file'),
-          preview: media.url,
-          url: media.url,
-          thumbnailUrl: media.thumbnailUrl,
-          key: media.key,
-          progress: 100,
-          uploading: false,
-          uploaded: true,
-        }))
+      const existingImages = data.images || []
+      const existingVideos = data.videos || []
+      const allExistingMedia = [...existingImages, ...existingVideos]
+      
+      if (allExistingMedia.length > 0) {
+        const existingMedia: MediaFile[] = allExistingMedia.map((media: any, index: number) => {
+          // Determine file type from URL or file name
+          let fileType = 'image/jpeg' // default
+          if (media.fileType) {
+            fileType = media.fileType
+          } else if (media.fileName) {
+            const extension = media.fileName.split('.').pop()?.toLowerCase()
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '')) {
+              fileType = 'image/jpeg'
+            } else if (['mp4', 'webm', 'mov'].includes(extension || '')) {
+              fileType = 'video/mp4'
+            }
+          } else if (media.url) {
+            // Try to determine type from URL
+            const urlExtension = media.url.split('.').pop()?.toLowerCase()
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(urlExtension || '')) {
+              fileType = 'image/jpeg'
+            } else if (['mp4', 'webm', 'mov'].includes(urlExtension || '')) {
+              fileType = 'video/mp4'
+            }
+          }
+          
+          console.log('Loading existing media:', {
+            fileName: media.fileName,
+            fileType: media.fileType,
+            url: media.url,
+            detectedType: fileType
+          })
+          
+          // Create a proper File object for existing media
+          const fileBlob = new Blob([''], { type: fileType })
+          const file = new File([fileBlob], media.fileName || 'existing-file', { 
+            type: fileType,
+            lastModified: Date.now()
+          })
+          
+          return {
+            id: `existing-${index}`,
+            file: file,
+            preview: media.url,
+            url: media.url,
+            thumbnailUrl: media.thumbnailUrl,
+            key: media.key,
+            progress: 100,
+            uploading: false,
+            uploaded: true,
+          }
+        })
         setMediaFiles(existingMedia)
       }
     } catch (err: any) {
@@ -206,6 +247,32 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         return
       }
 
+      // Debug: Log media files before saving
+      console.log('Media files before save:', mediaFiles)
+      console.log('Media files details:', mediaFiles.map(f => ({
+        id: f.id,
+        name: f.file?.name,
+        type: f.file?.type,
+        uploaded: f.uploaded,
+        url: f.url,
+        hasUrl: !!f.url
+      })))
+      
+      const uploadedImages = mediaFiles.filter(file => {
+        const fileType = file.file?.type || ''
+        const isImage = fileType.startsWith('image/') && file.uploaded
+        console.log('Image check for', file.file?.name, ':', { fileType, uploaded: file.uploaded, isImage })
+        return isImage
+      })
+      const uploadedVideos = mediaFiles.filter(file => {
+        const fileType = file.file?.type || ''
+        const isVideo = fileType.startsWith('video/') && file.uploaded
+        console.log('Video check for', file.file?.name, ':', { fileType, uploaded: file.uploaded, isVideo })
+        return isVideo
+      })
+      console.log('Uploaded images:', uploadedImages)
+      console.log('Uploaded videos:', uploadedVideos)
+
       const response = await fetch(`/api/products/${productId}`, {
         method: 'PUT',
         headers: {
@@ -215,31 +282,27 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         body: JSON.stringify({
           ...formData,
           variations,
-          media: (() => {
-            const processedMedia = mediaFiles.map(file => ({
-              url: file.url,
-              thumbnailUrl: file.thumbnailUrl,
-              key: file.key,
-              fileName: file.file.name,
-              type: file.file.type,
-              size: file.file.size,
-              uploaded: file.uploaded,
-              error: file.error
-            }))
-            console.log('Processing media files:', mediaFiles.length, 'total files')
-            console.log('Media files details:', mediaFiles.map(f => ({ 
-              id: f.id, 
-              name: f.file.name, 
-              uploaded: f.uploaded, 
-              hasUrl: !!f.url, 
-              error: f.error 
-            })))
-            console.log('Raw mediaFiles state:', JSON.stringify(mediaFiles, null, 2))
-            const filteredMedia = processedMedia.filter(media => media.url)
-            console.log('Filtered media (with URLs):', filteredMedia.length, 'files')
-            console.log('Filtered media details:', filteredMedia.map(m => ({ fileName: m.fileName, hasUrl: !!m.url })))
-            return filteredMedia
-          })(),
+          images: uploadedImages.map(file => ({
+            id: file.id,
+            url: file.url,
+            thumbnailUrl: file.thumbnailUrl,
+            key: file.key,
+            fileName: file.file?.name || 'unknown',
+            fileSize: file.file?.size || 0,
+            fileType: file.file?.type || 'image/jpeg',
+            uploadedAt: new Date(),
+          })),
+          videos: uploadedVideos.map(file => ({
+            id: file.id,
+            url: file.url,
+            thumbnailUrl: file.thumbnailUrl,
+            key: file.key,
+            fileName: file.file?.name || 'unknown',
+            fileSize: file.file?.size || 0,
+            fileType: file.file?.type || 'video/mp4',
+            uploadedAt: new Date(),
+          })),
+          thumbnailUrl: uploadedImages[0]?.thumbnailUrl || null,
         }),
       })
 
@@ -247,6 +310,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to update product')
       }
+
+      const updatedProduct = await response.json()
+      console.log('Product updated successfully:', updatedProduct)
+      console.log('Updated product images:', updatedProduct.images)
+      console.log('Updated product videos:', updatedProduct.videos)
 
       setSuccess('Product updated successfully!')
       setTimeout(() => {
@@ -303,6 +371,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   }
 
   const handleMediaFilesChange = (files: MediaFile[]) => {
+    console.log('handleMediaFilesChange called with:', files.length, 'files')
+    console.log('Files details:', files.map(f => ({
+      id: f.id,
+      name: f.file?.name,
+      uploaded: f.uploaded,
+      url: f.url
+    })))
     setMediaFiles(files)
   }
 
@@ -618,45 +693,32 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                           maxSize={50 * 1024 * 1024} // 50MB
                           className="w-full"
                         />
-
-                        {mediaFiles.length > 0 && (
-                          <div className="mt-4">
-                            <p className="text-sm font-medium text-slate-700 mb-2">
-                              Uploaded Media ({mediaFiles.length})
-                            </p>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                              {mediaFiles.map((file) => (
-                                <div key={file.id} className="relative group">
-                                  <div className="aspect-square bg-slate-100 rounded-lg overflow-hidden">
-                                    {file.thumbnailUrl ? (
-                                      <img
-                                        src={file.thumbnailUrl}
-                                        alt="Product media"
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : file.preview ? (
-                                      <img
-                                        src={file.preview}
-                                        alt="Product media"
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center">
-                                        <FileText className="w-8 h-8 text-slate-400" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <button
-                                    onClick={() => handleMediaRemove(file.id)}
-                                    className="absolute -top-2 -right-2 bg-error-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
+                        
+                        {/* Debug: Show current mediaFiles state */}
+                        <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+                          <h4 className="text-sm font-medium mb-2">Debug - Current mediaFiles state:</h4>
+                          <div className="text-xs space-y-1">
+                            {mediaFiles.map((file, index) => (
+                              <div key={file.id} className="flex justify-between items-center">
+                                <span>{file.file?.name || 'Unknown'}</span>
+                                <div className="flex items-center space-x-2">
+                                  <span className={file.uploaded ? 'text-green-600' : 'text-red-600'}>
+                                    {file.uploaded ? 'Uploaded' : 'Not uploaded'}
+                                  </span>
+                                  {file.url && (
+                                    <button
+                                      onClick={() => window.open(file.url, '_blank')}
+                                      className="text-blue-600 hover:text-blue-800 underline"
+                                    >
+                                      Test URL
+                                    </button>
+                                  )}
                                 </div>
-                              ))}
-                            </div>
+                              </div>
+                            ))}
                           </div>
-                        )}
+                        </div>
+
                       </CardContent>
                     </Card>
                   </FadeIn>

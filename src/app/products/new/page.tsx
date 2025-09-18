@@ -14,7 +14,6 @@ import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
 import { MediaUploadPresigned as MediaUpload, MediaFile } from '@/components/ui/MediaUploadPresigned'
-import { MediaGrid } from '@/components/ui/MediaPreview'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import { 
   ArrowLeft, 
@@ -124,8 +123,14 @@ export default function NewProductPage() {
     setMediaFiles(files)
     
     // Separate images and videos
-    const imageFiles = files.filter(file => file.file.type.startsWith('image/'))
-    const videoFiles = files.filter(file => file.file.type.startsWith('video/'))
+    const imageFiles = files.filter(file => {
+      const fileType = file.file?.type || ''
+      return fileType.startsWith('image/')
+    })
+    const videoFiles = files.filter(file => {
+      const fileType = file.file?.type || ''
+      return fileType.startsWith('video/')
+    })
     
     setImages(imageFiles)
     setVideos(videoFiles)
@@ -141,8 +146,14 @@ export default function NewProductPage() {
     setMediaFiles(updatedFiles)
     
     // Update images and videos arrays
-    const imageFiles = updatedFiles.filter(file => file.file.type.startsWith('image/'))
-    const videoFiles = updatedFiles.filter(file => file.file.type.startsWith('video/'))
+    const imageFiles = updatedFiles.filter(file => {
+      const fileType = file.file?.type || ''
+      return fileType.startsWith('image/')
+    })
+    const videoFiles = updatedFiles.filter(file => {
+      const fileType = file.file?.type || ''
+      return fileType.startsWith('video/')
+    })
     
     setImages(imageFiles)
     setVideos(videoFiles)
@@ -607,48 +618,34 @@ export default function NewProductPage() {
                         className="mb-6"
                       />
                       
-                      {/* Media Preview */}
-                      {mediaFiles.length > 0 && (
-                        <div className="space-y-4">
-                          <div>
-                            <h3 className="text-sm font-medium text-slate-700 mb-3">Uploaded Media</h3>
-                            <MediaGrid
-                              files={mediaFiles}
-                              onRemove={(fileId) => setMediaFiles(prev => prev.filter(f => f.id !== fileId))}
-                              size="md"
-                            />
+                      {/* Thumbnail Selection */}
+                      {images.length > 0 && (
+                        <div className="mt-6">
+                          <h3 className="text-sm font-medium text-slate-700 mb-3">Select Thumbnail</h3>
+                          <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                            {images.map((image) => (
+                              <button
+                                key={image.id}
+                                onClick={() => handleSetThumbnail(image.url || image.preview)}
+                                className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                                  thumbnailUrl === (image.url || image.preview)
+                                    ? 'border-primary-500 ring-2 ring-primary-200'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <img
+                                  src={image.url || image.preview}
+                                  alt={image.file?.name || 'Preview'}
+                                  className="w-full h-20 object-cover"
+                                />
+                                {thumbnailUrl === (image.url || image.preview) && (
+                                  <div className="absolute inset-0 bg-primary-500 bg-opacity-20 flex items-center justify-center">
+                                    <CheckCircle className="w-6 h-6 text-primary-600" />
+                                  </div>
+                                )}
+                              </button>
+                            ))}
                           </div>
-                          
-                          {/* Thumbnail Selection */}
-                          {images.length > 0 && (
-                            <div>
-                              <h3 className="text-sm font-medium text-slate-700 mb-3">Select Thumbnail</h3>
-                              <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
-                                {images.map((image) => (
-                                  <button
-                                    key={image.id}
-                                    onClick={() => handleSetThumbnail(image.url || image.preview)}
-                                    className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                                      thumbnailUrl === (image.url || image.preview)
-                                        ? 'border-primary-500 ring-2 ring-primary-200'
-                                        : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                                  >
-                                    <img
-                                      src={image.url || image.preview}
-                                      alt={image.file.name}
-                                      className="w-full h-20 object-cover"
-                                    />
-                                    {thumbnailUrl === (image.url || image.preview) && (
-                                      <div className="absolute inset-0 bg-primary-500 bg-opacity-20 flex items-center justify-center">
-                                        <CheckCircle className="w-6 h-6 text-primary-600" />
-                                      </div>
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>

@@ -11,15 +11,8 @@ const nextConfig: NextConfig = {
     // your project has type errors.
     ignoreBuildErrors: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ['@aws-sdk/client-s3'],
-  },
-  // Increase body size limit for file uploads
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
+  // Move serverComponentsExternalPackages to serverExternalPackages
+  serverExternalPackages: ['@aws-sdk/client-s3'],
 };
 
 export default nextConfig;

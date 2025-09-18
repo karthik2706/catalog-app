@@ -46,6 +46,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [productId, setProductId] = useState<string>('')
   const [clientCurrency, setClientCurrency] = useState<string>('USD')
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
+  const [videoRetryCount, setVideoRetryCount] = useState(0)
+  const [videoLoading, setVideoLoading] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -67,6 +69,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     }
   }, [user, authLoading, router, productId])
 
+  // Reset video state when selected media changes
+  useEffect(() => {
+    setVideoLoading(false)
+    setVideoRetryCount(0)
+  }, [selectedMediaIndex])
+
   const fetchProduct = async () => {
     try {
       setLoading(true)
@@ -77,15 +85,38 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         throw new Error(data.error || 'Failed to fetch product')
       }
 
-      // Refresh media URLs to use signed URLs
-      if (data.media && data.media.length > 0) {
-        try {
+      // Refresh media URLs to use signed URLs for all media types
+      try {
+        console.log('Refreshing media URLs...')
+        
+        // Refresh images
+        if (data.images && data.images.length > 0) {
+          console.log('Refreshing', data.images.length, 'images')
+          const refreshedImages = await refreshMediaUrls(data.images)
+          data.images = refreshedImages
+          console.log('Images refreshed successfully')
+        }
+        
+        // Refresh videos
+        if (data.videos && data.videos.length > 0) {
+          console.log('Refreshing', data.videos.length, 'videos')
+          const refreshedVideos = await refreshMediaUrls(data.videos)
+          data.videos = refreshedVideos
+          console.log('Videos refreshed successfully')
+        }
+        
+        // Refresh legacy media
+        if (data.media && data.media.length > 0) {
+          console.log('Refreshing', data.media.length, 'legacy media')
           const refreshedMedia = await refreshMediaUrls(data.media)
           data.media = refreshedMedia
-        } catch (error) {
-          console.error('Error refreshing media URLs:', error)
-          // Continue with original media if refresh fails
+          console.log('Legacy media refreshed successfully')
         }
+        
+        console.log('All media URLs refreshed successfully')
+      } catch (error) {
+        console.error('Error refreshing media URLs:', error)
+        // Continue with original media if refresh fails
       }
       
       setProduct(data)
@@ -147,7 +178,39 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   const totalValue = Number(product.price) * product.stockLevel
   const isLowStock = product.stockLevel <= product.minStock
-  const mediaFiles = Array.isArray(product.media) ? product.media : []
+  
+  // Combine all media (images, videos, legacy media)
+  const allImages = [
+    ...(product.images || []),
+    ...(product.media?.filter(m => 
+      m.fileType?.startsWith('image/') || 
+      m.type?.startsWith('image/') ||
+      (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
+    ) || [])
+  ]
+  const allVideos = [
+    ...(product.videos || []),
+    ...(product.media?.filter(m => 
+      m.fileType?.startsWith('video/') || 
+      m.type?.startsWith('video/') ||
+      (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+    ) || [])
+  ]
+  const mediaFiles = [...allImages, ...allVideos]
+  
+  // Debug logging
+  console.log('Media files loaded:', {
+    total: mediaFiles.length,
+    images: allImages.length,
+    videos: allVideos.length,
+    mediaFiles: mediaFiles.map((m, i) => ({
+      index: i,
+      type: m.fileType || m.type,
+      url: m.url,
+      key: m.key,
+      isVideo: m.fileType?.startsWith('video/') || m.type?.startsWith('video/') || (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+    }))
+  })
 
   return (
     <DashboardLayout>
@@ -232,30 +295,126 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                             {mediaFiles.length > 0 && mediaFiles[selectedMediaIndex] ? (
                               (() => {
                                 const media = mediaFiles[selectedMediaIndex]
-                                const isVideo = media.type?.startsWith('video/')
+                                const isVideo = media.fileType?.startsWith('video/') || 
+                                  media.type?.startsWith('video/') ||
+                                  (media.url && /\.(mp4|webm|mov)$/i.test(media.url))
                                 const displayUrl = media.thumbnailUrl || media.url
                                 
                                 if (isVideo) {
+                                  console.log('Rendering video:', { 
+                                    media, 
+                                    url: media.url, 
+                                    key: media.key, 
+                                    retryCount: videoRetryCount,
+                                    hasUrl: !!media.url,
+                                    urlType: typeof media.url
+                                  })
+                                  
+                                  // Check if we have a valid URL
+                                  if (!media.url) {
+                                    console.error('No URL available for video:', media)
+                                    return (
+                                      <div className="w-full h-full flex items-center justify-center bg-red-100">
+                                        <div className="text-center">
+                                          <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                                          <p className="text-sm text-red-600">No video URL available</p>
+                                        </div>
+                                      </div>
+                                    )
+                                  }
+                                  
                                   return (
-                                    <video
-                                      src={media.url}
-                                      className="w-full h-full object-cover"
-                                      controls
-                                      onError={(e) => {
-                                        console.error('Video load error:', e)
-                                        console.error('Video URL:', media.url)
-                                      }}
-                                    />
+                                    <div className="relative w-full h-full">
+                                      <video
+                                        key={`video-${media.id || selectedMediaIndex}-${media.url}-${videoRetryCount}`}
+                                        src={media.url}
+                                        className="w-full h-full object-cover"
+                                        controls
+                                        preload="metadata"
+                                        onError={async (e) => {
+                                          console.error('Video load error:', e)
+                                          console.error('Video URL:', media.url)
+                                          console.error('Video key:', media.key)
+                                          console.error('Current retry count:', videoRetryCount)
+                                          console.error('Error details:', e.currentTarget.error)
+                                          
+                                          // Retry mechanism for video loading
+                                          if (videoRetryCount < 2) {
+                                            console.log(`Retrying video load (attempt ${videoRetryCount + 1})`)
+                                            setVideoRetryCount(prev => prev + 1)
+                                            
+                                            // Force re-render by updating the key
+                                            setTimeout(() => {
+                                              console.log('Forcing video re-render')
+                                              setSelectedMediaIndex(selectedMediaIndex)
+                                            }, 1000)
+                                          } else {
+                                            console.error('Max retries reached for video:', media.url)
+                                            setVideoLoading(false)
+                                          }
+                                        }}
+                                        onLoadStart={() => {
+                                          console.log('Video load started:', media.url)
+                                          setVideoLoading(true)
+                                        }}
+                                        onCanPlay={() => {
+                                          console.log('Video can play:', media.url)
+                                          setVideoLoading(false)
+                                          setVideoRetryCount(0) // Reset retry count on successful load
+                                        }}
+                                        onLoadedData={() => {
+                                          console.log('Video data loaded:', media.url)
+                                          setVideoLoading(false)
+                                        }}
+                                        onLoadedMetadata={() => {
+                                          console.log('Video metadata loaded:', media.url)
+                                        }}
+                                      />
+                                      
+                                      {/* Loading indicator */}
+                                      {videoLoading && (
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                          <div className="text-white text-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                                            <p className="text-sm">Loading video...</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Error indicator */}
+                                      {videoRetryCount >= 2 && !videoLoading && (
+                                        <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+                                          <div className="text-center">
+                                            <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                                            <p className="text-sm text-red-600">Video failed to load</p>
+                                            <button 
+                                              onClick={() => {
+                                                console.log('Manual retry clicked')
+                                                setVideoRetryCount(0)
+                                                setVideoLoading(false)
+                                              }}
+                                              className="mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                                            >
+                                              Retry
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
                                   )
                                 } else {
                                   return (
                                     <img
+                                      key={`image-${media.id || selectedMediaIndex}-${displayUrl}`}
                                       src={displayUrl}
                                       alt="Product media"
                                       className="w-full h-full object-cover"
                                       onError={(e) => {
                                         console.error('Image load error:', e)
                                         console.error('Image URL:', displayUrl)
+                                      }}
+                                      onLoad={() => {
+                                        console.log('Image loaded successfully:', displayUrl)
                                       }}
                                     />
                                   )
@@ -277,7 +436,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                               {mediaFiles.map((media, index) => (
                                 <button
                                   key={index}
-                                  onClick={() => setSelectedMediaIndex(index)}
+                                  onClick={() => {
+                                    console.log('Thumbnail clicked:', { index, media, isVideo: media.fileType?.startsWith('video/') || media.type?.startsWith('video/') || (media.url && /\.(mp4|webm|mov)$/i.test(media.url)) })
+                                    setSelectedMediaIndex(index)
+                                    // Reset video loading state when switching media
+                                    setVideoLoading(false)
+                                    setVideoRetryCount(0)
+                                  }}
                                   className={`aspect-square bg-slate-100 rounded-lg overflow-hidden border-2 transition-all ${
                                     selectedMediaIndex === index
                                       ? 'border-primary-500 ring-2 ring-primary-200'
@@ -285,7 +450,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                   }`}
                                 >
                                   {(() => {
-                                    const isVideo = media.type?.startsWith('video/')
+                                    const isVideo = media.fileType?.startsWith('video/') || 
+                                      media.type?.startsWith('video/') ||
+                                      (media.url && /\.(mp4|webm|mov)$/i.test(media.url))
                                     
                                     if (isVideo) {
                                       // For videos, show a video icon instead of trying to display the video file

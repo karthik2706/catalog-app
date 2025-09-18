@@ -97,13 +97,25 @@ export function generateProductMediaFolder(clientId: string, sku: string): strin
 }
 
 // Generate signed URL for private files
-export async function generateSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+export async function generateSignedUrl(key: string, expiresIn: number = 3600, region?: string): Promise<string> {
   try {
+    // Use the provided region or default to the configured region
+    const targetRegion = region || AWS_REGION
+    
+    // Create a new S3 client for the specific region if different
+    const client = targetRegion === AWS_REGION ? s3Client : new S3Client({
+      region: targetRegion,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+      },
+    })
+    
     const command = new GetObjectCommand({
       Bucket: S3_BUCKET_NAME,
       Key: key,
     })
-    return await getSignedUrl(s3Client, command, { expiresIn })
+    return await getSignedUrl(client, command, { expiresIn })
   } catch (error: any) {
     console.error('Error generating signed URL:', error)
     throw new Error(`Failed to generate signed URL: ${error.message}`)
@@ -134,6 +146,20 @@ export function isUrlExpired(url: string): boolean {
   }
 }
 
+// Extract region from S3 URL
+function extractRegionFromUrl(url: string): string | null {
+  try {
+    const urlObj = new URL(url)
+    const hostname = urlObj.hostname
+    // Extract region from hostname like: bucket.s3.region.amazonaws.com
+    const match = hostname.match(/\.s3\.([^.]+)\.amazonaws\.com/)
+    return match ? match[1] : null
+  } catch (error) {
+    console.error('Error extracting region from URL:', error)
+    return null
+  }
+}
+
 // Refresh signed URLs for existing media
 export async function refreshMediaUrls(media: any[]): Promise<any[]> {
   try {
@@ -142,18 +168,26 @@ export async function refreshMediaUrls(media: any[]): Promise<any[]> {
       media.map(async (item, index) => {
         if (item.key) {
           try {
-            // Only refresh if URL is expired or about to expire
-            const shouldRefresh = !item.url || isUrlExpired(item.url)
-            console.log(`Item ${index}: shouldRefresh=${shouldRefresh}, hasUrl=${!!item.url}`)
+            // Check if URL is a direct S3 URL (not signed) or expired
+            const isDirectS3Url = item.url && item.url.includes('.s3.') && !item.url.includes('X-Amz-Signature')
+            const shouldRefresh = !item.url || isUrlExpired(item.url) || isDirectS3Url
+            console.log(`Item ${index}: shouldRefresh=${shouldRefresh}, hasUrl=${!!item.url}, isDirectS3Url=${isDirectS3Url}`)
             
             if (shouldRefresh) {
               console.log(`Refreshing URLs for item ${index} with key:`, item.key)
-              const newUrl = await generateSignedUrl(item.key, 7 * 24 * 60 * 60) // 7 days
+              
+              // Extract region from existing URL if available
+              const region = item.url ? extractRegionFromUrl(item.url) : null
+              console.log(`Item ${index} region:`, region || 'default')
+              
+              const newUrl = await generateSignedUrl(item.key, 7 * 24 * 60 * 60, region) // 7 days
               const newThumbnailUrl = item.thumbnailKey 
-                ? await generateSignedUrl(item.thumbnailKey, 7 * 24 * 60 * 60) // 7 days
+                ? await generateSignedUrl(item.thumbnailKey, 7 * 24 * 60 * 60, region) // 7 days
                 : undefined
               
               console.log(`Successfully refreshed URLs for item ${index}`)
+              console.log(`Old URL: ${item.url}`)
+              console.log(`New URL: ${newUrl}`)
               return {
                 ...item,
                 url: newUrl,

@@ -78,6 +78,12 @@ export async function PUT(
     const { id } = await params
     const body: UpdateProductRequest = await request.json()
     
+    // Debug: Log the received data
+    console.log('Product update request for ID:', id)
+    console.log('Received images:', body.images)
+    console.log('Received videos:', body.videos)
+    console.log('Received thumbnailUrl:', body.thumbnailUrl)
+    
     try {
       // Try to update in database first
       const existingProduct = await prisma.product.findUnique({
