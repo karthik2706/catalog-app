@@ -353,11 +353,11 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
 
   return (
     <Card className="card-hover group">
-      <CardContent className="p-6">
+      <CardContent className="p-[12px]">
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-            <Package className="w-6 h-6 text-white" />
+        <div className="flex items-start justify-between mb-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+            <Package className="w-5 h-5 text-white" />
           </div>
           <div className="flex space-x-1">
             <Button
@@ -387,9 +387,9 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
           </div>
         </div>
 
-        <div className="space-y-3">
-          {/* Product Media */}
-          <div className="w-full h-32 bg-slate-100 rounded-lg overflow-hidden relative">
+        <div className="space-y-2">
+          {/* Product Media - 16:9 aspect ratio */}
+          <div className="w-full aspect-video bg-slate-100 rounded-lg overflow-hidden relative">
             {isLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -425,8 +425,8 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
                 {/* Video play icon */}
                 {displayMedia.type === 'video' && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center">
-                      <Play className="w-6 h-6 text-white ml-1" />
+                    <div className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center">
+                      <Play className="w-5 h-5 text-white ml-0.5" />
                     </div>
                   </div>
                 )}
@@ -434,7 +434,7 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center">
-                  <ImageIcon className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <ImageIcon className="w-6 h-6 text-slate-400 mx-auto mb-1" />
                   <p className="text-xs text-slate-500">Image unavailable</p>
                 </div>
               </div>
@@ -442,7 +442,7 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
 
             {/* Media count indicator */}
             {mediaCount.total > 1 && (
-              <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+              <div className="absolute top-1.5 right-1.5 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
                 {mediaCount.imageCount > 0 && `${mediaCount.imageCount}📷`}
                 {mediaCount.imageCount > 0 && mediaCount.videoCount > 0 && ' '}
                 {mediaCount.videoCount > 0 && `${mediaCount.videoCount}🎥`}
@@ -452,14 +452,14 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
 
           {/* Product Info */}
           <div>
-            <h3 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors">
+            <h3 className="font-semibold text-slate-900 group-hover:text-primary-600 transition-colors text-sm">
               {product.name}
             </h3>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 mt-0.5">
               SKU: {product.sku}
             </p>
             {product.description && (
-              <p className="text-sm text-slate-600 mt-2 line-clamp-2">
+              <p className="text-xs text-slate-600 mt-1 line-clamp-2">
                 {product.description}
               </p>
             )}
@@ -467,10 +467,10 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
 
           {/* Category and Status */}
           <div className="flex items-center justify-between">
-            <Badge variant="default" size="sm">
+            <Badge variant="default" size="sm" className="text-xs">
               {product.category}
             </Badge>
-            <Badge variant={stockStatus.variant} size="sm">
+            <Badge variant={stockStatus.variant} size="sm" className="text-xs">
               <StatusIcon className="w-3 h-3 mr-1" />
               {stockStatus.label}
             </Badge>
@@ -479,16 +479,16 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
           {/* Price and Stock */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-slate-900">
+              <p className="text-lg font-bold text-slate-900">
                 {formatCurrency(Number(product.price), clientCurrency)}
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-xs text-slate-500">
                 Stock: {product.stockLevel}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-slate-500">Min Stock</p>
-              <p className="font-medium text-slate-900">{product.minStock}</p>
+              <p className="text-xs text-slate-500">Min Stock</p>
+              <p className="text-sm font-medium text-slate-900">{product.minStock}</p>
             </div>
           </div>
         </div>
