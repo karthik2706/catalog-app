@@ -86,6 +86,7 @@ interface Category {
   parentId?: string
   sortOrder: number
   createdAt: string
+  clientId: string
   children?: Category[]
 }
 
@@ -621,7 +622,21 @@ export default function SettingsPage() {
 
     try {
       setSaving(true)
-      const response = await fetch(`/api/categories?id=${categoryId}`, {
+      
+      // Find the category to get its clientId
+      const category = findCategoryById(categories, categoryId)
+      if (!category) {
+        setError('Category not found')
+        return
+      }
+      
+      // Build URL with clientId for super admin
+      let url = `/api/categories?id=${categoryId}`
+      if (isSuperAdmin && category.clientId) {
+        url += `&clientId=${category.clientId}`
+      }
+      
+      const response = await fetch(url, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -640,6 +655,20 @@ export default function SettingsPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Helper function to find category by ID (including in children)
+  const findCategoryById = (categories: Category[], id: string): Category | null => {
+    for (const category of categories) {
+      if (category.id === id) {
+        return category
+      }
+      if (category.children) {
+        const found = findCategoryById(category.children, id)
+        if (found) return found
+      }
+    }
+    return null
   }
 
   const getPlanColor = (plan: string) => {

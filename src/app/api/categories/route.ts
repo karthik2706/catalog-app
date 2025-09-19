@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
         parentId: true,
         sortOrder: true,
         createdAt: true,
+        clientId: true,
         children: {
           where: { isActive: true },
           select: {
@@ -86,7 +87,8 @@ export async function GET(request: NextRequest) {
             description: true,
             parentId: true,
             sortOrder: true,
-            createdAt: true
+            createdAt: true,
+            clientId: true
           },
           orderBy: [
             { sortOrder: 'asc' },

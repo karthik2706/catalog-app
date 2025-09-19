@@ -59,6 +59,7 @@ export default function ProductsPage() {
   }
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [error, setError] = useState('')
   const [clientCurrency, setClientCurrency] = useState<string>('USD')
   const [searchTerm, setSearchTerm] = useState('')
@@ -79,12 +80,18 @@ export default function ProductsPage() {
   const [importExportModalOpen, setImportExportModalOpen] = useState(false)
   const [searchByImageModalOpen, setSearchByImageModalOpen] = useState(false)
 
-  // Debounced search
-  const debouncedSearch = debounce(() => {
+  // Debounced search function
+  const debouncedSearch = debounce(async (term: string) => {
     setPage(0)
-    fetchProducts()
-  }, 500)
+    setSearchLoading(true)
+    try {
+      await fetchProducts(term)
+    } finally {
+      setSearchLoading(false)
+    }
+  }, 300)
 
+  // Initial load effect
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login')
@@ -96,25 +103,36 @@ export default function ProductsPage() {
       fetchCategories()
       fetchClientCurrency()
     }
-  }, [user, authLoading, router, page, rowsPerPage, categoryFilter, sortBy, sortOrder])
+  }, [user, authLoading, router])
 
+  // Pagination and filtering effects (separate from search)
   useEffect(() => {
-    if (searchTerm !== '') {
-      debouncedSearch()
-    } else {
-      fetchProducts()
+    if (user && !authLoading) {
+      fetchProducts(searchTerm)
+    }
+  }, [page, rowsPerPage, categoryFilter, sortBy, sortOrder])
+
+  // Search effect (separate from pagination)
+  useEffect(() => {
+    if (user && !authLoading) {
+      if (searchTerm !== '') {
+        debouncedSearch(searchTerm)
+      } else {
+        setSearchLoading(true)
+        fetchProducts('').finally(() => setSearchLoading(false))
+      }
     }
   }, [searchTerm])
 
   // Note: Media URL generation is now handled by the ProductTile component
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (searchQuery: string = searchTerm) => {
     try {
       setLoading(true)
       const params = new URLSearchParams({
         page: (page + 1).toString(),
         limit: rowsPerPage.toString(),
-        search: searchTerm,
+        search: searchQuery,
         category: categoryFilter,
         sortBy,
         sortOrder,
@@ -302,7 +320,7 @@ export default function ProductsPage() {
     return { label: 'In Stock', variant: 'success' as const, icon: CheckCircle }
   }
 
-  if (authLoading || loading) {
+  if (authLoading || (loading && products.length === 0)) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[50vh]">
@@ -356,13 +374,18 @@ export default function ProductsPage() {
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
-              <div className="flex-1">
+              <div className="flex-1 relative">
                 <Input
                   placeholder="Search products by name, SKU, or description..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   leftIcon={<Search className="w-4 h-4" />}
                 />
+                {searchLoading && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-500 border-t-transparent"></div>
+                  </div>
+                )}
               </div>
 
               {/* Category Filter */}
@@ -436,8 +459,17 @@ export default function ProductsPage() {
 
         {/* Products Grid/List */}
         {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {products.map((product) => {
+          <div className="relative">
+            {searchLoading && (
+              <div className="absolute top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-sm rounded-lg p-4 flex items-center justify-center">
+                <div className="flex items-center space-x-2 text-primary-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-500 border-t-transparent"></div>
+                  <span className="text-sm font-medium">Searching...</span>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {products.map((product) => {
               // Debug logging for VFJ-NK-0001
               if (product.sku === 'VFJ-NK-0001') {
                 console.log('Products Page - Passing to ProductTile:', {
@@ -469,10 +501,20 @@ export default function ProductsPage() {
                 />
               )
             })}
+            </div>
           </div>
         ) : (
           <Card>
-            <div className="overflow-x-auto">
+            <div className="relative">
+              {searchLoading && (
+                <div className="absolute top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-sm rounded-lg p-4 flex items-center justify-center">
+                  <div className="flex items-center space-x-2 text-primary-600">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-500 border-t-transparent"></div>
+                    <span className="text-sm font-medium">Searching...</span>
+                  </div>
+                </div>
+              )}
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
@@ -566,6 +608,7 @@ export default function ProductsPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           </Card>
         )}
