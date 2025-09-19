@@ -44,7 +44,10 @@ export async function GET(request: NextRequest) {
 
     // Get total products count
     const totalProducts = await prisma.product.count({
-      where: whereClause
+      where: {
+        ...whereClause,
+        isActive: true
+      }
     })
 
     // Get low stock products count (stock level <= min stock)
@@ -75,7 +78,10 @@ export async function GET(request: NextRequest) {
 
     // Get total value of inventory
     const products = await prisma.product.findMany({
-      where: whereClause,
+      where: {
+        ...whereClause,
+        isActive: true
+      },
       select: {
         price: true,
         stockLevel: true
