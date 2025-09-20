@@ -119,9 +119,17 @@ export async function PUT(
 
       // Debug: Log the received data
       console.log('Received update data:', {
-        media: body.media,
-        mediaCount: body.media ? body.media.length : 0,
-        mediaDetails: body.media ? body.media.map((m: any) => ({ 
+        images: body.images,
+        videos: body.videos,
+        thumbnailUrl: body.thumbnailUrl,
+        imagesCount: body.images ? body.images.length : 0,
+        videosCount: body.videos ? body.videos.length : 0,
+        imagesDetails: body.images ? body.images.map((m: any) => ({ 
+          fileName: m.fileName, 
+          hasUrl: !!m.url, 
+          hasKey: !!m.key 
+        })) : [],
+        videosDetails: body.videos ? body.videos.map((m: any) => ({ 
           fileName: m.fileName, 
           hasUrl: !!m.url, 
           hasKey: !!m.key 
@@ -180,8 +188,15 @@ export async function PUT(
       // Debug: Log what was actually saved
       console.log('Product updated successfully:', {
         id: product.id,
-        mediaCount: product.media ? JSON.parse(JSON.stringify(product.media)).length : 0,
-        mediaDetails: product.media ? JSON.parse(JSON.stringify(product.media)).map((m: any) => ({ 
+        imagesCount: product.images ? JSON.parse(JSON.stringify(product.images)).length : 0,
+        videosCount: product.videos ? JSON.parse(JSON.stringify(product.videos)).length : 0,
+        thumbnailUrl: product.thumbnailUrl,
+        imagesDetails: product.images ? JSON.parse(JSON.stringify(product.images)).map((m: any) => ({ 
+          fileName: m.fileName, 
+          hasUrl: !!m.url, 
+          hasKey: !!m.key 
+        })) : [],
+        videosDetails: product.videos ? JSON.parse(JSON.stringify(product.videos)).map((m: any) => ({ 
           fileName: m.fileName, 
           hasUrl: !!m.url, 
           hasKey: !!m.key 

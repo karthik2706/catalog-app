@@ -58,6 +58,7 @@ export default function NewProductPage() {
     stockLevel: 0,
     minStock: 0,
     isActive: true,
+    path: '', // S3 path for uploaded asset
   })
 
   // Media upload state
@@ -118,26 +119,73 @@ export default function NewProductPage() {
     }))
   }
 
-  // Media handling functions
-  const handleMediaUpload = (files: MediaFile[]) => {
-    setMediaFiles(files)
-    
-    // Separate images and videos
-    const imageFiles = files.filter(file => {
-      const fileType = file.file?.type || ''
-      return fileType.startsWith('image/')
-    })
-    const videoFiles = files.filter(file => {
-      const fileType = file.file?.type || ''
-      return fileType.startsWith('video/')
-    })
-    
-    setImages(imageFiles)
-    setVideos(videoFiles)
-    
-    // Set first image as thumbnail if no thumbnail is selected
-    if (!thumbnailUrl && imageFiles.length > 0) {
-      setThumbnailUrl(imageFiles[0].url || imageFiles[0].preview)
+  // Simple file upload handling
+  const [uploading, setUploading] = useState(false)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [uploadedUrl, setUploadedUrl] = useState<string>('')
+
+  const handleFileUpload = async (file: File) => {
+    if (!formData.sku) {
+      setError('Please enter a SKU before uploading a file')
+      return
+    }
+
+    setUploading(true)
+    setError('')
+
+    try {
+      // Get pre-signed URL
+      const presignedResponse = await fetch('/api/upload-presigned', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          sku: formData.sku
+        })
+      })
+
+      if (!presignedResponse.ok) {
+        const errorData = await presignedResponse.json()
+        throw new Error(errorData.error || 'Failed to get upload URL')
+      }
+
+      const presignedData = await presignedResponse.json()
+
+      // Upload to S3
+      const uploadResponse = await fetch(presignedData.signedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type
+        }
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed')
+      }
+
+      // Get the clean S3 URL (remove query parameters)
+      const s3Path = presignedData.signedUrl.split('?')[0]
+      
+      // Update form data with the S3 path
+      setFormData(prev => ({
+        ...prev,
+        path: s3Path
+      }))
+      
+      setUploadedFile(file)
+      setUploadedUrl(s3Path)
+      setSuccess('File uploaded successfully!')
+      
+    } catch (error: any) {
+      setError('Upload failed: ' + error.message)
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -597,57 +645,79 @@ export default function NewProductPage() {
                     </div>
                   </Card>
 
-                  {/* Media Upload */}
+                  {/* Simple File Upload */}
                   <Card className="mb-8">
                     <div className="p-6 border-b border-slate-200">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                           <ImageIcon className="w-4 h-4 text-green-600" />
                         </div>
-                        <h2 className="text-xl font-semibold text-slate-900">Product Media</h2>
+                        <h2 className="text-xl font-semibold text-slate-900">Product Asset</h2>
                       </div>
                     </div>
                     <div className="p-6">
-                      <MediaUpload
-                        onFilesChange={handleMediaUpload}
-                        files={mediaFiles}
-                        sku={formData.sku || 'temp-sku'}
-                        maxFiles={10}
-                        acceptedTypes={['image/*', 'video/*']}
-                        maxSize={50 * 1024 * 1024} // 50MB
-                        className="mb-6"
-                      />
-                      
-                      {/* Thumbnail Selection */}
-                      {images.length > 0 && (
-                        <div className="mt-6">
-                          <h3 className="text-sm font-medium text-slate-700 mb-3">Select Thumbnail</h3>
-                          <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
-                            {images.map((image) => (
-                              <button
-                                key={image.id}
-                                onClick={() => handleSetThumbnail(image.url || image.preview)}
-                                className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                                  thumbnailUrl === (image.url || image.preview)
-                                    ? 'border-primary-500 ring-2 ring-primary-200'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                <img
-                                  src={image.url || image.preview}
-                                  alt={image.file?.name || 'Preview'}
-                                  className="w-full h-20 object-cover"
-                                />
-                                {thumbnailUrl === (image.url || image.preview) && (
-                                  <div className="absolute inset-0 bg-primary-500 bg-opacity-20 flex items-center justify-center">
-                                    <CheckCircle className="w-6 h-6 text-primary-600" />
-                                  </div>
-                                )}
-                              </button>
-                            ))}
-                          </div>
+                      <div className="space-y-4">
+                        {/* File Input */}
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Upload File (Image or Video)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*,video/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) {
+                                handleFileUpload(file)
+                              }
+                            }}
+                            disabled={uploading}
+                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 disabled:opacity-50"
+                          />
                         </div>
-                      )}
+
+                        {/* Upload Status */}
+                        {uploading && (
+                          <div className="flex items-center space-x-2 text-blue-600">
+                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-sm">Uploading...</span>
+                          </div>
+                        )}
+
+                        {/* Uploaded File Info */}
+                        {uploadedFile && uploadedUrl && (
+                          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                              <span className="text-sm font-medium text-green-800">File uploaded successfully!</span>
+                            </div>
+                            <div className="text-sm text-green-700">
+                              <p><strong>File:</strong> {uploadedFile.name}</p>
+                              <p><strong>Type:</strong> {uploadedFile.type}</p>
+                              <p><strong>Size:</strong> {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                              <p><strong>S3 Path:</strong> {formData.path}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Path Field */}
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Asset Path (S3 URL)
+                          </label>
+                          <Input
+                            value={formData.path}
+                            onChange={(e) => handleInputChange('path', e.target.value)}
+                            placeholder="S3 path will be populated after upload"
+                            leftIcon={<ImageIcon className="w-4 h-4" />}
+                            readOnly
+                            className="bg-slate-50"
+                          />
+                          <p className="text-xs text-slate-500 mt-1">
+                            This field is automatically populated when you upload a file
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </Card>
 

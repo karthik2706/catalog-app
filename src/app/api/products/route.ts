@@ -497,6 +497,18 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Handle path field - store in images array if provided
+      let images = body.images || []
+      if (body.path) {
+        images = [{
+          id: 'main-asset',
+          url: body.path,
+          fileName: 'uploaded-asset',
+          fileType: 'image/jpeg', // Default type
+          uploadedAt: new Date()
+        }]
+      }
+
       const product = await prisma.product.create({
         data: {
           name: body.name,
@@ -510,9 +522,9 @@ export async function POST(request: NextRequest) {
           minStock: body.minStock || 0,
           clientId, // Ensure tenant isolation
           // Media fields
-          images: body.images || [],
+          images: images,
           videos: body.videos || [],
-          thumbnailUrl: body.thumbnailUrl || null,
+          thumbnailUrl: body.path || body.thumbnailUrl || null, // Use path as thumbnail if provided
           categories: body.categoryIds ? {
             create: body.categoryIds.map((categoryId: string) => ({
               categoryId

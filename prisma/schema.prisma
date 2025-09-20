@@ -133,6 +133,7 @@ model Product {
   images      Json?    // Array of image URLs and metadata
   videos      Json?    // Array of video URLs and metadata
   thumbnailUrl String? // Primary thumbnail URL
+  path        String?  // S3 path for uploaded asset
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
