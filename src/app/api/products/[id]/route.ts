@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { mockStore } from '@/lib/mockStore'
 import { UpdateProductRequest } from '@/types'
-import { processImagesForEmbedding } from '@/lib/embeddings'
+import { processMediaForEmbedding } from '@/lib/embeddings'
 import jwt from 'jsonwebtoken'
 
 interface JWTPayload {
@@ -61,6 +61,20 @@ export async function GET(
               }
             }
           },
+          media: {
+            select: {
+              id: true,
+              kind: true,
+              s3Key: true,
+              width: true,
+              height: true,
+              durationMs: true,
+              status: true,
+              error: true,
+              createdAt: true,
+              updatedAt: true
+            }
+          },
           inventoryHistory: {
             orderBy: { createdAt: 'desc' },
             include: {
@@ -79,7 +93,12 @@ export async function GET(
         )
       }
 
-      return NextResponse.json(product)
+      // Convert BigInt fields to strings for JSON serialization
+      const serializedProduct = JSON.parse(JSON.stringify(product, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      ))
+      
+      return NextResponse.json(serializedProduct)
     } catch (dbError) {
       console.error('Database error:', dbError)
       return NextResponse.json(
@@ -207,7 +226,8 @@ export async function PUT(
                   s3Key: img.key || img.url,
                   width: 0,
                   height: 0,
-                  status: 'completed' as const
+                  status: 'completed' as const,
+                  clientId: user.clientId || body.clientId
                 })),
                 // Create media entries for videos
                 ...(body.videos || []).map((vid: any) => ({
@@ -215,7 +235,8 @@ export async function PUT(
                   s3Key: vid.key || vid.url,
                   width: 0,
                   height: 0,
-                  status: 'completed' as const
+                  status: 'completed' as const,
+                  clientId: user.clientId || body.clientId
                 }))
               ]
             }
@@ -285,18 +306,19 @@ export async function PUT(
         })) : []
       })
 
-      // Process embeddings for newly uploaded images in the background
+      // Process embeddings for newly uploaded media (images and videos) in the background
       if (product.media && product.media.length > 0) {
-        const imageMedia = product.media.filter((media: any) => media.kind === 'image')
-        if (imageMedia.length > 0) {
-          // Process embeddings asynchronously (don't wait for completion)
-          processImagesForEmbedding(imageMedia).catch(error => {
-            console.error('Error processing image embeddings:', error)
-          })
-        }
+        // Process embeddings asynchronously (don't wait for completion)
+        processMediaForEmbedding(product.media).catch(error => {
+          console.error('Error processing media embeddings:', error)
+        })
       }
 
-      return NextResponse.json(product)
+      // Convert BigInt fields to strings for JSON serialization
+      const serializedProduct = JSON.parse(JSON.stringify(product, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      ))
+      return NextResponse.json(serializedProduct)
     } catch (dbError) {
       console.error('Database error:', dbError)
       return NextResponse.json(

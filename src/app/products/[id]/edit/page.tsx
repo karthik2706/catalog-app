@@ -304,7 +304,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             fileType: file.file?.type || 'video/mp4',
             uploadedAt: new Date(),
           })),
-          thumbnailUrl: uploadedImages[0]?.thumbnailUrl || null,
+          thumbnailUrl: uploadedImages[0]?.thumbnailUrl || uploadedVideos[0]?.thumbnailUrl || null,
         }),
       })
 

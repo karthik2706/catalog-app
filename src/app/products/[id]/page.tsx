@@ -89,12 +89,40 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       try {
         console.log('Refreshing media URLs...')
         
-        // Collect all media that needs refreshing
-        const allMedia = [
+        // Collect all media that needs refreshing (with deduplication)
+        const allImages = [
           ...(data.images || []),
-          ...(data.videos || []),
-          ...(data.media || [])
+          ...(data.media?.filter(m => 
+            m.kind === 'image' ||
+            m.fileType?.startsWith('image/') || 
+            m.type?.startsWith('image/') ||
+            (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
+          ) || [])
         ]
+        const allVideos = [
+          ...(data.videos || []),
+          // Only include media table videos that aren't already in data.videos
+          ...(data.media?.filter(m => {
+            const isVideo = m.kind === 'video' ||
+              m.fileType?.startsWith('video/') || 
+              m.type?.startsWith('video/') ||
+              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+            
+            if (!isVideo) return false
+            
+            // Check if this media record corresponds to a video already in data.videos
+            const isDuplicate = (data.videos || []).some(video => 
+              video.key === m.s3Key || video.id === m.id
+            )
+            
+            return !isDuplicate
+          }) || [])
+        ]
+        
+        const allMedia = [...allImages, ...allVideos].map(item => ({
+          ...item,
+          key: item.key || item.s3Key // Map s3Key to key for the refresh API
+        }))
         
         if (allMedia.length > 0) {
           console.log('Refreshing', allMedia.length, 'media items')
@@ -111,20 +139,25 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             const result = await response.json()
             const refreshedMedia = result.media
             
-            // Separate back into images, videos, and legacy media
+            // Separate back into images and videos (maintaining deduplication)
             data.images = refreshedMedia.filter(m => 
+              m.kind === 'image' ||
               m.fileType?.startsWith('image/') || 
               m.type?.startsWith('image/') ||
               (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
             )
             
             data.videos = refreshedMedia.filter(m => 
+              (m.kind === 'video' ||
               m.fileType?.startsWith('video/') || 
               m.type?.startsWith('video/') ||
-              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))) &&
+              // Only include videos that have a 'key' property (from data.videos, not data.media)
+              m.key && !m.s3Key
             )
             
             data.media = refreshedMedia.filter(m => 
+              m.kind !== 'image' && m.kind !== 'video' &&
               !m.fileType?.startsWith('image/') && 
               !m.fileType?.startsWith('video/') &&
               !m.type?.startsWith('image/') && 
@@ -133,6 +166,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             )
             
             console.log('All media URLs refreshed successfully')
+            console.log('Media files loaded:', {
+              total: refreshedMedia.length,
+              images: data.images.length,
+              videos: data.videos.length,
+              mediaFiles: data.media.length
+            })
           } else {
             console.error('Failed to refresh media URLs:', response.statusText)
           }
@@ -202,10 +241,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const totalValue = Number(product.price) * product.stockLevel
   const isLowStock = product.stockLevel <= product.minStock
   
-  // Combine all media (images, videos, legacy media)
+  // Combine all media (images, videos, legacy media) with deduplication
   const allImages = [
     ...(product.images || []),
     ...(product.media?.filter(m => 
+      m.kind === 'image' ||
       m.fileType?.startsWith('image/') || 
       m.type?.startsWith('image/') ||
       (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
@@ -213,11 +253,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   ]
   const allVideos = [
     ...(product.videos || []),
-    ...(product.media?.filter(m => 
-      m.fileType?.startsWith('video/') || 
-      m.type?.startsWith('video/') ||
-      (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
-    ) || [])
+    // Only include media table videos that aren't already in product.videos
+    ...(product.media?.filter(m => {
+      const isVideo = m.kind === 'video' ||
+        m.fileType?.startsWith('video/') || 
+        m.type?.startsWith('video/') ||
+        (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
+      
+      if (!isVideo) return false
+      
+      // Check if this media record corresponds to a video already in product.videos
+      const isDuplicate = (product.videos || []).some(video => 
+        video.key === m.s3Key || video.id === m.id
+      )
+      
+      return !isDuplicate
+    }) || [])
   ]
   const mediaFiles = [...allImages, ...allVideos]
   
@@ -225,14 +276,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   console.log('Media files loaded:', {
     total: mediaFiles.length,
     images: allImages.length,
-    videos: allVideos.length,
-    mediaFiles: mediaFiles.map((m, i) => ({
-      index: i,
-      type: m.fileType || m.type,
-      url: m.url,
-      key: m.key,
-      isVideo: m.fileType?.startsWith('video/') || m.type?.startsWith('video/') || (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
-    }))
+    videos: allVideos.length
   })
 
   return (
@@ -241,7 +285,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="p-4 sm:p-6 lg:p-8">
           <FadeIn>
             {/* Header */}
-            <div className="mb-8">
+            <div className="mb-10">
               <div className="flex items-center space-x-4 mb-6">
                 <Button
                   variant="outline"
@@ -298,9 +342,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
               {/* Main Content */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="lg:col-span-2 space-y-12">
                 <StaggerWrapper>
                   {/* Product Media */}
                   <FadeIn delay={0.1}>
@@ -311,8 +355,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                           <span>Product Media ({mediaFiles.length})</span>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
+                      <CardContent className="p-6">
+                        <div className="space-y-6">
                           {/* Main Media Display */}
                           <div className="aspect-video bg-slate-100 rounded-xl overflow-hidden">
                             {mediaFiles.length > 0 && mediaFiles[selectedMediaIndex] ? (
@@ -340,10 +384,73 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                     key: media.key, 
                                     retryCount: videoRetryCount,
                                     hasUrl: !!media.url,
-                                    urlType: typeof media.url
+                                    urlType: typeof media.url,
+                                    hasThumbnailUrl: !!media.thumbnailUrl
                                   })
                                   
-                                  // Check if we have a valid URL
+                                  // For videos, show thumbnail first with play button overlay
+                                  // This provides better UX and avoids video loading issues
+                                  const thumbnailUrl = media.thumbnailUrl || product.thumbnailUrl
+                                  
+                                  if (thumbnailUrl) {
+                                    console.log('Using video thumbnail display:', {
+                                      thumbnailUrl: thumbnailUrl.substring(0, 80) + '...',
+                                      hasVideoUrl: !!media.url
+                                    })
+                                    
+                                    return (
+                                      <div className="relative w-full h-full">
+                                        <img
+                                          src={thumbnailUrl}
+                                          alt={`${product.name} - Video Thumbnail`}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            console.error('Video thumbnail load error:', {
+                                              src: thumbnailUrl,
+                                              error: e
+                                            })
+                                            // Fallback to video if thumbnail fails
+                                            e.currentTarget.style.display = 'none'
+                                          }}
+                                          onLoad={() => {
+                                            console.log('Video thumbnail loaded successfully:', thumbnailUrl.substring(0, 80) + '...')
+                                          }}
+                                        />
+                                        
+                                        {/* Video play button overlay */}
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors cursor-pointer"
+                                             onClick={(e) => {
+                                               if (media.url) {
+                                                 // Replace thumbnail with actual video
+                                                 const videoElement = document.createElement('video')
+                                                 videoElement.src = media.url
+                                                 videoElement.controls = true
+                                                 videoElement.autoplay = true
+                                                 videoElement.className = 'w-full h-full object-cover'
+                                                 
+                                                 const container = e.currentTarget.parentElement
+                                                 if (container) {
+                                                   container.innerHTML = ''
+                                                   container.appendChild(videoElement)
+                                                 }
+                                               }
+                                             }}>
+                                          <div className="w-16 h-16 bg-black/60 rounded-full flex items-center justify-center hover:bg-black/80 transition-colors">
+                                            <Play className="w-8 h-8 text-white ml-1" />
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Video indicator badge */}
+                                        <div className="absolute top-4 right-4">
+                                          <div className="bg-black/60 text-white text-sm px-3 py-1 rounded">
+                                            VIDEO
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  }
+                                  
+                                  // Fallback: Check if we have a valid video URL
                                   if (!media.url) {
                                     console.error('No URL available for video:', media)
                                     return (
@@ -452,14 +559,31 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                           isVideo,
                                           fileType: media.fileType || media.type
                                         })
+                                        // Fall back to product thumbnailUrl if available
+                                        if (product.thumbnailUrl && e.target?.src !== product.thumbnailUrl) {
+                                          console.log('Falling back to product thumbnailUrl:', product.thumbnailUrl)
+                                          e.target.src = product.thumbnailUrl
+                                        }
                                       }}
-                                      onLoad={() => {
-                                        console.log('Image loaded successfully:', displayUrl)
+                                      onLoad={(e) => {
+                                        console.log('Image loaded successfully:', e.target?.src)
                                       }}
                                     />
                                   )
                                 }
                               })()
+                            ) : product.thumbnailUrl ? (
+                              <img
+                                src={product.thumbnailUrl}
+                                alt="Product thumbnail"
+                                className="w-full h-full object-cover"
+                                onLoad={() => {
+                                  console.log('Product thumbnail loaded successfully:', product.thumbnailUrl)
+                                }}
+                                onError={(e) => {
+                                  console.error('Product thumbnail load error:', e)
+                                }}
+                              />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
                                 <div className="text-center">
@@ -542,15 +666,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                   {/* Product Information */}
                   <FadeIn delay={0.2}>
-                    <Card className="card-hover">
+                    <Card className="card-hover mt-8">
                       <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
                           <Package className="w-5 h-5 text-primary-600" />
                           <span>Product Information</span>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <CardContent className="space-y-8 p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700 flex items-center space-x-2">
                               <Hash className="w-4 h-4" />
@@ -633,16 +757,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
                   {/* Inventory History */}
                   <FadeIn delay={0.3}>
-                    <Card className="card-hover">
+                    <Card className="card-hover mt-8">
                       <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
                           <BarChart3 className="w-5 h-5 text-purple-600" />
                           <span>Recent Inventory History</span>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="p-6">
                         {product.inventoryHistory && product.inventoryHistory.length > 0 ? (
-                          <div className="space-y-4">
+                          <div className="space-y-6">
                             {product.inventoryHistory.map((history) => (
                               <div
                                 key={history.id}
@@ -695,7 +819,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </div>
 
               {/* Sidebar */}
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {/* Stock Information */}
                 <FadeIn delay={0.1}>
                   <Card className="card-hover">

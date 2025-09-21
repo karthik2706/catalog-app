@@ -5,6 +5,7 @@ Hardened with proper error handling, normalization, and health checks
 """
 
 import os
+import io
 import logging
 import torch
 import numpy as np
@@ -119,5 +120,4 @@ async def embed_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to process image: {str(e)}")
 
 if __name__ == "__main__":
-    import io
     uvicorn.run(app, host="0.0.0.0", port=8000)

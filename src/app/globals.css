@@ -65,6 +65,63 @@
   .mobile-modal {
     @apply w-full max-w-full mx-4 sm:mx-6 lg:mx-auto;
   }
+
+  /* Consistent Spacing Standards */
+  
+  /* Page containers with consistent padding */
+  .page-container {
+    @apply mobile-container py-4 sm:py-6 lg:py-8;
+  }
+  
+  /* Section spacing - vertical gaps between major sections */
+  .section-spacing {
+    @apply space-y-6 sm:space-y-8 lg:space-y-10;
+  }
+  
+  /* Card spacing - internal padding for cards */
+  .card-spacing {
+    @apply p-4 sm:p-6 lg:p-8;
+  }
+  
+  /* Card content spacing - space between elements inside cards */
+  .card-content-spacing {
+    @apply space-y-4 sm:space-y-6;
+  }
+  
+  /* Grid spacing - consistent gaps for grid layouts */
+  .grid-spacing {
+    @apply gap-4 sm:gap-6 lg:gap-8;
+  }
+  
+  /* Form spacing - consistent form element spacing */
+  .form-spacing {
+    @apply space-y-4 sm:space-y-6;
+  }
+  
+  /* Button group spacing */
+  .button-group-spacing {
+    @apply gap-2 sm:gap-3 lg:gap-4;
+  }
+  
+  /* Header spacing - space between page header and content */
+  .header-spacing {
+    @apply mb-6 sm:mb-8 lg:mb-10;
+  }
+  
+  /* List item spacing */
+  .list-spacing {
+    @apply space-y-2 sm:space-y-3;
+  }
+  
+  /* Tight spacing for compact layouts */
+  .tight-spacing {
+    @apply space-y-2 sm:space-y-3;
+  }
+  
+  /* Loose spacing for spacious layouts */
+  .loose-spacing {
+    @apply space-y-8 sm:space-y-10 lg:space-y-12;
+  }
 }
 
 /* Mobile-specific utilities */

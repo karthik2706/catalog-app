@@ -163,10 +163,22 @@ export function isUrlExpired(url: string): boolean {
     
     if (expires && date) {
       const expiresIn = parseInt(expires)
-      const urlDate = new Date(date)
+      // Parse AWS date format: 20250921T135252Z -> 2025-09-21T13:52:52Z
+      const formattedDate = date.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')
+      const urlDate = new Date(formattedDate)
       const expirationTime = new Date(urlDate.getTime() + (expiresIn * 1000))
       const now = new Date()
       const timeUntilExpiry = expirationTime.getTime() - now.getTime()
+      
+      console.log('URL expiration check:', {
+        originalDate: date,
+        formattedDate,
+        urlDate: urlDate.toISOString(),
+        expirationTime: expirationTime.toISOString(),
+        now: now.toISOString(),
+        timeUntilExpiry,
+        isExpired: timeUntilExpiry < 86400000
+      })
       
       // Consider expired if less than 1 day (86400000 ms) remaining
       return timeUntilExpiry < 86400000
@@ -192,6 +204,19 @@ function extractRegionFromUrl(url: string): string | null {
   }
 }
 
+// Helper function to extract S3 key from signed URL
+function extractS3KeyFromUrl(url: string): string | null {
+  try {
+    const urlObj = new URL(url)
+    // Remove leading slash and decode URI components
+    const key = decodeURIComponent(urlObj.pathname.substring(1))
+    return key || null
+  } catch (error) {
+    console.error('Error extracting S3 key from URL:', error)
+    return null
+  }
+}
+
 // Refresh signed URLs for existing media
 export async function refreshMediaUrls(media: any[]): Promise<any[]> {
   try {
@@ -202,8 +227,10 @@ export async function refreshMediaUrls(media: any[]): Promise<any[]> {
           try {
             // Check if URL is a direct S3 URL (not signed) or expired
             const isDirectS3Url = item.url && item.url.includes('.s3.') && !item.url.includes('X-Amz-Signature')
-            const shouldRefresh = !item.url || isUrlExpired(item.url) || isDirectS3Url
-            console.log(`Item ${index}: shouldRefresh=${shouldRefresh}, hasUrl=${!!item.url}, isDirectS3Url=${isDirectS3Url}`)
+            const isMainUrlExpired = item.url && isUrlExpired(item.url)
+            const isThumbnailExpired = item.thumbnailUrl && isUrlExpired(item.thumbnailUrl)
+            const shouldRefresh = !item.url || isMainUrlExpired || isDirectS3Url || isThumbnailExpired
+            console.log(`Item ${index}: shouldRefresh=${shouldRefresh}, hasUrl=${!!item.url}, isDirectS3Url=${isDirectS3Url}, isMainUrlExpired=${isMainUrlExpired}, isThumbnailExpired=${isThumbnailExpired}`)
             
             if (shouldRefresh) {
               console.log(`Refreshing URLs for item ${index} with key:`, item.key)
@@ -215,9 +242,23 @@ export async function refreshMediaUrls(media: any[]): Promise<any[]> {
               console.log(`process.env.AWS_REGION:`, process.env.AWS_REGION)
               
               const newUrl = await generateSignedUrl(item.key, 7 * 24 * 60 * 60, region) // 7 days
-              const newThumbnailUrl = item.thumbnailKey 
-                ? await generateSignedUrl(item.thumbnailKey, 7 * 24 * 60 * 60, region) // 7 days
-                : undefined
+              
+              // Handle thumbnailUrl refresh - extract key from existing URL or use thumbnailKey
+              let newThumbnailUrl = undefined
+              if (item.thumbnailKey) {
+                newThumbnailUrl = await generateSignedUrl(item.thumbnailKey, 7 * 24 * 60 * 60, region) // 7 days
+              } else if (item.thumbnailUrl) {
+                // Extract S3 key from existing thumbnailUrl
+                try {
+                  const thumbnailKey = extractS3KeyFromUrl(item.thumbnailUrl)
+                  if (thumbnailKey) {
+                    console.log(`Refreshing thumbnail URL for item ${index} with extracted key:`, thumbnailKey)
+                    newThumbnailUrl = await generateSignedUrl(thumbnailKey, 7 * 24 * 60 * 60, region) // 7 days
+                  }
+                } catch (error) {
+                  console.error(`Failed to refresh thumbnail URL for item ${index}:`, error)
+                }
+              }
               
               console.log(`Successfully refreshed URLs for item ${index}`)
               console.log(`Old URL: ${item.url}`)

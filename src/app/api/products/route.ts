@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { CreateProductRequest, ProductFilters } from '@/types'
 import jwt from 'jsonwebtoken'
 import { generateSignedUrl } from '@/lib/aws'
-import { processImagesForEmbedding } from '@/lib/embeddings'
+import { processMediaForEmbedding } from '@/lib/embeddings'
 
 interface JWTPayload {
   userId: string
@@ -553,7 +553,11 @@ export async function POST(request: NextRequest) {
           // Media fields
           images: images,
           videos: body.videos || [],
-          thumbnailUrl: body.path || body.thumbnailUrl || null, // Use path as thumbnail if provided
+          thumbnailUrl: body.thumbnailUrl || 
+            // Auto-generate thumbnail from first image if available  
+            (images && images.length > 0 && images[0].url ? images[0].url : null) ||
+            // Don't use video URLs as thumbnails - they should be handled by the upload-media API
+            null,
           categories: body.categoryIds ? {
             create: body.categoryIds.map((categoryId: string) => ({
               categoryId
@@ -568,7 +572,8 @@ export async function POST(request: NextRequest) {
                 s3Key: img.key || img.url,
                 width: 0,
                 height: 0,
-                status: 'completed' as const
+                status: 'completed' as const,
+                clientId: clientId
               })),
               // Create media entries for videos
               ...(body.videos || []).map((vid: any) => ({
@@ -576,7 +581,8 @@ export async function POST(request: NextRequest) {
                 s3Key: vid.key || vid.url,
                 width: 0,
                 height: 0,
-                status: 'completed' as const
+                status: 'completed' as const,
+                clientId: clientId
               }))
             ]
           }
@@ -627,18 +633,20 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Process embeddings for uploaded images in the background
+      // Process embeddings for uploaded media (images and videos) in the background
       if (product.media && product.media.length > 0) {
-        const imageMedia = product.media.filter((media: any) => media.kind === 'image')
-        if (imageMedia.length > 0) {
-          // Process embeddings asynchronously (don't wait for completion)
-          processImagesForEmbedding(imageMedia).catch(error => {
-            console.error('Error processing image embeddings:', error)
-          })
-        }
+        // Process embeddings asynchronously (don't wait for completion)
+        processMediaForEmbedding(product.media).catch(error => {
+          console.error('Error processing media embeddings:', error)
+        })
       }
 
-      return NextResponse.json(product, { status: 201 })
+      // Convert BigInt fields to strings for JSON serialization
+      const serializedProduct = JSON.parse(JSON.stringify(product, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      ))
+      
+      return NextResponse.json(serializedProduct, { status: 201 })
     } catch (dbError) {
       console.error('Database error:', dbError)
       return NextResponse.json(

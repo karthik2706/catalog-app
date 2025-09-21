@@ -184,52 +184,96 @@ export function MediaUploadPresigned({
         const { signedUrl, key } = await presignedResponse.json()
         console.log('Got pre-signed URL:', signedUrl)
 
-        // Upload file directly to S3
-        console.log('Uploading to S3...')
-        const uploadResponse = await fetch(signedUrl, {
-          method: 'PUT',
-          body: mediaFile.file,
-          headers: {
-            'Content-Type': mediaFile.file?.type || 'application/octet-stream',
-          },
-        })
+        // For video files, use the upload-media API to generate thumbnails
+        if (mediaFile.file?.type.startsWith('video/')) {
+          console.log('Video file detected, using upload-media API for thumbnail generation...')
+          
+          const formData = new FormData()
+          formData.append('file', mediaFile.file)
+          formData.append('sku', sku)
 
-        console.log('S3 upload response status:', uploadResponse.status)
-        if (!uploadResponse.ok) {
-          const errorText = await uploadResponse.text()
-          console.error('S3 upload error:', errorText)
-          throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
+          const token = localStorage.getItem('token')
+          const uploadMediaResponse = await fetch('/api/upload-media', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: formData,
+          })
+
+          const uploadResult = await uploadMediaResponse.json()
+          console.log('Upload-media API response:', uploadResult)
+
+          if (!uploadResult.success) {
+            throw new Error(uploadResult.error || 'Video upload failed')
+          }
+
+          // Use the results from upload-media API (includes thumbnail)
+          const finalUrl = uploadResult.url
+          const thumbnailUrl = uploadResult.thumbnailUrl
+          const key = uploadResult.key
+          
+          console.log('Video uploaded with thumbnail:', { finalUrl, thumbnailUrl, key })
+          
+          // Update file status to uploaded with thumbnail info
+          currentFiles = currentFiles.map(f => {
+            if (f.id === mediaFile.id) {
+              const updatedFile = { 
+                ...f, 
+                uploading: false, 
+                uploaded: true, 
+                url: finalUrl,
+                thumbnailUrl: thumbnailUrl,
+                key: key,
+                error: null 
+              }
+              console.log('Updated video file object with thumbnail:', updatedFile)
+              return updatedFile
+            }
+            return f
+          })
+        } else {
+          // For image files, upload directly to S3 (existing logic)
+          console.log('Image file detected, uploading directly to S3...')
+          const uploadResponse = await fetch(signedUrl, {
+            method: 'PUT',
+            body: mediaFile.file,
+            headers: {
+              'Content-Type': mediaFile.file?.type || 'application/octet-stream',
+            },
+          })
+
+          console.log('S3 upload response status:', uploadResponse.status)
+          if (!uploadResponse.ok) {
+            const errorText = await uploadResponse.text()
+            console.error('S3 upload error:', errorText)
+            throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`)
+          }
+
+          // Use the signed URL directly from the server response (it already has the correct region)
+          // Remove the query parameters to get the clean S3 URL
+          const finalUrl = signedUrl.split('?')[0]
+          console.log('Using signed URL as final URL:', finalUrl)
+
+          // Update file status to uploaded
+          currentFiles = currentFiles.map(f => {
+            if (f.id === mediaFile.id) {
+              const updatedFile = { 
+                ...f, 
+                uploading: false, 
+                uploaded: true, 
+                url: finalUrl,
+                key: key,
+                error: null 
+              }
+              console.log('Updated image file object:', updatedFile)
+              return updatedFile
+            }
+            return f
+          })
         }
 
-        // Use the signed URL directly from the server response (it already has the correct region)
-        // Remove the query parameters to get the clean S3 URL
-        const finalUrl = signedUrl.split('?')[0]
-        console.log('Using signed URL as final URL:', finalUrl)
-
-        // Update file status to uploaded
-        currentFiles = currentFiles.map(f => {
-          if (f.id === mediaFile.id) {
-            const updatedFile = { 
-              ...f, 
-              uploading: false, 
-              uploaded: true, 
-              url: finalUrl,
-              key: key,
-              error: null 
-            }
-            console.log('Updated file object:', updatedFile)
-            return updatedFile
-          }
-          return f
-        })
         console.log('Updating file status to uploaded for:', mediaFile.file?.name || 'unknown')
-        console.log('File details:', {
-          id: mediaFile.id,
-          name: mediaFile.file?.name || 'unknown',
-          url: finalUrl,
-          key: key,
-          uploaded: true
-        })
         onFilesChange(currentFiles)
 
         // Update progress

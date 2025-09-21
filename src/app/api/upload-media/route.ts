@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { S3_CONFIG, validateFileType, generateS3Key } from '@/lib/aws'
-import { processImageFile, processVideoFile, uploadToS3 } from '@/lib/s3-upload'
+import { processImageFile, processVideoFile, uploadToS3, uploadVideoWithThumbnail } from '@/lib/s3-upload'
 import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 import { validateImageSecurity, processImageForSecurity, generateSecureFilename, sanitizeS3Key } from '@/lib/security'
 import { createApiLogger, PerformanceTimer } from '@/lib/log'
+import { processMediaForEmbedding } from '@/lib/embeddings'
 
 // Configure body size limit for file uploads
 export const config = {
@@ -97,18 +98,20 @@ export async function POST(request: NextRequest) {
     const logger = createApiLogger('/api/upload-media');
     const timer = new PerformanceTimer('media_upload');
     
-    // Validate image security
-    const securityValidation = await validateImageSecurity(buffer, file.name, 50 * 1024 * 1024);
-    if (!securityValidation.valid) {
-      logger.warn('Image security validation failed', { 
-        reason: securityValidation.reason,
-        fileName: file.name,
-        clientId 
-      });
-      return NextResponse.json(
-        { error: 'Image validation failed', reason: securityValidation.reason },
-        { status: 400 }
-      );
+    // Validate image security (only for images)
+    if (file.type.startsWith('image/')) {
+      const securityValidation = await validateImageSecurity(buffer, file.name, 50 * 1024 * 1024);
+      if (!securityValidation.valid) {
+        logger.warn('Image security validation failed', { 
+          reason: securityValidation.reason,
+          fileName: file.name,
+          clientId 
+        });
+        return NextResponse.json(
+          { error: 'Image validation failed', reason: securityValidation.reason },
+          { status: 400 }
+        );
+      }
     }
 
     // Process image for security if it's an image
@@ -135,6 +138,7 @@ export async function POST(request: NextRequest) {
 
     let processedFile
     let uploadResult
+    let thumbnailResult = null
 
     try {
       // Determine file type
@@ -142,18 +146,28 @@ export async function POST(request: NextRequest) {
       if (S3_CONFIG.allowedFileTypes.images.includes(file.type)) {
         fileType = 'image'
         processedFile = await processImageFile(processedBuffer, file.name, file.type)
+        // Upload to S3 with proper folder structure
+        uploadResult = await uploadToS3(processedFile, clientId, sku, fileType)
       } else if (S3_CONFIG.allowedFileTypes.videos.includes(file.type)) {
         fileType = 'video'
         processedFile = await processVideoFile(processedBuffer, file.name, file.type)
+        
+        // Upload video with automatic thumbnail generation
+        console.log('Uploading video with thumbnail generation...')
+        const videoUploadResults = await uploadVideoWithThumbnail(processedFile, buffer, clientId, sku)
+        uploadResult = videoUploadResults.video
+        thumbnailResult = videoUploadResults.thumbnail
+        
+        console.log('Video and thumbnail uploaded successfully:', {
+          video: uploadResult.key,
+          thumbnail: thumbnailResult.key
+        })
       } else {
         return NextResponse.json(
           { error: 'Unsupported file type' },
           { status: 400 }
         )
       }
-
-      // Upload to S3 with proper folder structure
-      uploadResult = await uploadToS3(processedFile, clientId, sku, fileType)
 
       if (!uploadResult.success) {
         logger.error('S3 upload failed', { 
@@ -169,13 +183,14 @@ export async function POST(request: NextRequest) {
 
       // Log successful upload
       const uploadDuration = timer.end();
-      logger.logMediaUpload(
-        file.name,
-        processedBuffer.length,
-        file.type,
-        uploadResult.s3Key || 'unknown',
-        clientId
-      );
+      logger.info('Media upload completed', {
+        fileName: file.name,
+        fileSize: processedBuffer.length,
+        fileType: file.type,
+        s3Key: uploadResult.key || 'unknown',
+        clientId,
+        durationMs: uploadDuration
+      });
 
       // Find the product by SKU to get productId
       const product = await prisma.product.findFirst({
@@ -246,6 +261,80 @@ export async function POST(request: NextRequest) {
           })
 
           console.log(`Created/updated Media row for ${fileType}: ${uploadResult.key}`)
+          
+          // For videos, also create a media record for the thumbnail
+          let thumbnailMediaRow = null
+          if (fileType === 'video' && thumbnailResult) {
+            console.log('Creating thumbnail media record:', {
+              productId: product.id,
+              clientId: clientId,
+              thumbnailKey: thumbnailResult.key,
+              fileType: fileType
+            })
+            try {
+              thumbnailMediaRow = await prisma.media.upsert({
+                where: {
+                  s3Key: thumbnailResult.key,
+                },
+                create: {
+                  productId: product.id,
+                  clientId: clientId,
+                  kind: 'image', // Thumbnail is always an image
+                  s3Key: thumbnailResult.key,
+                  width: 1, // Small placeholder thumbnail
+                  height: 1, // Small placeholder thumbnail
+                  durationMs: null,
+                  status: 'completed', // Thumbnail is immediately ready
+                },
+                update: {
+                  width: 1,
+                  height: 1,
+                  durationMs: null,
+                  status: 'completed',
+                  error: null,
+                  updatedAt: new Date(),
+                },
+              })
+              
+              console.log(`Created/updated Media row for video thumbnail: ${thumbnailResult.key}`, {
+                thumbnailMediaRowId: thumbnailMediaRow?.id,
+                status: 'success'
+              })
+            } catch (thumbnailError) {
+              console.error('Failed to create thumbnail Media row:', {
+                error: thumbnailError,
+                thumbnailKey: thumbnailResult.key,
+                productId: product.id,
+                clientId: clientId
+              })
+              // Don't fail the upload if thumbnail Media row creation fails
+            }
+          }
+          
+          // Trigger embedding processing for the uploaded media
+          if (mediaRow) {
+            // Use setTimeout to ensure the function runs in a separate context
+            setTimeout(() => {
+              const mediaItems = [{
+                id: mediaRow.id,
+                s3Key: uploadResult.key,
+                kind: fileType
+              }]
+              
+              // Also process thumbnail for embedding if it exists
+              if (thumbnailMediaRow) {
+                mediaItems.push({
+                  id: thumbnailMediaRow.id,
+                  s3Key: thumbnailResult.key,
+                  kind: 'image'
+                })
+              }
+              
+              processMediaForEmbedding(mediaItems).catch(error => {
+                console.error('Error processing media embeddings:', error)
+              })
+            }, 100)
+          }
         } catch (error) {
           console.error('Failed to create Media row:', error)
           // Don't fail the upload if Media row creation fails
@@ -255,12 +344,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         url: uploadResult.url,
-        thumbnailUrl: uploadResult.thumbnailUrl,
+        thumbnailUrl: thumbnailResult ? thumbnailResult.url : uploadResult.thumbnailUrl,
         key: uploadResult.key,
+        thumbnailKey: thumbnailResult ? thumbnailResult.key : null,
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
-        mediaId: mediaRow?.id, // Include Media row ID if created
+        mediaId: mediaRow?.id ? String(mediaRow.id) : null, // Convert BigInt to string
+        hasThumbnail: !!thumbnailResult,
       })
 
       // TODO: Backfill Media rows for historical Product.images/videos JSON data

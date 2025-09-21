@@ -21,6 +21,7 @@ export interface ImageMatch {
   s3Key: string;
   width?: number;
   height?: number;
+  thumbnailUrl?: string;
 }
 
 export interface VideoMatch {
@@ -31,6 +32,7 @@ export interface VideoMatch {
   tsMs: number;
   width?: number;
   height?: number;
+  thumbnailUrl?: string;
 }
 
 /**
@@ -63,7 +65,8 @@ export async function searchSimilarImages(
       ((1 - (ie.embedding <#> $1::vector)) * 50) as "similarityPercent",
       m."s3Key",
       m.width,
-      m.height
+      m.height,
+      p."thumbnailUrl"
     FROM image_embeddings ie
     JOIN media m ON ie."mediaId" = m.id
     JOIN products p ON m."productId" = p.id
@@ -117,7 +120,8 @@ export async function searchSimilarVideoFrames(
       vf."frameS3Key",
       vf."tsMs",
       m.width,
-      m.height
+      m.height,
+      p."thumbnailUrl"
     FROM frame_embeddings fe
     JOIN video_frames vf ON fe."frameId" = vf.id
     JOIN media m ON vf."mediaId" = m.id
@@ -166,6 +170,9 @@ export async function searchSimilarProducts(
       const existing = productMap.get(match.productId);
       
       if (!existing || match.score < existing.score) {
+        // Prioritize thumbnailUrl over s3Key for better image display
+        const thumbUrl = match.thumbnailUrl || match.s3Key;
+        
         productMap.set(match.productId, {
           productId: match.productId,
           productName: match.productName,
@@ -173,7 +180,7 @@ export async function searchSimilarProducts(
           similarityPercent: match.similarityPercent,
           match: {
             type: 'image',
-            thumbUrl: match.s3Key, // This would need to be converted to full URL
+            thumbUrl: thumbUrl,
           }
         });
       }
@@ -184,6 +191,9 @@ export async function searchSimilarProducts(
       const existing = productMap.get(match.productId);
       
       if (!existing || match.score < existing.score) {
+        // Prioritize thumbnailUrl over frameS3Key for better image display
+        const thumbUrl = match.thumbnailUrl || match.frameS3Key;
+        
         productMap.set(match.productId, {
           productId: match.productId,
           productName: match.productName,
@@ -191,7 +201,7 @@ export async function searchSimilarProducts(
           match: {
             type: 'video',
             tsMs: match.tsMs,
-            thumbUrl: match.frameS3Key, // This would need to be converted to full URL
+            thumbUrl: thumbUrl,
           }
         });
       }
@@ -283,13 +293,18 @@ export async function enrichSearchResults(results: SearchResult[]): Promise<Sear
       let thumbUrl = undefined;
       
       if (result.match.thumbUrl) {
-        try {
-          // Generate signed URL for the S3 key
-          thumbUrl = await generateSignedUrl(result.match.thumbUrl, 7 * 24 * 60 * 60); // 7 days
-        } catch (error) {
-          console.error('Error generating signed URL for search result:', error);
-          // Fallback to raw S3 URL if signing fails
-          thumbUrl = getS3Url(result.match.thumbUrl);
+        // If it's already a full URL (like thumbnailUrl from Unsplash), use it directly
+        if (result.match.thumbUrl.startsWith('http')) {
+          thumbUrl = result.match.thumbUrl;
+        } else {
+          // If it's an S3 key, generate a signed URL
+          try {
+            thumbUrl = await generateSignedUrl(result.match.thumbUrl, 7 * 24 * 60 * 60); // 7 days
+          } catch (error) {
+            console.error('Error generating signed URL for search result:', error);
+            // Fallback to raw S3 URL if signing fails
+            thumbUrl = getS3Url(result.match.thumbUrl);
+          }
         }
       }
       

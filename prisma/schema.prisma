@@ -247,8 +247,46 @@ model Media {
   // Relations
   product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  videoFrames     VideoFrame[]    // For videos
+  imageEmbedding  ImageEmbedding? // For images
 
   @@map("media")
 }
 
-// Vector models temporarily disabled for compatibility
+// Video Frame Models for Visual Search
+model VideoFrame {
+  id        BigInt   @id @default(autoincrement())
+  mediaId   BigInt   // FK to media(id)
+  tsMs      Int      // Timestamp in milliseconds
+  frameS3Key String  // S3 key for the extracted frame image
+  createdAt DateTime @default(now())
+
+  // Relations
+  media           Media             @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  frameEmbeddings FrameEmbedding[]
+
+  @@map("video_frames")
+}
+
+model ImageEmbedding {
+  mediaId   BigInt    @id // FK to media(id) - one embedding per media
+  embedding String    // Vector embedding as string (pgvector format)
+  createdAt DateTime  @default(now())
+
+  // Relations
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@map("image_embeddings")
+}
+
+model FrameEmbedding {
+  frameId   BigInt    @id // FK to video_frames(id) - one embedding per frame
+  embedding String    // Vector embedding as string (pgvector format)
+  createdAt DateTime  @default(now())
+
+  // Relations
+  frame VideoFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
+
+  @@map("frame_embeddings")
+}
+

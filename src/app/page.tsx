@@ -190,10 +190,10 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
+      <div className="section-spacing">
         {/* Header */}
         <FadeIn>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between header-spacing">
             <div>
               <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
               <p className="mt-2 text-slate-600">
@@ -214,7 +214,7 @@ export default function DashboardPage() {
 
         {/* Stats Grid */}
         <StaggerWrapper>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 grid-spacing">
             {statCards.map((stat, index) => {
               const Icon = stat.icon
               return (
@@ -225,7 +225,7 @@ export default function DashboardPage() {
                   hover={true}
                 >
                   <Card>
-                    <CardContent className="p-6">
+                    <CardContent className="card-spacing">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <p className="text-sm font-medium text-slate-600 mb-1">
@@ -265,7 +265,7 @@ export default function DashboardPage() {
         </StaggerWrapper>
 
         {/* Quick Actions & Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 grid-spacing">
           {/* Quick Actions */}
           <Card>
             <CardHeader>
@@ -274,7 +274,7 @@ export default function DashboardPage() {
                 Quick Actions
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="card-content-spacing">
               {quickActions.map((action) => {
                 const Icon = action.icon
                 return (
@@ -309,7 +309,7 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="card-content-spacing">
                 {[
                   { action: 'Product added', item: 'MacBook Pro 16"', time: '2 minutes ago', type: 'add' },
                   { action: 'Stock updated', item: 'iPhone 15 Pro', time: '15 minutes ago', type: 'update' },
@@ -351,7 +351,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 grid-spacing">
               <div className="flex items-center justify-between p-4 bg-success-50 rounded-xl">
                 <div>
                   <p className="text-sm font-medium text-success-800">Database</p>

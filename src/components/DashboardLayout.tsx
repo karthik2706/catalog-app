@@ -128,7 +128,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const Sidebar = () => (
     <div className="h-full bg-white border-r border-slate-200/50 flex flex-col min-w-0">
       {/* Logo */}
-      <div className="p-4 sm:p-6 border-b border-slate-200/50">
+      <div className="card-spacing border-b border-slate-200/50">
         <div className="flex items-center space-x-3 min-w-0">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0">
             <ShoppingCart className="w-6 h-6 text-white" />
@@ -141,7 +141,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 min-w-0">
+      <nav className="flex-1 card-spacing list-spacing min-w-0">
         {menuItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.path)
@@ -176,7 +176,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </nav>
 
       {/* User Info */}
-      <div className="p-4 border-t border-slate-200/50 min-w-0">
+      <div className="card-spacing border-t border-slate-200/50 min-w-0">
         <div className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 min-w-0">
           <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-full flex items-center justify-center flex-shrink-0">
             <User className="w-5 h-5 text-white" />
@@ -328,7 +328,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Page Content */}
         <main className="min-h-screen min-w-mobile">
-          <div className="mobile-container py-4 sm:py-6 lg:py-8">
+          <div className="page-container">
             {children}
           </div>
         </main>

@@ -176,6 +176,27 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
       return null
     }
     
+    // Check if we have videos - if so, prioritize video display with thumbnail
+    const videos = product.videos || []
+    const hasVideos = videos.length > 0
+    
+    // For products with videos, show video thumbnail with play button overlay
+    if (hasVideos && product.thumbnailUrl) {
+      const video = videos[0]
+      let videoUrl = null
+      
+      if (typeof video === 'object' && video !== null) {
+        videoUrl = video.url || video.URL || video.src || video.videoUrl
+      }
+      
+      return { 
+        url: product.thumbnailUrl, 
+        type: 'video-thumbnail',
+        videoUrl: videoUrl,
+        media: video
+      }
+    }
+    
     // Priority: thumbnailUrl > first image > first video > first media
     if (product.thumbnailUrl) {
       return { url: product.thumbnailUrl, type: 'image' }
@@ -211,9 +232,9 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
     }
 
     // Check videos - handle different possible structures
-    const videos = product.videos || []
-    if (videos.length > 0) {
-      const video = videos[0]
+    const productVideos = product.videos || []
+    if (productVideos.length > 0) {
+      const video = productVideos[0]
       
       let videoUrl = null
       let s3Key = null
@@ -406,6 +427,42 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
                     onError={() => setImageError(true)}
                     onLoad={() => setImageError(false)}
                   />
+                ) : displayMedia.type === 'video-thumbnail' ? (
+                  <>
+                    <img
+                      src={displayMedia.url}
+                      alt={`${product.name} - Video Thumbnail`}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error('Video thumbnail load error:', {
+                          src: displayMedia.url,
+                          productSku: product.sku,
+                          error: e
+                        })
+                        setImageError(true)
+                      }}
+                      onLoad={() => {
+                        setImageError(false)
+                        console.log('Video thumbnail loaded successfully:', {
+                          src: displayMedia.url,
+                          productSku: product.sku,
+                          hasVideoUrl: !!displayMedia.videoUrl
+                        })
+                      }}
+                    />
+                    {/* Video play icon overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-12 h-12 bg-black/60 rounded-full flex items-center justify-center hover:bg-black/80 transition-colors">
+                        <Play className="w-6 h-6 text-white ml-0.5" />
+                      </div>
+                    </div>
+                    {/* Video indicator badge */}
+                    <div className="absolute top-2 right-2">
+                      <div className="bg-black/60 text-white text-xs px-2 py-1 rounded">
+                        VIDEO
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <img
                     src={displayMedia.url}
@@ -422,7 +479,7 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
                   />
                 )}
                 
-                {/* Video play icon */}
+                {/* Video play icon for direct video display */}
                 {displayMedia.type === 'video' && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-10 h-10 bg-black/50 rounded-full flex items-center justify-center">

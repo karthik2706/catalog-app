@@ -336,16 +336,16 @@ export default function ProductsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="section-spacing">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between header-spacing">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Products</h1>
             <p className="mt-2 text-slate-600">
               Manage your inventory and product catalog
             </p>
           </div>
-          <div className="mt-4 sm:mt-0 flex space-x-3">
+          <div className="mt-4 sm:mt-0 flex button-group-spacing">
             <Button 
               variant="outline" 
               size="sm"

@@ -161,7 +161,7 @@ export default function NewProductPage() {
     if (imageFiles.length > 0) {
       setThumbnailUrl(imageFiles[0].url || imageFiles[0].thumbnailUrl || '')
     } else if (videoFiles.length > 0) {
-      setThumbnailUrl(videoFiles[0].url || videoFiles[0].thumbnailUrl || '')
+      setThumbnailUrl(videoFiles[0].thumbnailUrl || videoFiles[0].url || '')
     }
     
   }

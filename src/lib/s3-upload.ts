@@ -146,6 +146,92 @@ export async function processVideoFile(
   }
 }
 
+/**
+ * Extract a thumbnail frame from a video buffer
+ * @param videoBuffer - The video file buffer
+ * @param originalName - Original filename for naming the thumbnail
+ * @returns Promise<ProcessedFile> - The extracted thumbnail as a JPEG image
+ */
+export async function extractVideoThumbnail(
+  videoBuffer: Buffer,
+  originalName: string
+): Promise<ProcessedFile> {
+  try {
+    // Import the improved video thumbnail generator
+    const { extractVideoThumbnail: generateThumbnail } = await import('./video-thumbnail-generator')
+    
+    // Use the improved thumbnail generation
+    return await generateThumbnail(videoBuffer, originalName)
+  } catch (error) {
+    console.error('Error extracting video thumbnail:', error)
+    
+    // Fallback to simple placeholder if import fails
+    const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '')
+    const thumbnailName = `${nameWithoutExt}-thumbnail.png`
+    
+    // Create a minimal 200x150 placeholder as fallback
+    const fallbackPng = Buffer.from([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+      0x00, 0x00, 0x00, 0x0D, // IHDR chunk length
+      0x49, 0x48, 0x44, 0x52, // IHDR
+      0x00, 0x00, 0x00, 0xC8, // Width: 200
+      0x00, 0x00, 0x00, 0x96, // Height: 150
+      0x08, 0x02, 0x00, 0x00, 0x00, // Bit depth: 8, Color type: 2 (RGB)
+      0x4C, 0x5D, 0x00, 0x5E, // CRC
+      0x00, 0x00, 0x00, 0x0C, // IDAT chunk length
+      0x49, 0x44, 0x41, 0x54, // IDAT
+      0x08, 0x99, 0x01, 0x01, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x2D, 0x37, 0x48, // Compressed dark gray data
+      0x00, 0x00, 0x00, 0x00, // IEND chunk length
+      0x49, 0x45, 0x4E, 0x44, // IEND
+      0xAE, 0x42, 0x60, 0x82  // CRC
+    ])
+    
+    console.log(`Generated fallback thumbnail for video: ${originalName} -> ${thumbnailName}`)
+    
+    return {
+      buffer: fallbackPng,
+      contentType: 'image/png',
+      originalName: thumbnailName,
+    }
+  }
+}
+
+/**
+ * Upload video with automatic thumbnail generation
+ * @param videoFile - The processed video file
+ * @param videoBuffer - Original video buffer for thumbnail extraction
+ * @param clientId - Client ID for S3 path
+ * @param sku - Product SKU for S3 path
+ * @returns Promise<{video: UploadResult, thumbnail: UploadResult}> - Both video and thumbnail upload results
+ */
+export async function uploadVideoWithThumbnail(
+  videoFile: ProcessedFile,
+  videoBuffer: Buffer,
+  clientId: string,
+  sku: string
+): Promise<{video: UploadResult, thumbnail: UploadResult}> {
+  try {
+    console.log(`Uploading video with thumbnail generation for SKU: ${sku}`)
+    
+    // Upload the video first
+    const videoResult = await uploadToS3(videoFile, clientId, sku, 'video')
+    console.log(`Video uploaded successfully: ${videoResult.key}`)
+    
+    // Extract and upload thumbnail
+    const thumbnailFile = await extractVideoThumbnail(videoBuffer, videoFile.originalName)
+    const thumbnailResult = await uploadToS3(thumbnailFile, clientId, sku, 'image')
+    console.log(`Thumbnail uploaded successfully: ${thumbnailResult.key}`)
+    
+    return {
+      video: videoResult,
+      thumbnail: thumbnailResult
+    }
+  } catch (error) {
+    console.error('Error uploading video with thumbnail:', error)
+    throw new Error(`Failed to upload video with thumbnail: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
 // Upload file to S3
 export async function uploadToS3(
   file: ProcessedFile,
