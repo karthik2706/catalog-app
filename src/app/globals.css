@@ -122,6 +122,20 @@
   .loose-spacing {
     @apply space-y-8 sm:space-y-10 lg:space-y-12;
   }
+
+  /* Card hover effects */
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-medium hover:-translate-y-1;
+  }
+
+  /* Gold color variants */
+  .bg-gold-100 {
+    background-color: #fef3c7;
+  }
+  
+  .text-gold-800 {
+    color: #92400e;
+  }
 }
 
 /* Mobile-specific utilities */
