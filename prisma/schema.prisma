@@ -1,96 +1,71 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_URL")
 }
 
-// Multi-tenant SaaS Platform Models
 model Country {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  code        String   @unique // ISO 3166-1 alpha-2 country code (e.g., "US", "IN")
-  currencyId  String   // Default currency for this country
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  currency    Currency @relation(fields: [currencyId], references: [id])
-  clients     Client[]
+  id         String   @id @default(cuid())
+  name       String   @unique
+  code       String   @unique
+  currencyId String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("countries")
 }
 
 model Currency {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  code        String   @unique // ISO 4217 currency code (e.g., "USD", "INR")
-  symbol      String   // Currency symbol (e.g., "$", "₹")
-  decimalPlaces Int    @default(2) // Number of decimal places
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  countries   Country[]
-  clients     Client[]
+  id            String   @id @default(cuid())
+  name          String   @unique
+  code          String   @unique
+  symbol        String
+  decimalPlaces Int      @default(2)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@map("currencies")
 }
 
 model Client {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique // For subdomain routing
-  domain      String?  // Custom domain support
-  email       String
-  phone       String?
-  address     String?
-  logo        String?  // Logo URL
-  countryId   String?  // Client's country
-  currencyId  String?  // Client's currency
-  isActive    Boolean  @default(true)
-  plan        Plan     @default(STARTER)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  country     Country?  @relation(fields: [countryId], references: [id])
-  currency    Currency? @relation(fields: [currencyId], references: [id])
-  users       User[]
-  products    Product[]
-  categories  Category[]
-  settings    ClientSettings?
-  inventoryHistory InventoryHistory[]
-  media       Media[]
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  domain     String?
+  email      String
+  phone      String?
+  address    String?
+  logo       String?
+  countryId  String?
+  currencyId String?
+  isActive   Boolean  @default(true)
+  plan       Plan     @default(STARTER)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("clients")
 }
 
 model ClientSettings {
-  id                  String   @id @default(cuid())
-  clientId            String   @unique
-  companyName         String
-  email               String
-  phone               String?
-  address             String?
-  timezone            String   @default("America/New_York")
-  lowStockThreshold   Int      @default(10)
-  autoReorder         Boolean  @default(false)
-  emailNotifications  Boolean  @default(true)
-  smsNotifications    Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  // Relations
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  clientId           String   @unique
+  companyName        String
+  email              String
+  phone              String?
+  address            String?
+  timezone           String   @default("America/New_York")
+  lowStockThreshold  Int      @default(10)
+  autoReorder        Boolean  @default(false)
+  emailNotifications Boolean  @default(true)
+  smsNotifications   Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@map("client_settings")
 }
@@ -101,93 +76,63 @@ model User {
   password  String
   name      String?
   role      Role     @default(ADMIN)
-  clientId  String?  // Null for super admin users
+  clientId  String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  client           Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  inventoryHistory InventoryHistory[]
-
-  // Ensure email is unique within a client (or globally for super admins)
   @@unique([email, clientId])
   @@map("users")
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  sku         String
-  description String?
-  price       Decimal  @db.Decimal(10, 2)
-  category    String   // Keep for backward compatibility
-  categoryId  String?  // New foreign key to categories table
-  variations  Json?    // Store product variations as JSON
-  stockLevel  Int      @default(0)
-  minStock    Int      @default(0)
-  isActive    Boolean  @default(true)
-  clientId    String   // Required for multi-tenancy
-  
-  // Media fields (legacy - kept for backward compatibility)
-  images      Json?    // Array of image URLs and metadata
-  videos      Json?    // Array of video URLs and metadata
-  thumbnailUrl String? // Primary thumbnail URL
-  path        String?  // S3 path for uploaded asset
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  sku          String
+  description  String?
+  price        Decimal  @db.Decimal(10, 2)
+  category     String
+  categoryId   String?
+  variations   Json?
+  stockLevel   Int      @default(0)
+  minStock     Int      @default(0)
+  isActive     Boolean  @default(true)
+  clientId     String
+  media        Json?
+  images       Json?
+  videos       Json?
+  thumbnailUrl String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  // Relations
-  client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  inventoryHistory InventoryHistory[]
-  categoryRef      Category?         @relation(fields: [categoryId], references: [id])
-  categories       ProductCategory[] // Many-to-many relationship with categories
-  media            Media[]
-
-  // Ensure SKU is unique within a client
   @@unique([sku, clientId])
   @@map("products")
 }
 
 model InventoryHistory {
-  id          String   @id @default(cuid())
-  productId   String
-  quantity    Int      // Positive for additions, negative for subtractions
-  type        InventoryType
-  reason      String?
-  userId      String?
-  clientId    String   // For tenant isolation
-  createdAt   DateTime @default(now())
-
-  // Relations
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user    User?   @relation(fields: [userId], references: [id])
-  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id        String        @id @default(cuid())
+  productId String
+  quantity  Int
+  type      InventoryType
+  reason    String?
+  userId    String?
+  clientId  String
+  createdAt DateTime      @default(now())
 
   @@map("inventory_history")
 }
-
 
 model Category {
   id          String   @id @default(cuid())
   name        String
   description String?
   isActive    Boolean  @default(true)
-  clientId    String   // Required for multi-tenancy
-  parentId    String?  // For hierarchical categories
-  sortOrder   Int      @default(0) // For custom ordering
+  clientId    String
+  parentId    String?
+  sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
-  client     Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  products   Product[]         // Legacy relation
-  parent     Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children   Category[]        @relation("CategoryHierarchy")
-  productCategories ProductCategory[] // Many-to-many relationship with products
-
-  // Ensure category name is unique within a client and parent
   @@unique([name, clientId, parentId])
   @@map("categories")
 }
@@ -198,26 +143,21 @@ model ProductCategory {
   categoryId String
   createdAt  DateTime @default(now())
 
-  // Relations
-  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  // Ensure unique product-category combination
   @@unique([productId, categoryId])
   @@map("product_categories")
 }
 
 enum Role {
-  SUPER_ADMIN  // Platform administrators
-  ADMIN        // Client administrators
-  MANAGER      // Client managers
-  USER         // Client users
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  USER
 }
 
 enum Plan {
-  STARTER      // Basic plan
-  PROFESSIONAL // Professional plan
-  ENTERPRISE   // Enterprise plan
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
 }
 
 enum InventoryType {
@@ -228,65 +168,3 @@ enum InventoryType {
   DAMAGE
   TRANSFER
 }
-
-// Visual Search Models
-model Media {
-  id          BigInt   @id @default(autoincrement())
-  productId   String   // FK to products(id) - using cuid
-  clientId    String   // FK to clients(id) - for tenant isolation
-  kind        String   // 'image' or 'video'
-  s3Key       String   @unique
-  width       Int?
-  height      Int?
-  durationMs  Int?     // For videos
-  status      String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
-  error       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  videoFrames     VideoFrame[]    // For videos
-  imageEmbedding  ImageEmbedding? // For images
-
-  @@map("media")
-}
-
-// Video Frame Models for Visual Search
-model VideoFrame {
-  id        BigInt   @id @default(autoincrement())
-  mediaId   BigInt   // FK to media(id)
-  tsMs      Int      // Timestamp in milliseconds
-  frameS3Key String  // S3 key for the extracted frame image
-  createdAt DateTime @default(now())
-
-  // Relations
-  media           Media             @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  frameEmbeddings FrameEmbedding[]
-
-  @@map("video_frames")
-}
-
-model ImageEmbedding {
-  mediaId   BigInt    @id // FK to media(id) - one embedding per media
-  embedding String    // Vector embedding as string (pgvector format)
-  createdAt DateTime  @default(now())
-
-  // Relations
-  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-
-  @@map("image_embeddings")
-}
-
-model FrameEmbedding {
-  frameId   BigInt    @id // FK to video_frames(id) - one embedding per frame
-  embedding String    // Vector embedding as string (pgvector format)
-  createdAt DateTime  @default(now())
-
-  // Relations
-  frame VideoFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
-
-  @@map("frame_embeddings")
-}
-
