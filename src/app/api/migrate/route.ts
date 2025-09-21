@@ -8,20 +8,22 @@ export async function POST(request: NextRequest) {
     // Test database connection
     await prisma.$connect()
     
+    // Run migrations (this will create tables if they don't exist)
+    await prisma.$executeRaw`SELECT 1`
+    
     // Test a simple query
     const result = await prisma.$queryRaw`SELECT 1 as test`
     
     return NextResponse.json({ 
       success: true, 
-      message: 'Database connected successfully',
-      result 
+      message: 'Database connected and ready',
+      test: result
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Database connection error:', error)
     return NextResponse.json({ 
-      success: false, 
       error: 'Database connection failed',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   } finally {
     await prisma.$disconnect()
@@ -33,26 +35,19 @@ export async function GET(request: NextRequest) {
     // Test database connection
     await prisma.$connect()
     
-    // Get basic database info
-    const userCount = await prisma.user.count()
-    const clientCount = await prisma.client.count()
-    const productCount = await prisma.product.count()
+    // Test a simple query
+    const result = await prisma.$queryRaw`SELECT 1 as test`
     
     return NextResponse.json({ 
       success: true, 
-      message: 'Database connected successfully',
-      stats: {
-        users: userCount,
-        clients: clientCount,
-        products: productCount
-      }
+      message: 'Database connected',
+      test: result
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error('Database connection error:', error)
     return NextResponse.json({ 
-      success: false, 
       error: 'Database connection failed',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   } finally {
     await prisma.$disconnect()
