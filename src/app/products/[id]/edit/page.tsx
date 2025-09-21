@@ -61,6 +61,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
   const [uploading, setUploading] = useState(false)
 
+
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -216,6 +217,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       console.error('Error fetching client currency:', err)
     }
   }
+
 
 
   const handleInputChange = (field: string, value: any) => {
@@ -694,6 +696,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                           className="w-full"
                           clientId={product?.clientId}
                         />
+
                         
                         {/* Debug: Show current mediaFiles state */}
                         <div className="mt-4 p-4 bg-gray-100 rounded-lg">

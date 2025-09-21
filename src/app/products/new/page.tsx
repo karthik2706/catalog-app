@@ -14,7 +14,7 @@ import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
 import { MediaUploadPresigned as MediaUpload, MediaFile } from '@/components/ui/MediaUploadPresigned'
-import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
+import { formatCurrency, getCurrencyIcon, generateSku } from '@/lib/utils'
 import { 
   ArrowLeft, 
   Save, 
@@ -31,8 +31,8 @@ import {
   Settings,
   Palette,
   Ruler,
-  Sparkles,
-  Image as ImageIcon
+  Image as ImageIcon,
+  RefreshCw
 } from 'lucide-react'
 
 export default function NewProductPage() {
@@ -107,6 +107,12 @@ export default function NewProductPage() {
       }
     }
 
+    // Generate initial SKU
+    setFormData(prev => ({
+      ...prev,
+      sku: generateSku()
+    }))
+
     loadCategories()
     fetchClientCurrency()
   }, [])
@@ -119,74 +125,45 @@ export default function NewProductPage() {
     }))
   }
 
-  // Simple file upload handling
-  const [uploading, setUploading] = useState(false)
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [uploadedUrl, setUploadedUrl] = useState<string>('')
+  const handleRegenerateSku = () => {
+    setFormData(prev => ({
+      ...prev,
+      sku: generateSku()
+    }))
+  }
 
-  const handleFileUpload = async (file: File) => {
-    if (!formData.sku) {
-      setError('Please enter a SKU before uploading a file')
-      return
+
+
+  // Handle media files change
+  const handleMediaFilesChange = (files: MediaFile[]) => {
+    console.log('Media files changed:', files.map(f => ({
+      id: f.id,
+      name: f.file?.name,
+      uploaded: f.uploaded,
+      url: f.url
+    })))
+    setMediaFiles(files)
+    
+    // Update images and videos arrays
+    const imageFiles = files.filter(file => {
+      const fileType = file.file?.type || ''
+      return fileType.startsWith('image/') && file.uploaded
+    })
+    const videoFiles = files.filter(file => {
+      const fileType = file.file?.type || ''
+      return fileType.startsWith('video/') && file.uploaded
+    })
+    
+    setImages(imageFiles)
+    setVideos(videoFiles)
+    
+    // Set thumbnail from first image
+    if (imageFiles.length > 0) {
+      setThumbnailUrl(imageFiles[0].url || imageFiles[0].thumbnailUrl || '')
+    } else if (videoFiles.length > 0) {
+      setThumbnailUrl(videoFiles[0].url || videoFiles[0].thumbnailUrl || '')
     }
-
-    setUploading(true)
-    setError('')
-
-    try {
-      // Get pre-signed URL
-      const presignedResponse = await fetch('/api/upload-presigned', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          sku: formData.sku
-        })
-      })
-
-      if (!presignedResponse.ok) {
-        const errorData = await presignedResponse.json()
-        throw new Error(errorData.error || 'Failed to get upload URL')
-      }
-
-      const presignedData = await presignedResponse.json()
-
-      // Upload to S3
-      const uploadResponse = await fetch(presignedData.signedUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type
-        }
-      })
-
-      if (!uploadResponse.ok) {
-        throw new Error('Upload failed')
-      }
-
-      // Get the clean S3 URL (remove query parameters)
-      const s3Path = presignedData.signedUrl.split('?')[0]
-      
-      // Update form data with the S3 path
-      setFormData(prev => ({
-        ...prev,
-        path: s3Path
-      }))
-      
-      setUploadedFile(file)
-      setUploadedUrl(s3Path)
-      setSuccess('File uploaded successfully!')
-      
-    } catch (error: any) {
-      setError('Upload failed: ' + error.message)
-    } finally {
-      setUploading(false)
-    }
+    
   }
 
   const handleRemoveMedia = (fileId: string) => {
@@ -231,6 +208,20 @@ export default function NewProductPage() {
         return
       }
 
+      // Check if there are any files still uploading
+      const uploadingFiles = mediaFiles.filter(f => f.uploading)
+      if (uploadingFiles.length > 0) {
+        setError(`Please wait for ${uploadingFiles.length} file(s) to finish uploading before saving.`)
+        return
+      }
+
+      // Check if there are any files with errors
+      const errorFiles = mediaFiles.filter(f => f.error)
+      if (errorFiles.length > 0) {
+        setError(`Please fix upload errors for ${errorFiles.length} file(s) before saving.`)
+        return
+      }
+
       const response = await fetch('/api/products', {
         method: 'POST',
         headers: {
@@ -242,24 +233,24 @@ export default function NewProductPage() {
           categoryId: formData.categoryIds[0], // Send first selected category as categoryId
           categoryIds: formData.categoryIds, // Keep categoryIds for multiple categories
           variations,
-          images: images.filter(img => img.uploaded).map(img => ({
+          images: images.map(img => ({
             id: img.id,
             url: img.url,
             thumbnailUrl: img.thumbnailUrl,
             key: img.key,
-            fileName: img.file.name,
-            fileSize: img.file.size,
-            fileType: img.file.type,
+            fileName: img.file?.name || 'unknown',
+            fileSize: img.file?.size || 0,
+            fileType: img.file?.type || 'image/jpeg',
             uploadedAt: new Date(),
           })),
-          videos: videos.filter(vid => vid.uploaded).map(vid => ({
+          videos: videos.map(vid => ({
             id: vid.id,
             url: vid.url,
             thumbnailUrl: vid.thumbnailUrl,
             key: vid.key,
-            fileName: vid.file.name,
-            fileSize: vid.file.size,
-            fileType: vid.file.type,
+            fileName: vid.file?.name || 'unknown',
+            fileSize: vid.file?.size || 0,
+            fileType: vid.file?.type || 'video/mp4',
             uploadedAt: new Date(),
           })),
           thumbnailUrl,
@@ -332,13 +323,54 @@ export default function NewProductPage() {
                 </Button>
               </div>
               
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-                  <Package className="w-6 h-6 text-white" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
+                    <Package className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-slate-900">Create New Product</h1>
+                    <p className="text-slate-600 mt-1">Add a new product to your inventory</p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-slate-900">Create New Product</h1>
-                  <p className="text-slate-600 mt-1">Add a new product to your inventory</p>
+                
+                {/* Action Buttons */}
+                <div className="flex items-center space-x-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push('/products')}
+                    className="flex items-center space-x-2"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Cancel</span>
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={saving || mediaFiles.some(f => f.uploading) || mediaFiles.some(f => f.error)}
+                    className="flex items-center space-x-2"
+                  >
+                    {saving ? (
+                      <>
+                        <Loading className="w-4 h-4" />
+                        <span>Creating...</span>
+                      </>
+                    ) : mediaFiles.some(f => f.uploading) ? (
+                      <>
+                        <Loading className="w-4 h-4" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : mediaFiles.some(f => f.error) ? (
+                      <>
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>Fix Upload Errors</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>Create Product</span>
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -396,12 +428,25 @@ export default function NewProductPage() {
                               <span>SKU</span>
                               <span className="text-red-500">*</span>
                             </label>
-                            <Input
-                              placeholder="Unique product identifier"
-                              value={formData.sku}
-                              onChange={(e) => handleInputChange('sku', e.target.value)}
-                              className="w-full"
-                            />
+                            <div className="flex space-x-2">
+                              <Input
+                                placeholder="Unique product identifier"
+                                value={formData.sku}
+                                onChange={(e) => handleInputChange('sku', e.target.value)}
+                                className="flex-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRegenerateSku}
+                                className="px-3 flex items-center justify-center"
+                                title="Generate new SKU"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <p className="text-xs text-slate-500">SKU is automatically generated in VFJ-***** format</p>
                           </div>
                         </FadeIn>
                       </div>
@@ -564,7 +609,7 @@ export default function NewProductPage() {
                       ) : (
                         <div className="text-center py-8">
                           <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Sparkles className="w-8 h-8 text-slate-400" />
+                            <Package className="w-8 h-8 text-slate-400" />
                           </div>
                           <p className="text-slate-500 mb-4">No variations added yet</p>
                           <p className="text-sm text-slate-400">Click "Add Variation" to add colors, sizes, materials, etc.</p>
@@ -612,111 +657,42 @@ export default function NewProductPage() {
                     </div>
                   </Card>
 
-                  <Card className="mb-6">
-                    <div className="p-6">
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
-                      <div className="space-y-3">
-                        <Button
-                          variant="outline"
-                          onClick={() => router.push('/products')}
-                          className="w-full justify-start"
-                        >
-                          <ArrowLeft className="w-4 h-4 mr-2" />
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleSave}
-                          disabled={saving}
-                          className="w-full"
-                        >
-                          {saving ? (
-                            <>
-                              <Loading className="w-4 h-4 mr-2" />
-                              Creating...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="w-4 h-4 mr-2" />
-                              Create Product
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
 
-                  {/* Simple File Upload */}
+                  {/* Media Upload */}
                   <Card className="mb-8">
                     <div className="p-6 border-b border-slate-200">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                           <ImageIcon className="w-4 h-4 text-green-600" />
                         </div>
-                        <h2 className="text-xl font-semibold text-slate-900">Product Asset</h2>
+                        <h2 className="text-xl font-semibold text-slate-900">Product Media</h2>
                       </div>
                     </div>
                     <div className="p-6">
                       <div className="space-y-4">
-                        {/* File Input */}
                         <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Upload File (Image or Video)
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*,video/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0]
-                              if (file) {
-                                handleFileUpload(file)
-                              }
-                            }}
-                            disabled={uploading}
-                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 disabled:opacity-50"
-                          />
-                        </div>
-
-                        {/* Upload Status */}
-                        {uploading && (
-                          <div className="flex items-center space-x-2 text-blue-600">
-                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                            <span className="text-sm">Uploading...</span>
-                          </div>
-                        )}
-
-                        {/* Uploaded File Info */}
-                        {uploadedFile && uploadedUrl && (
-                          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <CheckCircle className="w-5 h-5 text-green-600" />
-                              <span className="text-sm font-medium text-green-800">File uploaded successfully!</span>
-                            </div>
-                            <div className="text-sm text-green-700">
-                              <p><strong>File:</strong> {uploadedFile.name}</p>
-                              <p><strong>Type:</strong> {uploadedFile.type}</p>
-                              <p><strong>Size:</strong> {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                              <p><strong>S3 Path:</strong> {formData.path}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Path Field */}
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-2">
-                            Asset Path (S3 URL)
-                          </label>
-                          <Input
-                            value={formData.path}
-                            onChange={(e) => handleInputChange('path', e.target.value)}
-                            placeholder="S3 path will be populated after upload"
-                            leftIcon={<ImageIcon className="w-4 h-4" />}
-                            readOnly
-                            className="bg-slate-50"
-                          />
-                          <p className="text-xs text-slate-500 mt-1">
-                            This field is automatically populated when you upload a file
+                          <p className="text-sm text-slate-600 mb-4">
+                            Upload images and videos for this product
                           </p>
+                          {mediaFiles.some(f => f.uploading) && (
+                            <div className="flex items-center space-x-2 text-blue-600">
+                              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="text-sm font-medium">
+                                {mediaFiles.filter(f => f.uploading).length} file(s) uploading...
+                              </span>
+                            </div>
+                          )}
                         </div>
+
+                        <MediaUpload
+                          onFilesChange={handleMediaFilesChange}
+                          files={mediaFiles}
+                          sku={formData.sku}
+                          maxFiles={10}
+                          acceptedTypes={['image/*', 'video/*']}
+                          maxSize={50 * 1024 * 1024} // 50MB
+                        />
+
                       </div>
                     </div>
                   </Card>

@@ -13,6 +13,7 @@ import {
   Image as ImageIcon, 
   Video, 
   File, 
+  FileText,
   CheckCircle, 
   AlertCircle,
   Trash2
@@ -95,6 +96,22 @@ export function MediaUploadPresigned({
     console.log('Current token:', token ? 'Present' : 'Missing')
     console.log('Token from localStorage:', localStorage.getItem('token') ? 'Present' : 'Missing')
     
+    // Filter out files that don't have a valid file property
+    const validFilesToUpload = filesToUpload.filter(mediaFile => {
+      if (!mediaFile.file) {
+        console.warn('Skipping MediaFile without file property:', mediaFile)
+        return false
+      }
+      return true
+    })
+    
+    if (validFilesToUpload.length === 0) {
+      console.log('No valid files to upload')
+      return
+    }
+    
+    console.log('Valid files to upload:', validFilesToUpload.length)
+    
     // Check if user is authenticated - try context token first, then localStorage
     const authToken = token || localStorage.getItem('token')
     if (!authToken) {
@@ -117,7 +134,13 @@ export function MediaUploadPresigned({
     // Use the provided current files list instead of the component state
     let currentFiles = [...currentFilesList]
     
-    for (const mediaFile of filesToUpload) {
+    for (const mediaFile of validFilesToUpload) {
+      // Safety check for file property
+      if (!mediaFile.file) {
+        console.error('MediaFile missing file property:', mediaFile)
+        continue
+      }
+      
       console.log('Processing file:', mediaFile.file.name, mediaFile.file.type, mediaFile.file.size)
       try {
         // Update file status to uploading
@@ -129,7 +152,7 @@ export function MediaUploadPresigned({
         onFilesChange(currentFiles)
 
         // Get pre-signed URL
-        console.log('Requesting pre-signed URL for:', mediaFile.file.name)
+        console.log('Requesting pre-signed URL for:', mediaFile.file?.name || 'unknown')
         // Determine clientId for the request
         let requestClientId = undefined
         if (user?.role === 'SUPER_ADMIN' && propClientId) {
@@ -143,9 +166,9 @@ export function MediaUploadPresigned({
             'Authorization': `Bearer ${authToken}`,
           },
           body: JSON.stringify({
-            fileName: mediaFile.file.name,
-            fileType: mediaFile.file.type,
-            fileSize: mediaFile.file.size,
+            fileName: mediaFile.file?.name || 'unknown',
+            fileType: mediaFile.file?.type || 'application/octet-stream',
+            fileSize: mediaFile.file?.size || 0,
             sku: sku,
             ...(requestClientId && { clientId: requestClientId }),
           }),
@@ -167,7 +190,7 @@ export function MediaUploadPresigned({
           method: 'PUT',
           body: mediaFile.file,
           headers: {
-            'Content-Type': mediaFile.file.type,
+            'Content-Type': mediaFile.file?.type || 'application/octet-stream',
           },
         })
 
@@ -199,10 +222,10 @@ export function MediaUploadPresigned({
           }
           return f
         })
-        console.log('Updating file status to uploaded for:', mediaFile.file.name)
+        console.log('Updating file status to uploaded for:', mediaFile.file?.name || 'unknown')
         console.log('File details:', {
           id: mediaFile.id,
-          name: mediaFile.file.name,
+          name: mediaFile.file?.name || 'unknown',
           url: finalUrl,
           key: key,
           uploaded: true
@@ -211,10 +234,10 @@ export function MediaUploadPresigned({
 
         // Update progress
         setUploadProgress(prev => ({ ...prev, [mediaFile.id]: 100 }))
-        console.log('Upload completed successfully for:', mediaFile.file.name)
+        console.log('Upload completed successfully for:', mediaFile.file?.name || 'unknown')
 
       } catch (error: any) {
-        console.error('Upload error for', mediaFile.file.name, ':', error)
+        console.error('Upload error for', mediaFile.file?.name || 'unknown', ':', error)
         
         // Update file status to error
         currentFiles = currentFiles.map(f => 
@@ -250,11 +273,24 @@ export function MediaUploadPresigned({
   })
 
   const getFileIcon = (file: MediaFile) => {
-    if (!file || !file.file) {
-      console.warn('File or file.file is undefined:', file)
+    if (!file) {
+      console.warn('File is undefined:', file)
       return <File className="w-4 h-4" />
     }
-    const fileType = file.file.type || ''
+    
+    // Handle both component MediaFile (with file property) and database MediaFile (with fileType property)
+    let fileType = ''
+    if (file.file) {
+      // Component MediaFile structure
+      fileType = file.file.type || ''
+    } else if (file.fileType) {
+      // Database MediaFile structure
+      fileType = file.fileType || ''
+    } else {
+      console.warn('File type not found in MediaFile:', file)
+      return <File className="w-4 h-4" />
+    }
+    
     if (fileType.startsWith('image/')) return <ImageIcon className="w-4 h-4" />
     if (fileType.startsWith('video/')) return <Video className="w-4 h-4" />
     return <File className="w-4 h-4" />
@@ -309,10 +345,10 @@ export function MediaUploadPresigned({
                   {getFileIcon(file)}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">
-                      {file.file?.name || 'Unknown file'}
+                      {file.file?.name || file.fileName || 'Unknown file'}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {formatFileSize(file.file?.size || 0)} ({file.file?.size || 0} bytes)
+                      {formatFileSize(file.file?.size || file.fileSize || 0)} ({file.file?.size || file.fileSize || 0} bytes)
                     </p>
                   </div>
                 </div>
@@ -375,6 +411,18 @@ export function MediaUploadPresigned({
                     const fileType = file.file?.type || ''
                     const previewUrl = file.preview || file.url
                     
+                    // Validate previewUrl
+                    if (!previewUrl) {
+                      return (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                          <div className="text-center text-slate-500">
+                            <FileText className="w-8 h-8 mx-auto mb-2" />
+                            <p className="text-sm">No preview available</p>
+                          </div>
+                        </div>
+                      )
+                    }
+                    
                     // Try to determine if it's an image or video based on URL extension if file type is not available
                     const isImage = fileType.startsWith('image/') || 
                       (previewUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(previewUrl))
@@ -388,7 +436,7 @@ export function MediaUploadPresigned({
                           alt={file.file?.name || 'Preview'}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            console.error('Image load error for', file.file?.name, ':', e)
+                            console.error('Image load error for', file.file?.name, 'URL:', previewUrl, 'Error:', e)
                             e.currentTarget.style.display = 'none'
                           }}
                           onLoad={() => {

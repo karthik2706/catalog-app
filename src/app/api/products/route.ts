@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { CreateProductRequest, ProductFilters } from '@/types'
 import jwt from 'jsonwebtoken'
 import { generateSignedUrl } from '@/lib/aws'
+import { processImagesForEmbedding } from '@/lib/embeddings'
 
 interface JWTPayload {
   userId: string
@@ -158,6 +159,34 @@ async function processMediaWithUrls(products: any[]): Promise<any[]> {
                 return {
                   ...video,
                   url: signedUrl
+                }
+              }
+              
+              // If no s3Key, try to extract from URL
+              if (video.url && video.url.includes('amazonaws.com')) {
+                try {
+                  const urlParts = video.url.split('amazonaws.com/')
+                  if (urlParts.length > 1) {
+                    const extractedKey = urlParts[1].split('?')[0] // Remove query parameters
+                    const signedUrl = await generateSignedUrl(extractedKey, 7 * 24 * 60 * 60)
+                    console.log('Generated signed URL from video URL:', {
+                      originalUrl: video.url,
+                      extractedKey: extractedKey,
+                      signedUrl: signedUrl.substring(0, 100) + '...',
+                      isSigned: signedUrl.includes('X-Amz-Signature')
+                    })
+                    
+                    return {
+                      ...video,
+                      key: extractedKey,
+                      url: signedUrl
+                    }
+                  }
+                } catch (urlError) {
+                  console.error('Error extracting key from video URL:', {
+                    video: video,
+                    error: urlError.message
+                  })
                 }
               }
               
@@ -529,7 +558,28 @@ export async function POST(request: NextRequest) {
             create: body.categoryIds.map((categoryId: string) => ({
               categoryId
             }))
-          } : undefined
+          } : undefined,
+          // Create media table entries for better consistency
+          media: {
+            create: [
+              // Create media entries for images
+              ...images.map((img: any) => ({
+                kind: 'image' as const,
+                s3Key: img.key || img.url,
+                width: 0,
+                height: 0,
+                status: 'completed' as const
+              })),
+              // Create media entries for videos
+              ...(body.videos || []).map((vid: any) => ({
+                kind: 'video' as const,
+                s3Key: vid.key || vid.url,
+                width: 0,
+                height: 0,
+                status: 'completed' as const
+              }))
+            ]
+          }
         },
         include: {
           categoryRef: {
@@ -551,6 +601,20 @@ export async function POST(request: NextRequest) {
               }
             }
           },
+          media: {
+            select: {
+              id: true,
+              kind: true,
+              s3Key: true,
+              width: true,
+              height: true,
+              durationMs: true,
+              status: true,
+              error: true,
+              createdAt: true,
+              updatedAt: true
+            }
+          },
           inventoryHistory: {
             take: 5,
             orderBy: { createdAt: 'desc' },
@@ -562,6 +626,17 @@ export async function POST(request: NextRequest) {
           }
         }
       })
+
+      // Process embeddings for uploaded images in the background
+      if (product.media && product.media.length > 0) {
+        const imageMedia = product.media.filter((media: any) => media.kind === 'image')
+        if (imageMedia.length > 0) {
+          // Process embeddings asynchronously (don't wait for completion)
+          processImagesForEmbedding(imageMedia).catch(error => {
+            console.error('Error processing image embeddings:', error)
+          })
+        }
+      }
 
       return NextResponse.json(product, { status: 201 })
     } catch (dbError) {

@@ -321,7 +321,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                 const isVideo = media.fileType?.startsWith('video/') || 
                                   media.type?.startsWith('video/') ||
                                   (media.url && /\.(mp4|webm|mov)$/i.test(media.url))
-                                const displayUrl = media.thumbnailUrl || media.url
+                                const displayUrl = media.url || media.thumbnailUrl
+                                
+                                // Debug logging for image URL
+                                console.log('Image display URL:', {
+                                  media,
+                                  displayUrl,
+                                  hasUrl: !!media.url,
+                                  hasThumbnailUrl: !!media.thumbnailUrl,
+                                  urlValue: media.url,
+                                  thumbnailUrlValue: media.thumbnailUrl
+                                })
                                 
                                 if (isVideo) {
                                   console.log('Rendering video:', { 
@@ -433,9 +443,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                       alt="Product media"
                                       className="w-full h-full object-cover"
                                       onError={(e) => {
-                                        console.error('Image load error:', e)
-                                        console.error('Image URL:', displayUrl)
-                                        console.error('Media object:', media)
+                                        console.error('Image load error:', {
+                                          error: e,
+                                          target: e.target,
+                                          src: e.target?.src,
+                                          displayUrl,
+                                          media,
+                                          isVideo,
+                                          fileType: media.fileType || media.type
+                                        })
                                       }}
                                       onLoad={() => {
                                         console.log('Image loaded successfully:', displayUrl)

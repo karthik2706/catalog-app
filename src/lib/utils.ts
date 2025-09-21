@@ -79,3 +79,9 @@ export function getCurrencyIcon(currencyCode: string) {
       return DollarSign
   }
 }
+
+export function generateSku(): string {
+  // Generate a random 5-digit number for the SKU
+  const randomNumber = Math.floor(Math.random() * 100000).toString().padStart(5, '0')
+  return `VFJ-${randomNumber}`
+}

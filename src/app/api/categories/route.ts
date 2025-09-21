@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
     const isSuperAdmin = user.role === 'SUPER_ADMIN'
     const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
 
-    // Get categories from the categories table with hierarchy
-    // Only fetch parent categories (parentId is null), children will be fetched via relation
+    // Get categories from the categories table with full hierarchy
+    // Only fetch parent categories (parentId is null), children will be fetched recursively
     const categories = await prisma.category.findMany({
       where: {
         ...whereClause,
@@ -88,7 +88,55 @@ export async function GET(request: NextRequest) {
             parentId: true,
             sortOrder: true,
             createdAt: true,
-            clientId: true
+            clientId: true,
+            children: {
+              where: { isActive: true },
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                parentId: true,
+                sortOrder: true,
+                createdAt: true,
+                clientId: true,
+                children: {
+                  where: { isActive: true },
+                  select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    parentId: true,
+                    sortOrder: true,
+                    createdAt: true,
+                    clientId: true,
+                    children: {
+                      where: { isActive: true },
+                      select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        parentId: true,
+                        sortOrder: true,
+                        createdAt: true,
+                        clientId: true
+                      },
+                      orderBy: [
+                        { sortOrder: 'asc' },
+                        { name: 'asc' }
+                      ]
+                    }
+                  },
+                  orderBy: [
+                    { sortOrder: 'asc' },
+                    { name: 'asc' }
+                  ]
+                }
+              },
+              orderBy: [
+                { sortOrder: 'asc' },
+                { name: 'asc' }
+              ]
+            }
           },
           orderBy: [
             { sortOrder: 'asc' },

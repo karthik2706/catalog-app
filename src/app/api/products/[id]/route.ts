@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { mockStore } from '@/lib/mockStore'
 import { UpdateProductRequest } from '@/types'
+import { processImagesForEmbedding } from '@/lib/embeddings'
+import jwt from 'jsonwebtoken'
+
+interface JWTPayload {
+  userId: string
+  email: string
+  role: string
+  clientId?: string
+  clientSlug?: string
+}
+
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId
+      }
+    } catch (error) {
+      console.error('Error decoding token:', error)
+    }
+  }
+  return null
+}
 
 // GET /api/products/[id] - Get a single product
 export async function GET(
@@ -78,6 +105,15 @@ export async function PUT(
     const { id } = await params
     const body: UpdateProductRequest = await request.json()
     
+    // Get user info for clientId
+    const user = getUserFromRequest(request)
+    if (!user || !user.clientId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    
     // Debug: Log the received data
     console.log('Product update request for ID:', id)
     console.log('Received images:', body.images)
@@ -94,6 +130,14 @@ export async function PUT(
         return NextResponse.json(
           { error: 'Product not found' },
           { status: 404 }
+        )
+      }
+
+      // Verify the product belongs to the correct client
+      if (existingProduct.clientId !== user.clientId) {
+        return NextResponse.json(
+          { error: 'Unauthorized access to product' },
+          { status: 403 }
         )
       }
 
@@ -151,7 +195,31 @@ export async function PUT(
                 categoryId
               }))
             }
-          })
+          }),
+          // Handle media updates
+          ...(body.images || body.videos ? {
+            media: {
+              deleteMany: {}, // Remove all existing media associations
+              create: [
+                // Create media entries for images
+                ...(body.images || []).map((img: any) => ({
+                  kind: 'image' as const,
+                  s3Key: img.key || img.url,
+                  width: 0,
+                  height: 0,
+                  status: 'completed' as const
+                })),
+                // Create media entries for videos
+                ...(body.videos || []).map((vid: any) => ({
+                  kind: 'video' as const,
+                  s3Key: vid.key || vid.url,
+                  width: 0,
+                  height: 0,
+                  status: 'completed' as const
+                }))
+              ]
+            }
+          } : {})
         },
         include: {
           categoryRef: {
@@ -181,6 +249,20 @@ export async function PUT(
                 select: { name: true, email: true }
               }
             }
+          },
+          media: {
+            select: {
+              id: true,
+              kind: true,
+              s3Key: true,
+              width: true,
+              height: true,
+              durationMs: true,
+              status: true,
+              error: true,
+              createdAt: true,
+              updatedAt: true
+            }
           }
         }
       })
@@ -202,6 +284,17 @@ export async function PUT(
           hasKey: !!m.key 
         })) : []
       })
+
+      // Process embeddings for newly uploaded images in the background
+      if (product.media && product.media.length > 0) {
+        const imageMedia = product.media.filter((media: any) => media.kind === 'image')
+        if (imageMedia.length > 0) {
+          // Process embeddings asynchronously (don't wait for completion)
+          processImagesForEmbedding(imageMedia).catch(error => {
+            console.error('Error processing image embeddings:', error)
+          })
+        }
+      }
 
       return NextResponse.json(product)
     } catch (dbError) {

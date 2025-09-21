@@ -8,7 +8,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  directUrl = env("DATABASE_URL")
 }
 
 // Multi-tenant SaaS Platform Models
@@ -247,41 +247,8 @@ model Media {
   // Relations
   product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  imageEmbedding  ImageEmbedding?
-  videoFrames     VideoFrame[]
 
   @@map("media")
 }
 
-model ImageEmbedding {
-  mediaId    BigInt @id
-  embedding  Unsupported("vector") // VECTOR(512) - pgvector type
-
-  // Relations
-  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-
-  @@map("image_embeddings")
-}
-
-model VideoFrame {
-  id         BigInt @id @default(autoincrement())
-  mediaId    BigInt
-  tsMs       Int    // Timestamp in milliseconds
-  frameS3Key String
-
-  // Relations
-  media           Media            @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  frameEmbedding  FrameEmbedding?
-
-  @@map("video_frames")
-}
-
-model FrameEmbedding {
-  frameId    BigInt @id
-  embedding  Unsupported("vector") // VECTOR(512) - pgvector type
-
-  // Relations
-  frame VideoFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
-
-  @@map("frame_embeddings")
-}
+// Vector models temporarily disabled for compatibility

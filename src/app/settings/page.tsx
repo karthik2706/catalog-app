@@ -106,8 +106,9 @@ function CategoryItem({ category, onEdit, onDelete, onAddSubcategory, level }: C
     <div className="space-y-2">
       <div 
         className={`flex items-center justify-between p-4 border border-slate-200 rounded-xl ${
-          level > 0 ? 'ml-6 bg-slate-50' : 'bg-white'
+          level > 0 ? `ml-${level * 6} bg-slate-50` : 'bg-white'
         }`}
+        style={{ marginLeft: level > 0 ? `${level * 24}px` : '0' }}
       >
         <div className="flex items-center space-x-4">
           {hasChildren && (
@@ -129,10 +130,13 @@ function CategoryItem({ category, onEdit, onDelete, onAddSubcategory, level }: C
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h3 className="font-medium text-slate-900">{category.name}</h3>
+              <h3 className="font-medium text-slate-900">
+                {level > 0 && '— '.repeat(level)}
+                {category.name}
+              </h3>
               {level > 0 && (
                 <Badge variant="secondary" className="text-xs">
-                  Subcategory
+                  Level {level}
                 </Badge>
               )}
             </div>
@@ -669,6 +673,40 @@ export default function SettingsPage() {
       }
     }
     return null
+  }
+
+  // Helper function to flatten categories for selection with level information
+  const getAllCategoriesForSelection = (categories: Category[], level = 0): Array<Category & { level: number }> => {
+    const result: Array<Category & { level: number }> = []
+    
+    for (const category of categories) {
+      result.push({ ...category, level })
+      if (category.children && category.children.length > 0) {
+        result.push(...getAllCategoriesForSelection(category.children, level + 1))
+      }
+    }
+    
+    return result
+  }
+
+  // Helper function to get the full path of a category
+  const getCategoryPath = (categories: Category[], categoryId: string): string => {
+    const findCategoryWithPath = (cats: Category[], targetId: string, path: string[] = []): string[] | null => {
+      for (const category of cats) {
+        const currentPath = [...path, category.name]
+        if (category.id === targetId) {
+          return currentPath
+        }
+        if (category.children && category.children.length > 0) {
+          const found = findCategoryWithPath(category.children, targetId, currentPath)
+          if (found) return found
+        }
+      }
+      return null
+    }
+    
+    const path = findCategoryWithPath(categories, categoryId)
+    return path ? path.join(' > ') : 'Unknown'
   }
 
   const getPlanColor = (plan: string) => {
@@ -1427,7 +1465,7 @@ export default function SettingsPage() {
             {newCategory.parentId && (
               <div className="p-3 bg-primary-50 border border-primary-200 rounded-lg">
                 <p className="text-sm text-primary-700">
-                  <strong>Parent Category:</strong> {categories.find(c => c.id === newCategory.parentId)?.name || 'Unknown'}
+                  <strong>Parent Category:</strong> {getCategoryPath(categories, newCategory.parentId) || 'Unknown'}
                 </p>
               </div>
             )}
@@ -1453,23 +1491,21 @@ export default function SettingsPage() {
               />
             </div>
 
-            {!newCategory.parentId && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Parent Category (Optional)</label>
-                <select
-                  value={newCategory.parentId}
-                  onChange={(e) => setNewCategory(prev => ({ ...prev, parentId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  <option value="">Select parent category (or leave empty for main category)</option>
-                  {categories.filter(c => !c.parentId).map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Parent Category (Optional)</label>
+              <select
+                value={newCategory.parentId}
+                onChange={(e) => setNewCategory(prev => ({ ...prev, parentId: e.target.value }))}
+                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">Select parent category (or leave empty for main category)</option>
+                {getAllCategoriesForSelection(categories).map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {'—'.repeat(category.level)} {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Sort Order</label>
