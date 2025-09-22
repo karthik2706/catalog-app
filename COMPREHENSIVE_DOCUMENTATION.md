@@ -22,9 +22,11 @@
 - **Multi-Tenant Architecture**: Complete data isolation between clients with subdomain-based routing
 - **Product Management**: Full CRUD operations for products with SKU, pricing, categories, and variations
 - **Inventory Tracking**: Real-time stock level monitoring with detailed history
-- **Media Management**: AWS S3 integration for product images and videos with signed URLs
+- **Visual Search**: AI-powered image and video search using CLIP ViT-B/32 embeddings
+- **Media Management**: Advanced AWS S3 integration with multiple upload methods and processing
+- **AI Integration**: OpenAI-powered product analysis and automatic title/description generation
 - **User Management**: Role-based access control (Super Admin, Admin, Manager, User)
-- **Reporting & Analytics**: Low stock alerts, inventory reports, and dashboard analytics
+- **Dashboard Analytics**: Comprehensive media ingest monitoring and inventory analytics
 - **Responsive Design**: Mobile-first UI with Tailwind CSS and Framer Motion animations
 - **Client Onboarding**: Automated client setup with default configurations
 
@@ -42,6 +44,13 @@
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   AWS S3        │    │   Middleware    │    │   Prisma ORM    │
 │   (File Storage)│    │   (Auth/Routing)│    │   (Data Layer)  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   FastAPI       │    │   OpenAI API    │    │   pgvector      │
+│   (Embeddings)  │    │   (AI Analysis) │    │   (Vector DB)   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -63,9 +72,11 @@
 
 ### Backend
 - **Runtime**: Node.js with Next.js API Routes
-- **Database**: PostgreSQL with Prisma ORM
+- **Database**: PostgreSQL with Prisma ORM and pgvector extension
 - **Authentication**: JWT tokens with bcrypt password hashing
-- **File Storage**: AWS S3 with presigned URLs
+- **File Storage**: AWS S3 with presigned URLs and multiple upload methods
+- **AI Services**: OpenAI GPT-4 Vision for product analysis
+- **Vector Search**: CLIP ViT-B/32 embeddings with cosine similarity
 - **Validation**: Built-in TypeScript type checking
 
 ### Development Tools
@@ -240,6 +251,13 @@ enum InventoryType {
 - `POST /api/auth/login` - User login
 - `POST /api/auth/register` - User registration
 
+### Visual Search & AI Endpoints
+- `POST /api/search/by-image` - Search products by image similarity
+- `POST /api/public/search/by-image` - Public image search API
+- `POST /api/public/search/by-image/advanced` - Advanced public image search with configurable thresholds
+- `POST /api/ai/analyze-media` - AI-powered product analysis using OpenAI
+- `GET /api/embedding-service/health` - Check embedding service status
+
 ### Super Admin Endpoints
 - `GET /api/admin/clients` - List all clients
 - `POST /api/admin/clients` - Create new client
@@ -272,6 +290,9 @@ enum InventoryType {
 - `POST /api/upload-presigned` - Generate presigned URLs for S3 upload
 - `POST /api/upload-media` - Upload media files to S3
 - `GET /api/s3-management` - Manage S3 files
+- `POST /api/media/reprocess/[id]` - Reprocess media for embeddings
+- `POST /api/generate-thumbnail` - Generate video thumbnails
+- `GET /api/media/refresh-urls` - Refresh expired S3 URLs
 
 ### Query Parameters for Products API
 - `search` - Search by name, SKU, or description
@@ -305,15 +326,19 @@ enum InventoryType {
 ### Page Components
 - **Dashboard**: Main dashboard with stats and quick actions
 - **Products**: Product listing with search and filters
-- **ProductForm**: Create/edit product form
+- **ProductForm**: Create/edit product form with AI analysis
+- **MediaIngest**: Real-time media processing monitoring dashboard
 - **Admin**: Super admin client management
 - **Reports**: Analytics and reporting interface
 - **Settings**: Client and user settings
 
 ### Media Components
 - **MediaUpload**: File upload with drag-and-drop
-- **MediaPreview**: Image and video preview
+- **MediaUploadNew**: Enhanced file upload with better error handling
 - **MediaUploadPresigned**: S3 presigned URL upload
+- **MediaPreview**: Image and video preview
+- **MediaIngestTable**: Real-time media processing status table
+- **SearchByImageModal**: Visual search interface
 
 ## 🔐 Authentication & Authorization
 
@@ -364,6 +389,36 @@ interface TenantContextType {
 }
 ```
 
+## 🔍 Visual Search & AI Integration
+
+### CLIP-Based Visual Search
+- **Model**: CLIP ViT-B/32 for state-of-the-art image understanding
+- **Embeddings**: 512-dimensional L2-normalized vectors for cosine similarity
+- **Vector Database**: PostgreSQL with pgvector extension for efficient similarity search
+- **Similarity Thresholds**: Configurable similarity matching (default 95%+)
+- **Multi-Modal Support**: Both image and video frame search capabilities
+
+### AI-Powered Product Analysis
+- **OpenAI Integration**: GPT-4 Vision for automatic product analysis
+- **Smart Content Generation**: AI-generated titles and descriptions
+- **Cultural Optimization**: Content tailored for Indian e-commerce customers
+- **Media Processing**: Automatic analysis of uploaded images and videos
+- **Fallback Support**: Graceful degradation when AI services are unavailable
+
+### Visual Search Features
+- **High Similarity Filtering**: Only returns products with 95%+ similarity by default
+- **Configurable Thresholds**: Adjustable similarity matching (0-100%)
+- **Sorted Results**: Best matches returned first
+- **Complete Product Data**: Full product details with similarity metrics
+- **Multi-Format Support**: JPEG, PNG, WebP images and MP4, WebM videos
+
+### Embedding Service Architecture
+- **FastAPI Microservice**: High-performance async embedding generation
+- **Docker Support**: Containerized deployment with health checks
+- **GPU Acceleration**: Automatic CUDA detection and utilization
+- **Scalable Processing**: Handles batch processing of media files
+- **Health Monitoring**: Built-in health checks and status endpoints
+
 ## 📁 File Storage & Media Management
 
 ### AWS S3 Integration
@@ -371,6 +426,7 @@ interface TenantContextType {
 - **Presigned URLs**: Secure file upload without exposing credentials
 - **File Validation**: Type and size validation before upload
 - **Image Optimization**: Automatic resizing and compression
+- **Multiple Upload Methods**: Direct upload, presigned URLs, and batch processing
 
 ### Folder Structure
 ```
@@ -389,10 +445,13 @@ clients/
 
 ### Media Features
 - **Multiple File Types**: Support for images (JPEG, PNG, WebP) and videos (MP4, WebM)
-- **Thumbnail Generation**: Automatic thumbnail creation for images
+- **Thumbnail Generation**: Automatic thumbnail creation for images and videos
 - **URL Expiration**: Signed URLs with configurable expiration
 - **File Size Limits**: 50MB maximum file size
 - **Quality Optimization**: 85% quality with max 1920x1080 resolution
+- **Embedding Processing**: Automatic CLIP embedding generation for visual search
+- **Media Ingest Dashboard**: Real-time monitoring of media processing status
+- **Batch Processing**: Support for bulk media upload and processing
 
 ## 🚀 Deployment & Configuration
 
@@ -410,6 +469,10 @@ AWS_ACCESS_KEY_ID="your-access-key"
 AWS_SECRET_ACCESS_KEY="your-secret-key"
 AWS_REGION="us-east-1"
 S3_BUCKET_NAME="your-bucket-name"
+
+# AI Services
+OPENAI_API_KEY="your-openai-api-key"
+EMBEDDING_SERVICE_URL="http://localhost:8000"
 
 # Optional: Email service
 SMTP_HOST="smtp.gmail.com"
@@ -440,8 +503,10 @@ npm run db:seed-saas
 
 ### Prerequisites
 - Node.js 18+
-- PostgreSQL database
+- PostgreSQL database with pgvector extension
 - AWS S3 bucket (for media storage)
+- Python 3.11+ (for embedding service)
+- OpenAI API key (for AI features)
 - npm or yarn
 
 ### Installation
@@ -462,6 +527,11 @@ npm run setup-saas
 
 # Start development server
 npm run dev
+
+# Start embedding service (in separate terminal)
+python embedding-service-fastapi.py
+# OR using Docker
+docker run -p 8000:8000 embedding-service
 ```
 
 ### Available Scripts
@@ -483,6 +553,28 @@ Add to `/etc/hosts` (macOS/Linux) or `C:\Windows\System32\drivers\etc\hosts` (Wi
 127.0.0.1 retailmax.localhost
 127.0.0.1 enterprise.localhost
 ```
+
+## 📊 Dashboard & Analytics Features
+
+### Media Ingest Dashboard
+- **Real-Time Monitoring**: Live status updates of media processing
+- **Status Tracking**: Pending, processing, completed, and error states
+- **Bulk Operations**: Batch reprocessing and management of media files
+- **Filtering & Search**: Filter by status, type, and date ranges
+- **Performance Metrics**: Processing times and success rates
+
+### Inventory Analytics
+- **Stock Level Monitoring**: Real-time inventory tracking
+- **Low Stock Alerts**: Automated notifications for restocking
+- **Inventory History**: Detailed tracking of all stock movements
+- **Category Analysis**: Performance metrics by product category
+- **Trend Analysis**: Historical data and forecasting
+
+### Visual Search Analytics
+- **Search Performance**: Query response times and accuracy metrics
+- **Similarity Thresholds**: Configurable matching sensitivity
+- **Usage Statistics**: Search frequency and popular queries
+- **Embedding Quality**: Vector similarity distribution analysis
 
 ## 🎯 Enhancement Opportunities
 

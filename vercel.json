@@ -5,7 +5,8 @@
     },
     "src/app/api/upload-media/route.ts": {
       "maxDuration": 60,
-      "memory": 1024
+      "memory": 1024,
+      "maxRequestBodySize": "4.5mb"
     }
   },
   "installCommand": "npm install && npx prisma generate",

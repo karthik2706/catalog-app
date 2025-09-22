@@ -54,11 +54,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check content length before processing
+    // Check content length before processing - Vercel has a 4.5MB limit for serverless functions
     const contentLength = request.headers.get('content-length')
-    if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
+    if (contentLength && parseInt(contentLength) > 4.5 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 50MB.' },
+        { 
+          error: 'File too large for direct upload. Maximum size is 4.5MB. Please use presigned URL upload for larger files.',
+          usePresignedUpload: true 
+        },
         { status: 413 }
       )
     }

@@ -14,6 +14,11 @@ import {
   Trash2
 } from 'lucide-react'
 
+/**
+ * @deprecated This component is deprecated. Use MediaUploadPresigned instead for better performance and large file support.
+ * This component has a 4MB file size limit due to Vercel serverless function constraints.
+ */
+
 export interface MediaFile {
   id: string
   file: File
@@ -134,6 +139,9 @@ export function MediaUpload({
   const uploadFile = async (mediaFile: MediaFile) => {
     console.log('Starting upload for file:', mediaFile.file.name, 'ID:', mediaFile.id)
     
+    // DEPRECATED: This component is deprecated. Use MediaUploadPresigned instead.
+    console.error('MediaUpload is deprecated. Use MediaUploadPresigned for large file uploads.')
+    
     const formData = new FormData()
     formData.append('file', mediaFile.file)
     formData.append('sku', sku)
@@ -144,6 +152,11 @@ export function MediaUpload({
         const uploadingFile = { ...mediaFile, uploading: true }
         return prevFiles.map(f => f.id === mediaFile.id ? uploadingFile : f)
       })
+
+      // For large files (>4MB), show error
+      if (mediaFile.file.size > 4 * 1024 * 1024) {
+        throw new Error('File too large. Please use MediaUploadPresigned component for files over 4MB.')
+      }
 
       const token = localStorage.getItem('token')
       const response = await fetch('/api/upload-media', {
