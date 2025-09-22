@@ -100,7 +100,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  client Client? @relation("ClientUsers", fields: [clientId], references: [id])
+  client           Client?            @relation("ClientUsers", fields: [clientId], references: [id])
+  inventoryHistory InventoryHistory[] @relation("UserInventoryHistory")
 
   @@unique([email, clientId])
   @@map("users")
@@ -127,8 +128,9 @@ model Product {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  client     Client @relation("ClientProducts", fields: [clientId], references: [id])
-  categories ProductCategory[] @relation("ProductCategories")
+  client           Client @relation("ClientProducts", fields: [clientId], references: [id])
+  categories       ProductCategory[] @relation("ProductCategories")
+  inventoryHistory InventoryHistory[] @relation("ProductInventoryHistory")
 
   @@unique([sku, clientId])
   @@map("products")
@@ -143,6 +145,10 @@ model InventoryHistory {
   userId    String?
   clientId  String
   createdAt DateTime      @default(now())
+
+  // Relations
+  product Product @relation("ProductInventoryHistory", fields: [productId], references: [id])
+  user    User?   @relation("UserInventoryHistory", fields: [userId], references: [id])
 
   @@map("inventory_history")
 }

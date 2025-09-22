@@ -312,13 +312,6 @@ export async function GET(request: NextRequest) {
           skip,
           take,
           include: {
-            categoryRef: {
-              select: {
-                id: true,
-                name: true,
-                description: true
-              }
-            },
             categories: {
               include: {
                 category: {
@@ -588,13 +581,6 @@ export async function POST(request: NextRequest) {
           }
         },
         include: {
-          categoryRef: {
-            select: {
-              id: true,
-              name: true,
-              description: true
-            }
-          },
           categories: {
             include: {
               category: {
