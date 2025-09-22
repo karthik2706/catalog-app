@@ -184,37 +184,66 @@ export function MediaUploadPresigned({
         const { signedUrl, key } = await presignedResponse.json()
         console.log('Got pre-signed URL:', signedUrl)
 
-        // For video files, use the upload-media API to generate thumbnails
+        // For video files, upload directly to S3 and then generate thumbnail
         if (mediaFile.file?.type.startsWith('video/')) {
-          console.log('Video file detected, using upload-media API for thumbnail generation...')
+          console.log('Video file detected, uploading directly to S3...')
           
-          const formData = new FormData()
-          formData.append('file', mediaFile.file)
-          formData.append('sku', sku)
+          // Upload video directly to S3
+          const uploadResponse = await fetch(signedUrl, {
+            method: 'PUT',
+            body: mediaFile.file,
+            headers: {
+              'Content-Type': mediaFile.file.type,
+            },
+          })
 
+          if (!uploadResponse.ok) {
+            throw new Error(`S3 upload failed: ${uploadResponse.statusText}`)
+          }
+
+          console.log('Video uploaded to S3 successfully')
+
+          // Save video to database first
           const token = localStorage.getItem('token')
-          const uploadMediaResponse = await fetch('/api/upload-media', {
+          const saveVideoResponse = await fetch('/api/save-media', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
             },
-            body: formData,
+            body: JSON.stringify({
+              s3Key: key,
+              sku: sku,
+              kind: 'video',
+            }),
           })
 
-          const uploadResult = await uploadMediaResponse.json()
-          console.log('Upload-media API response:', uploadResult)
-
-          if (!uploadResult.success) {
-            throw new Error(uploadResult.error || 'Video upload failed')
+          if (!saveVideoResponse.ok) {
+            console.warn('Failed to save video to database, continuing...')
           }
 
-          // Use the results from upload-media API (includes thumbnail)
-          const finalUrl = uploadResult.url
-          const thumbnailUrl = uploadResult.thumbnailUrl
-          const key = uploadResult.key
-          
-          console.log('Video uploaded with thumbnail:', { finalUrl, thumbnailUrl, key })
-          
+          // Generate thumbnail by calling a separate API
+          const thumbnailResponse = await fetch('/api/generate-thumbnail', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              videoKey: key,
+              sku: sku,
+            }),
+          })
+
+          let thumbnailUrl = null
+          if (thumbnailResponse.ok) {
+            const thumbnailResult = await thumbnailResponse.json()
+            thumbnailUrl = thumbnailResult.thumbnailUrl
+            console.log('Thumbnail generated:', thumbnailUrl)
+          } else {
+            console.warn('Thumbnail generation failed, continuing without thumbnail')
+          }
+
           // Update file status to uploaded with thumbnail info
           currentFiles = currentFiles.map(f => {
             if (f.id === mediaFile.id) {
@@ -222,7 +251,7 @@ export function MediaUploadPresigned({
                 ...f, 
                 uploading: false, 
                 uploaded: true, 
-                url: finalUrl,
+                url: signedUrl.split('?')[0], // Remove query parameters for clean URL
                 thumbnailUrl: thumbnailUrl,
                 key: key,
                 error: null 
