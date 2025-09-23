@@ -42,9 +42,9 @@ async function processMediaWithUrls(products: any[]): Promise<any[]> {
     products.map(async (product) => {
       console.log('Processing product:', {
         sku: product.sku,
-        hasMedia: !!(product.media && product.media.length > 0),
+        hasMedia: !!(product.mediaItems && product.mediaItems.length > 0),
         hasLegacyImages: !!(product.images && product.images.length > 0),
-        mediaCount: product.media?.length || 0,
+        mediaCount: product.mediaItems?.length || 0,
         legacyImageCount: product.images?.length || 0
       })
       
@@ -53,9 +53,9 @@ async function processMediaWithUrls(products: any[]): Promise<any[]> {
       let processedVideos = []
       
       // Process new media table
-      if (product.media && product.media.length > 0) {
+      if (product.mediaItems && product.mediaItems.length > 0) {
         processedMedia = await Promise.all(
-          product.media.map(async (media: any) => {
+          product.mediaItems.map(async (media: any) => {
             try {
               const signedUrl = await generateSignedUrl(media.s3Key, 7 * 24 * 60 * 60) // 7 days
               console.log('Generated signed URL for new media:', {
@@ -557,7 +557,7 @@ export async function POST(request: NextRequest) {
             }))
           } : undefined,
           // Create media table entries for better consistency
-          media: {
+          mediaItems: {
             create: [
               // Create media entries for images
               ...images.map((img: any) => ({
@@ -593,7 +593,7 @@ export async function POST(request: NextRequest) {
               }
             }
           },
-          media: {
+          mediaItems: {
             select: {
               id: true,
               kind: true,
@@ -620,9 +620,9 @@ export async function POST(request: NextRequest) {
       })
 
       // Process embeddings for uploaded media (images and videos) in the background
-      if (product.media && product.media.length > 0) {
+      if (product.mediaItems && product.mediaItems.length > 0) {
         // Process embeddings asynchronously (don't wait for completion)
-        processMediaForEmbedding(product.media).catch(error => {
+        processMediaForEmbedding(product.mediaItems).catch(error => {
           console.error('Error processing media embeddings:', error)
         })
       }

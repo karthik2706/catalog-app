@@ -42,13 +42,6 @@ export async function GET(
       const product = await prisma.product.findUnique({
         where: { id },
         include: {
-          categoryRef: {
-            select: {
-              id: true,
-              name: true,
-              description: true
-            }
-          },
           categories: {
             include: {
               category: {
@@ -61,7 +54,7 @@ export async function GET(
               }
             }
           },
-          media: {
+          mediaItems: {
             select: {
               id: true,
               kind: true,
@@ -199,8 +192,15 @@ export async function PUT(
         })) : []
       })
 
-      // Remove categoryIds from the update data as we'll handle it separately
-      const { categoryIds, ...restUpdateData } = updateData
+      // Remove categoryIds and clientId from the update data as we'll handle them separately
+      const { categoryIds, clientId, ...restUpdateData } = updateData
+
+      console.log('Update data after filtering:', {
+        categoryIds,
+        clientId,
+        restUpdateDataKeys: Object.keys(restUpdateData),
+        restUpdateData
+      })
 
       const product = await prisma.product.update({
         where: { id },
@@ -217,7 +217,7 @@ export async function PUT(
           }),
           // Handle media updates
           ...(body.images || body.videos ? {
-            media: {
+            mediaItems: {
               deleteMany: {}, // Remove all existing media associations
               create: [
                 // Create media entries for images
@@ -243,13 +243,6 @@ export async function PUT(
           } : {})
         },
         include: {
-          categoryRef: {
-            select: {
-              id: true,
-              name: true,
-              description: true
-            }
-          },
           categories: {
             include: {
               category: {
@@ -271,7 +264,7 @@ export async function PUT(
               }
             }
           },
-          media: {
+          mediaItems: {
             select: {
               id: true,
               kind: true,
@@ -307,9 +300,9 @@ export async function PUT(
       })
 
       // Process embeddings for newly uploaded media (images and videos) in the background
-      if (product.media && product.media.length > 0) {
+      if (product.mediaItems && product.mediaItems.length > 0) {
         // Process embeddings asynchronously (don't wait for completion)
-        processMediaForEmbedding(product.media).catch(error => {
+        processMediaForEmbedding(product.mediaItems).catch(error => {
           console.error('Error processing media embeddings:', error)
         })
       }

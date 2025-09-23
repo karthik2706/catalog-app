@@ -82,7 +82,11 @@ export function MediaUploadPresigned({
     })
 
     console.log('Created media files:', newMediaFiles)
-    const updatedFiles = [...files, ...newMediaFiles]
+    
+    // Filter out any undefined files from the existing files array
+    const validExistingFiles = files.filter(f => f !== undefined && f !== null)
+    const updatedFiles = [...validExistingFiles, ...newMediaFiles]
+    
     console.log('Updated files list:', updatedFiles.map(f => ({ id: f.id, name: f.file?.name, uploaded: f.uploaded })))
     onFilesChange(updatedFiles)
 
@@ -96,8 +100,12 @@ export function MediaUploadPresigned({
     console.log('Current token:', token ? 'Present' : 'Missing')
     console.log('Token from localStorage:', localStorage.getItem('token') ? 'Present' : 'Missing')
     
-    // Filter out files that don't have a valid file property
+    // Filter out undefined files and files that don't have a valid file property
     const validFilesToUpload = filesToUpload.filter(mediaFile => {
+      if (!mediaFile) {
+        console.warn('Skipping undefined MediaFile in array')
+        return false
+      }
       if (!mediaFile.file) {
         console.warn('Skipping MediaFile without file property:', mediaFile)
         return false
@@ -135,6 +143,12 @@ export function MediaUploadPresigned({
     let currentFiles = [...currentFilesList]
     
     for (const mediaFile of validFilesToUpload) {
+      // Safety check for mediaFile itself
+      if (!mediaFile) {
+        console.error('MediaFile is undefined in validFilesToUpload array')
+        continue
+      }
+      
       // Safety check for file property
       if (!mediaFile.file) {
         console.error('MediaFile missing file property:', mediaFile)
@@ -203,45 +217,53 @@ export function MediaUploadPresigned({
 
           console.log('Video uploaded to S3 successfully')
 
-          // Save video to database first
-          const token = localStorage.getItem('token')
-          const saveVideoResponse = await fetch('/api/save-media', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              s3Key: key,
-              sku: sku,
-              kind: 'video',
-            }),
-          })
-
-          if (!saveVideoResponse.ok) {
-            console.warn('Failed to save video to database, continuing...')
-          }
-
-          // Generate thumbnail by calling a separate API
-          const thumbnailResponse = await fetch('/api/generate-thumbnail', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              videoKey: key,
-              sku: sku,
-            }),
-          })
-
+          // Only save to database and generate thumbnail if product exists (not on new product page)
+          const isNewProductPage = window.location.pathname.includes('/products/new')
+          
           let thumbnailUrl = null
-          if (thumbnailResponse.ok) {
-            const thumbnailResult = await thumbnailResponse.json()
-            thumbnailUrl = thumbnailResult.thumbnailUrl
-            console.log('Thumbnail generated:', thumbnailUrl)
+          
+          if (!isNewProductPage) {
+            // Save video to database first
+            const token = localStorage.getItem('token')
+            const saveVideoResponse = await fetch('/api/save-media', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                s3Key: key,
+                sku: sku,
+                kind: 'video',
+              }),
+            })
+
+            if (!saveVideoResponse.ok) {
+              console.warn('Failed to save video to database, continuing...')
+            }
+
+            // Generate thumbnail by calling a separate API
+            const thumbnailResponse = await fetch('/api/generate-thumbnail', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                videoKey: key,
+                sku: sku,
+              }),
+            })
+
+            if (thumbnailResponse.ok) {
+              const thumbnailResult = await thumbnailResponse.json()
+              thumbnailUrl = thumbnailResult.thumbnailUrl
+              console.log('Thumbnail generated:', thumbnailUrl)
+            } else {
+              console.warn('Thumbnail generation failed, continuing without thumbnail')
+            }
           } else {
-            console.warn('Thumbnail generation failed, continuing without thumbnail')
+            console.log('Skipping database save and thumbnail generation for new product - will be handled when product is created')
           }
 
           // Update file status to uploaded with thumbnail info
@@ -364,6 +386,12 @@ export function MediaUploadPresigned({
       return <File className="w-4 h-4" />
     }
     
+    // Ensure fileType is a string before calling startsWith
+    if (typeof fileType !== 'string') {
+      console.warn('File type is not a string:', fileType, 'for file:', file)
+      return <File className="w-4 h-4" />
+    }
+    
     if (fileType.startsWith('image/')) return <ImageIcon className="w-4 h-4" />
     if (fileType.startsWith('video/')) return <Video className="w-4 h-4" />
     return <File className="w-4 h-4" />
@@ -409,13 +437,18 @@ export function MediaUploadPresigned({
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-slate-700">Uploaded Files</h4>
           <div className="space-y-2">
-            {files.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-              >
-                <div className="flex items-center space-x-3">
-                  {getFileIcon(file)}
+            {files.map((file) => {
+              if (!file) {
+                console.warn('Undefined file in files array:', file)
+                return null
+              }
+              return (
+                <div
+                  key={file.id}
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                >
+                  <div className="flex items-center space-x-3">
+                    {getFileIcon(file)}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">
                       {file.file?.name || file.fileName || 'Unknown file'}
@@ -458,7 +491,8 @@ export function MediaUploadPresigned({
                   </Button>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

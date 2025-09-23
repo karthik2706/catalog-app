@@ -131,6 +131,7 @@ model Product {
   client           Client @relation("ClientProducts", fields: [clientId], references: [id])
   categories       ProductCategory[] @relation("ProductCategories")
   inventoryHistory InventoryHistory[] @relation("ProductInventoryHistory")
+  mediaItems       Media[] @relation("ProductMedia")
 
   @@unique([sku, clientId])
   @@map("products")
@@ -187,6 +188,25 @@ model ProductCategory {
 
   @@unique([productId, categoryId])
   @@map("product_categories")
+}
+
+model Media {
+  id          String   @id @default(cuid())
+  productId   String
+  kind        String   // 'image', 'video', 'audio', etc.
+  s3Key       String
+  width       Int?
+  height      Int?
+  durationMs  Int?     // For videos/audio
+  status      String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  product Product @relation("ProductMedia", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("media")
 }
 
 enum Role {

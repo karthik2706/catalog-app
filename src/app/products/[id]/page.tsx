@@ -92,7 +92,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         // Collect all media that needs refreshing (with deduplication)
         const allImages = [
           ...(data.images || []),
-          ...(data.media?.filter(m => 
+          ...(data.mediaItems?.filter(m => 
             m.kind === 'image' ||
             m.fileType?.startsWith('image/') || 
             m.type?.startsWith('image/') ||
@@ -102,7 +102,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         const allVideos = [
           ...(data.videos || []),
           // Only include media table videos that aren't already in data.videos
-          ...(data.media?.filter(m => {
+          ...(data.mediaItems?.filter(m => {
             const isVideo = m.kind === 'video' ||
               m.fileType?.startsWith('video/') || 
               m.type?.startsWith('video/') ||
@@ -156,7 +156,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               m.key && !m.s3Key
             )
             
-            data.media = refreshedMedia.filter(m => 
+            data.mediaItems = refreshedMedia.filter(m => 
               m.kind !== 'image' && m.kind !== 'video' &&
               !m.fileType?.startsWith('image/') && 
               !m.fileType?.startsWith('video/') &&
@@ -170,7 +170,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               total: refreshedMedia.length,
               images: data.images.length,
               videos: data.videos.length,
-              mediaFiles: data.media.length
+              mediaFiles: data.mediaItems.length
             })
           } else {
             console.error('Failed to refresh media URLs:', response.statusText)
@@ -244,7 +244,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   // Combine all media (images, videos, legacy media) with deduplication
   const allImages = [
     ...(product.images || []),
-    ...(product.media?.filter(m => 
+    ...(product.mediaItems?.filter(m => 
       m.kind === 'image' ||
       m.fileType?.startsWith('image/') || 
       m.type?.startsWith('image/') ||
@@ -254,7 +254,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const allVideos = [
     ...(product.videos || []),
     // Only include media table videos that aren't already in product.videos
-    ...(product.media?.filter(m => {
+    ...(product.mediaItems?.filter(m => {
       const isVideo = m.kind === 'video' ||
         m.fileType?.startsWith('video/') || 
         m.type?.startsWith('video/') ||
@@ -392,7 +392,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                   // This provides better UX and avoids video loading issues
                                   const thumbnailUrl = media.thumbnailUrl || product.thumbnailUrl
                                   
-                                  if (thumbnailUrl) {
+                                  console.log('Video thumbnail check:', {
+                                    mediaThumbnailUrl: media.thumbnailUrl,
+                                    productThumbnailUrl: product.thumbnailUrl,
+                                    finalThumbnailUrl: thumbnailUrl,
+                                    isNull: thumbnailUrl === null,
+                                    isStringNull: thumbnailUrl === 'null'
+                                  })
+                                  
+                                  if (thumbnailUrl && thumbnailUrl !== null && thumbnailUrl !== 'null') {
                                     console.log('Using video thumbnail display:', {
                                       thumbnailUrl: thumbnailUrl.substring(0, 80) + '...',
                                       hasVideoUrl: !!media.url
