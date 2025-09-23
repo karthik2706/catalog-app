@@ -57,10 +57,13 @@ export async function POST(request: NextRequest) {
     // Check content length before processing - Vercel has a 4.5MB limit for serverless functions
     const contentLength = request.headers.get('content-length')
     if (contentLength && parseInt(contentLength) > 4.5 * 1024 * 1024) {
+      console.log(`Large file upload rejected: ${contentLength} bytes > 4.5MB limit`)
       return NextResponse.json(
         { 
-          error: 'File too large for direct upload. Maximum size is 4.5MB. Please use presigned URL upload for larger files.',
-          usePresignedUpload: true 
+          error: 'File too large for direct upload. Maximum size is 4.5MB. Please use MediaUploadPresigned component for larger files.',
+          usePresignedUpload: true,
+          maxSize: '4.5MB',
+          currentSize: `${(parseInt(contentLength) / 1024 / 1024).toFixed(2)}MB`
         },
         { status: 413 }
       )
@@ -90,6 +93,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: validation.error },
         { status: 400 }
+      )
+    }
+
+    // Additional check: Reject video files larger than 4MB to force use of presigned URLs
+    if (file.type.startsWith('video/') && file.size > 4 * 1024 * 1024) {
+      console.log(`Video file rejected: ${file.name} (${file.size} bytes) - use presigned URL upload`)
+      return NextResponse.json(
+        { 
+          error: 'Video files larger than 4MB must use presigned URL upload. Please use MediaUploadPresigned component.',
+          usePresignedUpload: true,
+          fileType: 'video',
+          fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`
+        },
+        { status: 413 }
       )
     }
 
