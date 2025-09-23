@@ -45,7 +45,7 @@ export function MediaUploadPresigned({
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    console.log('Files dropped/selected:', acceptedFiles.length, acceptedFiles)
+    console.log('MediaUploadPresigned v2.1 - Files dropped/selected:', acceptedFiles.length, acceptedFiles)
     console.log('Current SKU:', sku)
     if (acceptedFiles.length === 0) {
       console.log('No files accepted')
@@ -186,7 +186,7 @@ export function MediaUploadPresigned({
 
         // For video files, upload directly to S3 and then generate thumbnail
         if (mediaFile.file?.type.startsWith('video/')) {
-          console.log('Video file detected, uploading directly to S3...')
+          console.log('Video file detected, uploading directly to S3 using presigned URL...')
           
           // Upload video directly to S3
           const uploadResponse = await fetch(signedUrl, {
