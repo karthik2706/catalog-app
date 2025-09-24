@@ -448,16 +448,89 @@ export function MediaUploadPresigned({
                   className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                 >
                   <div className="flex items-center space-x-3">
-                    {getFileIcon(file)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {file.file?.name || file.fileName || 'Unknown file'}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {formatFileSize(file.file?.size || file.fileSize || 0)} ({file.file?.size || file.fileSize || 0} bytes)
-                    </p>
+                    {/* Thumbnail/Preview */}
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
+                      {(() => {
+                        // Show thumbnail for videos
+                        if (file.thumbnailUrl && file.thumbnailUrl !== 'null' && file.thumbnailUrl !== null) {
+                          return (
+                            <img
+                              src={file.thumbnailUrl}
+                              alt="Video thumbnail"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error('Thumbnail load error:', file.thumbnailUrl)
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          )
+                        }
+                        // Show preview for images
+                        else if (file.preview && file.preview !== 'null' && file.preview !== null) {
+                          return (
+                            <img
+                              src={file.preview}
+                              alt="Image preview"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error('Preview load error:', file.preview)
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          )
+                        }
+                        // Show URL for existing media
+                        else if (file.url && file.url !== 'null' && file.url !== null) {
+                          return (
+                            <img
+                              src={file.url}
+                              alt="Media preview"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error('URL load error:', file.url)
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          )
+                        }
+                        // Fallback to file icon
+                        else {
+                          return (
+                            <div className="w-full h-full flex items-center justify-center">
+                              {getFileIcon(file)}
+                            </div>
+                          )
+                        }
+                      })()}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {file.file?.name || file.fileName || 'Unknown file'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {formatFileSize(file.file?.size || file.fileSize || 0)} ({file.file?.size || file.fileSize || 0} bytes)
+                      </p>
+                      {/* Show media type and status */}
+                      <div className="flex items-center space-x-2 mt-1">
+                        {file.file?.type?.startsWith('video/') && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            Video
+                          </span>
+                        )}
+                        {file.file?.type?.startsWith('image/') && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            Image
+                          </span>
+                        )}
+                        {file.uploaded && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                            Uploaded
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
 
                 <div className="flex items-center space-x-2">
                   {file.uploading && (

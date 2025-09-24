@@ -192,8 +192,13 @@ export async function PUT(
         })) : []
       })
 
-      // Remove categoryIds and clientId from the update data as we'll handle them separately
-      const { categoryIds, clientId, ...restUpdateData } = updateData
+      // Remove categoryIds, categoryId, clientId, and cost from the update data as we'll handle them separately
+      const { categoryIds, categoryId, clientId, cost, ...restUpdateData } = updateData
+      
+      // Double-check: explicitly remove cost if it still exists
+      if ('cost' in restUpdateData) {
+        delete restUpdateData.cost
+      }
 
       console.log('Update data after filtering:', {
         categoryIds,
@@ -206,12 +211,12 @@ export async function PUT(
         where: { id },
         data: {
           ...restUpdateData,
-          // Handle multiple categories
-          ...(categoryIds && {
+          // Handle categories if provided (support both categoryId and categoryIds)
+          ...((categoryId || categoryIds) && {
             categories: {
               deleteMany: {}, // Remove all existing category associations
-              create: categoryIds.map((categoryId: string) => ({
-                categoryId
+              create: (categoryId ? [categoryId] : categoryIds || []).map((catId: string) => ({
+                categoryId: catId
               }))
             }
           }),
@@ -226,8 +231,7 @@ export async function PUT(
                   s3Key: img.key || img.url,
                   width: 0,
                   height: 0,
-                  status: 'completed' as const,
-                  clientId: user.clientId || body.clientId
+                  status: 'completed' as const
                 })),
                 // Create media entries for videos
                 ...(body.videos || []).map((vid: any) => ({
@@ -235,8 +239,7 @@ export async function PUT(
                   s3Key: vid.key || vid.url,
                   width: 0,
                   height: 0,
-                  status: 'completed' as const,
-                  clientId: user.clientId || body.clientId
+                  status: 'completed' as const
                 }))
               ]
             }

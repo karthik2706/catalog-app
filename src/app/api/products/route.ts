@@ -332,6 +332,20 @@ export async function GET(request: NextRequest) {
                   select: { name: true, email: true }
                 }
               }
+            },
+            mediaItems: {
+              select: {
+                id: true,
+                kind: true,
+                s3Key: true,
+                width: true,
+                height: true,
+                durationMs: true,
+                status: true,
+                error: true,
+                createdAt: true,
+                updatedAt: true
+              }
             }
           }
         }),
@@ -565,8 +579,7 @@ export async function POST(request: NextRequest) {
                 s3Key: img.key || img.url,
                 width: 0,
                 height: 0,
-                status: 'completed' as const,
-                clientId: clientId
+                status: 'completed' as const
               })),
               // Create media entries for videos
               ...(body.videos || []).map((vid: any) => ({
@@ -574,8 +587,7 @@ export async function POST(request: NextRequest) {
                 s3Key: vid.key || vid.url,
                 width: 0,
                 height: 0,
-                status: 'completed' as const,
-                clientId: clientId
+                status: 'completed' as const
               }))
             ]
           }

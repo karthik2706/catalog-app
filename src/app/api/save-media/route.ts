@@ -70,7 +70,6 @@ export async function POST(request: NextRequest) {
         width: 0, // Will be updated later if needed
         height: 0, // Will be updated later if needed
         status: 'completed',
-        clientId: clientId,
       },
     })
 
