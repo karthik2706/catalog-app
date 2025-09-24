@@ -356,3 +356,99 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// DELETE /api/products/bulk - Bulk delete products
+export async function DELETE(request: NextRequest) {
+  try {
+    const clientId = getClientIdFromRequest(request)
+    
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
+      )
+    }
+
+    let body
+    try {
+      body = await request.json()
+    } catch (error) {
+      console.error('JSON parsing error:', error)
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      )
+    }
+    
+    const { productIds } = body
+
+    if (!productIds || !Array.isArray(productIds)) {
+      return NextResponse.json(
+        { error: 'Product IDs array is required' },
+        { status: 400 }
+      )
+    }
+
+    if (productIds.length === 0) {
+      return NextResponse.json(
+        { error: 'No products to delete' },
+        { status: 400 }
+      )
+    }
+
+    if (productIds.length > 100) {
+      return NextResponse.json(
+        { error: 'Maximum 100 products can be deleted at once' },
+        { status: 400 }
+      )
+    }
+
+    // Verify all products belong to the client
+    const products = await prisma.product.findMany({
+      where: {
+        id: {
+          in: productIds
+        },
+        clientId
+      },
+      select: {
+        id: true,
+        sku: true,
+        name: true
+      }
+    })
+
+    if (products.length !== productIds.length) {
+      return NextResponse.json(
+        { error: 'Some products not found or don\'t belong to your organization' },
+        { status: 404 }
+      )
+    }
+
+    // Soft delete products by setting isActive to false
+    const deletedProducts = await prisma.product.updateMany({
+      where: {
+        id: {
+          in: productIds
+        },
+        clientId
+      },
+      data: {
+        isActive: false
+      }
+    })
+
+    return NextResponse.json({
+      message: `Successfully deleted ${deletedProducts.count} products`,
+      deletedCount: deletedProducts.count,
+      deletedProducts: products.map(p => ({ id: p.id, sku: p.sku, name: p.name }))
+    })
+
+  } catch (error) {
+    console.error('Error deleting products:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete products' },
+      { status: 500 }
+    )
+  }
+}

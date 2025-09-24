@@ -79,6 +79,9 @@ export default function ProductsPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [importExportModalOpen, setImportExportModalOpen] = useState(false)
   const [searchByImageModalOpen, setSearchByImageModalOpen] = useState(false)
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false)
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
 
   // Debounced search function
   const debouncedSearch = debounce(async (term: string) => {
@@ -320,6 +323,60 @@ export default function ProductsPage() {
     return { label: 'In Stock', variant: 'success' as const, icon: CheckCircle }
   }
 
+  // Selection handling functions
+  const handleSelectProduct = (productId: string) => {
+    setSelectedProducts(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(productId)) {
+        newSet.delete(productId)
+      } else {
+        newSet.add(productId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedProducts.size === products.length && products.length > 0) {
+      setSelectedProducts(new Set())
+    } else {
+      setSelectedProducts(new Set(products.map(p => p.id)))
+    }
+  }
+
+  const isAllSelected = selectedProducts.size === products.length && products.length > 0
+  const isPartiallySelected = selectedProducts.size > 0 && selectedProducts.size < products.length
+
+  const handleBulkDelete = async () => {
+    if (selectedProducts.size === 0) return
+
+    setBulkDeleteLoading(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/products/bulk', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ productIds: Array.from(selectedProducts) }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete products')
+      }
+
+      setSelectedProducts(new Set())
+      setBulkDeleteModalOpen(false)
+      fetchProducts()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setBulkDeleteLoading(false)
+    }
+  }
+
   if (authLoading || (loading && products.length === 0)) {
     return (
       <DashboardLayout>
@@ -336,20 +393,21 @@ export default function ProductsPage() {
 
   return (
     <DashboardLayout>
-      <div className="section-spacing">
+      <div className="page-container">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between header-spacing">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+          <div className="mb-6 sm:mb-0">
             <h1 className="text-3xl font-bold text-slate-900">Products</h1>
             <p className="mt-2 text-slate-600">
               Manage your inventory and product catalog
             </p>
           </div>
-          <div className="mt-4 sm:mt-0 flex button-group-spacing">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button 
               variant="outline" 
               size="sm"
               onClick={() => setSearchByImageModalOpen(true)}
+              className="w-full sm:w-auto"
             >
               <Search className="w-4 h-4 mr-2" />
               Search by Image
@@ -358,11 +416,15 @@ export default function ProductsPage() {
               variant="outline" 
               size="sm"
               onClick={() => setImportExportModalOpen(true)}
+              className="w-full sm:w-auto"
             >
               <Download className="w-4 h-4 mr-2" />
               Import/Export
             </Button>
-            <Button onClick={() => router.push('/products/new')}>
+            <Button 
+              onClick={() => router.push('/products/new')}
+              className="w-full sm:w-auto"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Product
             </Button>
@@ -370,7 +432,7 @@ export default function ProductsPage() {
         </div>
 
         {/* Search and Filters */}
-        <Card>
+        <Card className="mb-8">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
@@ -427,7 +489,7 @@ export default function ProductsPage() {
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex space-x-2">
+              <div className="flex gap-2">
                 <Button
                   variant={viewMode === 'grid' ? 'primary' : 'outline'}
                   size="sm"
@@ -447,9 +509,82 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
 
+        {/* Selection Controls */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={isAllSelected}
+                ref={(input) => {
+                  if (input) {
+                    input.indeterminate = isPartiallySelected
+                  }
+                }}
+                onChange={handleSelectAll}
+                className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+              />
+              <label className="text-sm font-medium text-slate-700 cursor-pointer" onClick={handleSelectAll}>
+                Select All ({products.length} products)
+              </label>
+            </div>
+            {selectedProducts.size > 0 && (
+              <span className="text-sm text-slate-500">
+                {selectedProducts.size} selected
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {selectedProducts.size > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedProducts(new Set())}
+                className="text-slate-600 hover:text-slate-700"
+              >
+                Clear selection
+              </Button>
+            )}
+            {products.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                className="text-primary-600 border-primary-200 hover:bg-primary-50"
+              >
+                {isAllSelected ? 'Deselect All' : 'Select All'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Bulk Actions Bar */}
+        {selectedProducts.size > 0 && (
+          <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="text-sm font-medium text-primary-900">
+                  {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} selected
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBulkDeleteModalOpen(true)}
+                  className="text-error-600 border-error-200 hover:bg-error-50"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Selected
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Error Alert */}
         {error && (
-          <div className="bg-error-50 border border-error-200 rounded-xl p-4">
+          <div className="bg-error-50 border border-error-200 rounded-xl p-4 mb-8">
             <div className="flex items-center">
               <XCircle className="w-5 h-5 text-error-600 mr-2" />
               <p className="text-error-800">{error}</p>
@@ -459,7 +594,7 @@ export default function ProductsPage() {
 
         {/* Products Grid/List */}
         {viewMode === 'grid' ? (
-          <div className="relative">
+          <div className="relative mb-8">
             {searchLoading && (
               <div className="absolute top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-sm rounded-lg p-4 flex items-center justify-center">
                 <div className="flex items-center space-x-2 text-primary-600">
@@ -490,21 +625,30 @@ export default function ProductsPage() {
               }
               
               return (
-                <ProductTile
-                  key={product.id}
-                  product={product}
-                  clientCurrency={clientCurrency}
-                  onInventoryClick={(product) => {
-                    setSelectedProduct(product)
-                    setInventoryModalOpen(true)
-                  }}
-                />
+                <div key={product.id} className="relative">
+                  <div className="absolute top-3 left-3 z-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.has(product.id)}
+                      onChange={() => handleSelectProduct(product.id)}
+                      className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                    />
+                  </div>
+                  <ProductTile
+                    product={product}
+                    clientCurrency={clientCurrency}
+                    onInventoryClick={(product) => {
+                      setSelectedProduct(product)
+                      setInventoryModalOpen(true)
+                    }}
+                  />
+                </div>
               )
             })}
             </div>
           </div>
         ) : (
-          <Card>
+          <Card className="mb-8">
             <div className="relative">
               {searchLoading && (
                 <div className="absolute top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-sm rounded-lg p-4 flex items-center justify-center">
@@ -518,6 +662,19 @@ export default function ProductsPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        ref={(input) => {
+                          if (input) {
+                            input.indeterminate = isPartiallySelected
+                          }
+                        }}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                      />
+                    </th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">Product</th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">SKU</th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">Category</th>
@@ -534,6 +691,14 @@ export default function ProductsPage() {
                     
                     return (
                       <tr key={product.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.has(product.id)}
+                            onChange={() => handleSelectProduct(product.id)}
+                            className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                          />
+                        </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
@@ -617,11 +782,11 @@ export default function ProductsPage() {
         {totalProducts > rowsPerPage && (
           <Card>
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="text-sm text-slate-600">
                   Showing {page * rowsPerPage + 1} to {Math.min((page + 1) * rowsPerPage, totalProducts)} of {totalProducts} products
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-3">
                   <select
                     value={rowsPerPage}
                     onChange={(e) => setRowsPerPage(Number(e.target.value))}
@@ -631,7 +796,7 @@ export default function ProductsPage() {
                     <option value={24}>24</option>
                     <option value={48}>48</option>
                   </select>
-                  <div className="flex space-x-1">
+                  <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -732,6 +897,71 @@ export default function ProductsPage() {
           onClose={() => setSearchByImageModalOpen(false)}
           onSearch={handleSearchByImage}
         />
+
+        {/* Bulk Delete Confirmation Modal */}
+        <Modal
+          isOpen={bulkDeleteModalOpen}
+          onClose={() => setBulkDeleteModalOpen(false)}
+          title="Delete Products"
+          size="md"
+        >
+          <div className="space-y-6">
+            <div className="p-4 bg-error-50 border border-error-200 rounded-xl">
+              <div className="flex items-center">
+                <AlertTriangle className="w-5 h-5 text-error-600 mr-2" />
+                <div>
+                  <h3 className="font-semibold text-error-900">Confirm Deletion</h3>
+                  <p className="text-sm text-error-700 mt-1">
+                    Are you sure you want to delete {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''}? 
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-medium text-slate-900">Products to be deleted:</h4>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {products
+                  .filter(product => selectedProducts.has(product.id))
+                  .map(product => (
+                    <div key={product.id} className="text-sm text-slate-600 flex items-center space-x-2">
+                      <Package className="w-3 h-3" />
+                      <span>{product.name} ({product.sku})</span>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setBulkDeleteModalOpen(false)}
+                disabled={bulkDeleteLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="error"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleteLoading}
+              >
+                {bulkDeleteLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Products
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </DashboardLayout>
   )
