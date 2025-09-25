@@ -51,7 +51,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const formData = await request.formData()
+    // Check content length before processing
+    const contentLength = request.headers.get('content-length')
+    if (contentLength) {
+      const sizeInMB = parseInt(contentLength) / (1024 * 1024)
+      if (sizeInMB > 100) { // 100MB limit
+        return NextResponse.json(
+          { 
+            error: 'Request too large', 
+            message: 'Total upload size cannot exceed 100MB',
+            maxSize: '100MB',
+            currentSize: `${sizeInMB.toFixed(2)}MB`
+          },
+          { status: 413 }
+        )
+      }
+    }
+
+    let formData
+    try {
+      formData = await request.formData()
+    } catch (error) {
+      console.error('FormData parsing error:', error)
+      return NextResponse.json(
+        { 
+          error: 'Request too large', 
+          message: 'Upload size exceeds server limits',
+          details: 'The request body is too large to process'
+        },
+        { status: 413 }
+      )
+    }
+    
     const files = formData.getAll('files') as File[]
     const folder = formData.get('folder') as string || 'general'
 
@@ -67,9 +98,17 @@ export async function POST(request: NextRequest) {
 
     for (const file of files) {
       try {
-        // Validate file
-        if (file.size > 50 * 1024 * 1024) { // 50MB limit
-          errors.push(`${file.name}: File too large (max 50MB)`)
+        // Validate file size
+        if (file.size > 50 * 1024 * 1024) { // 50MB limit per file
+          errors.push(`${file.name}: File too large (max 50MB per file)`)
+          continue
+        }
+
+        // Validate file type
+        const allowedTypes = ['image/', 'video/', 'audio/', 'application/pdf', 'text/']
+        const isValidType = allowedTypes.some(type => file.type.startsWith(type))
+        if (!isValidType) {
+          errors.push(`${file.name}: Unsupported file type (${file.type})`)
           continue
         }
 

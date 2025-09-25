@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="384" height="384" viewBox="0 0 384 384" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="192" cy="192" r="188" fill="#3b82f6" stroke="#1e40af" stroke-width="2"/>
+  
+  <!-- Package/Box icon -->
+  <rect x="96" y="115.19999999999999" width="192" height="153.60000000000002" fill="white" rx="2"/>
+  
+  <!-- Package lines -->
+  <line x1="96" y1="153.60000000000002" x2="288" y2="153.60000000000002" stroke="#3b82f6" stroke-width="2"/>
+  <line x1="96" y1="192" x2="288" y2="192" stroke="#3b82f6" stroke-width="2"/>
+  
+  <!-- Arrow up -->
+  <path d="M153.60000000000002 230.39999999999998 L192 192 L230.39999999999998 230.39999999999998" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Text -->
+  <text x="192" y="326.4" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="46.08" font-weight="bold">SM</text>
+</svg>
