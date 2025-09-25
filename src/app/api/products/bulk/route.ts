@@ -31,9 +31,19 @@ function getUserFromRequest(request: NextRequest): { userId: string; role: strin
 export async function POST(request: NextRequest) {
   try {
     const user = getUserFromRequest(request)
-    const clientId = user?.clientId
     
-    if (!clientId) {
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    
+    const clientId = user.clientId
+    
+    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For other roles, clientId is required
+    if (!clientId && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -384,7 +394,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     const clientId = user.clientId
-    if (!clientId) {
+    
+    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For other roles, clientId is required
+    if (!clientId && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -425,24 +438,34 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Verify all products belong to the client
+    // Verify all products exist and belong to the client (if not SUPER_ADMIN)
+    const whereClause: any = {
+      id: {
+        in: productIds
+      }
+    }
+    
+    // For non-SUPER_ADMIN users, filter by clientId
+    if (user.role !== 'SUPER_ADMIN' && clientId) {
+      whereClause.clientId = clientId
+    }
+    
     const products = await prisma.product.findMany({
-      where: {
-        id: {
-          in: productIds
-        },
-        clientId
-      },
+      where: whereClause,
       select: {
         id: true,
         sku: true,
-        name: true
+        name: true,
+        clientId: true
       }
     })
 
     if (products.length !== productIds.length) {
+      const errorMessage = user.role === 'SUPER_ADMIN' 
+        ? 'Some products not found' 
+        : 'Some products not found or don\'t belong to your organization'
       return NextResponse.json(
-        { error: 'Some products not found or don\'t belong to your organization' },
+        { error: errorMessage },
         { status: 404 }
       )
     }
@@ -475,13 +498,19 @@ export async function DELETE(request: NextRequest) {
       })
 
       // Then delete the products themselves
-      const result = await tx.product.deleteMany({
-        where: {
-          id: {
-            in: productIds
-          },
-          clientId
+      const deleteWhereClause: any = {
+        id: {
+          in: productIds
         }
+      }
+      
+      // For non-SUPER_ADMIN users, filter by clientId
+      if (user.role !== 'SUPER_ADMIN' && clientId) {
+        deleteWhereClause.clientId = clientId
+      }
+      
+      const result = await tx.product.deleteMany({
+        where: deleteWhereClause
       })
 
       return result

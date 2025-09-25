@@ -11,12 +11,16 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId || null
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
@@ -27,9 +31,20 @@ function getClientIdFromRequest(request: NextRequest): string | null {
 // POST /api/inventory - Update inventory for a product
 export async function POST(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    
+    const clientId = user.clientId
+    
+    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For other roles, clientId is required
+    if (!clientId && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -46,17 +61,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if product exists and belongs to this client
+    // Check if product exists and belongs to this client (if not SUPER_ADMIN)
+    const whereClause: any = { 
+      id: body.productId
+    }
+    
+    // For non-SUPER_ADMIN users, filter by clientId
+    if (user.role !== 'SUPER_ADMIN' && clientId) {
+      whereClause.clientId = clientId
+    }
+    
     const product = await prisma.product.findFirst({
-      where: { 
-        id: body.productId,
-        clientId
-      }
+      where: whereClause
     })
 
     if (!product) {
+      const errorMessage = user.role === 'SUPER_ADMIN' 
+        ? 'Product not found' 
+        : 'Product not found or does not belong to your organization'
       return NextResponse.json(
-        { error: 'Product not found' },
+        { error: errorMessage },
         { status: 404 }
       )
     }
@@ -116,9 +140,20 @@ export async function POST(request: NextRequest) {
 // GET /api/inventory - Get inventory history with filtering
 export async function GET(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    
+    const clientId = user.clientId
+    
+    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For other roles, clientId is required
+    if (!clientId && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -133,7 +168,13 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const skip = (page - 1) * limit
 
-    const where: any = { clientId }
+    const where: any = {}
+    
+    // For non-SUPER_ADMIN users, filter by clientId
+    if (user.role !== 'SUPER_ADMIN' && clientId) {
+      where.clientId = clientId
+    }
+    
     if (productId) where.productId = productId
     if (type) where.type = type
 

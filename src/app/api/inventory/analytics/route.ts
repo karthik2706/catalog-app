@@ -10,12 +10,16 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId || null
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
@@ -26,9 +30,20 @@ function getClientIdFromRequest(request: NextRequest): string | null {
 // GET /api/inventory/analytics - Get inventory analytics for a product or all products
 export async function GET(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    
+    const clientId = user.clientId
+    
+    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For other roles, clientId is required
+    if (!clientId && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -47,11 +62,15 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = { 
-      clientId,
       createdAt: {
         gte: startDate,
         lte: endDate
       }
+    }
+    
+    // For non-SUPER_ADMIN users, filter by clientId
+    if (user.role !== 'SUPER_ADMIN' && clientId) {
+      where.clientId = clientId
     }
     
     if (productId) {
@@ -86,14 +105,21 @@ export async function GET(request: NextRequest) {
       stockTrend: calculateStockTrend(inventoryHistory),
       movementTypes: calculateMovementTypes(inventoryHistory),
       dailyMovements: calculateDailyMovements(inventoryHistory, startDate, endDate),
-      lowStockAlerts: await getLowStockAlerts(clientId),
-      reorderRecommendations: await getReorderRecommendations(clientId, includeProjections)
+      lowStockAlerts: await getLowStockAlerts(user.role === 'SUPER_ADMIN' ? null : clientId),
+      reorderRecommendations: await getReorderRecommendations(user.role === 'SUPER_ADMIN' ? null : clientId, includeProjections)
     }
 
     // If specific product, add product-specific analytics
     if (productId) {
+      const productWhereClause: any = { id: productId }
+      
+      // For non-SUPER_ADMIN users, filter by clientId
+      if (user.role !== 'SUPER_ADMIN' && clientId) {
+        productWhereClause.clientId = clientId
+      }
+      
       const product = await prisma.product.findFirst({
-        where: { id: productId, clientId },
+        where: productWhereClause,
         select: {
           id: true,
           sku: true,
@@ -170,15 +196,21 @@ function calculateDailyMovements(history: any[], startDate: Date, endDate: Date)
   return Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date))
 }
 
-async function getLowStockAlerts(clientId: string) {
+async function getLowStockAlerts(clientId: string | null) {
+  const whereClause: any = {
+    isActive: true,
+    stockLevel: {
+      lte: prisma.product.fields.minStock
+    }
+  }
+  
+  // For non-SUPER_ADMIN users, filter by clientId
+  if (clientId) {
+    whereClause.clientId = clientId
+  }
+  
   const products = await prisma.product.findMany({
-    where: {
-      clientId,
-      isActive: true,
-      stockLevel: {
-        lte: prisma.product.fields.minStock
-      }
-    },
+    where: whereClause,
     select: {
       id: true,
       sku: true,
@@ -195,12 +227,18 @@ async function getLowStockAlerts(clientId: string) {
   }))
 }
 
-async function getReorderRecommendations(clientId: string, includeProjections: boolean) {
+async function getReorderRecommendations(clientId: string | null, includeProjections: boolean) {
+  const whereClause: any = {
+    isActive: true
+  }
+  
+  // For non-SUPER_ADMIN users, filter by clientId
+  if (clientId) {
+    whereClause.clientId = clientId
+  }
+  
   const products = await prisma.product.findMany({
-    where: {
-      clientId,
-      isActive: true
-    },
+    where: whereClause,
     include: {
       inventoryHistory: {
         where: {
