@@ -1,84 +1,32 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import jwt from 'jsonwebtoken'
-
-interface JWTPayload {
-  userId: string
-  email: string
-  role: string
-  clientId?: string
-  clientSlug?: string
-}
+import { NextRequest, NextResponse } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  const hostname = request.headers.get('host') || ''
-  
-  // Extract subdomain from hostname
-  const subdomain = hostname.split('.')[0]
-  
-  // Skip middleware for static files and API routes that don't need tenant context
-  if (
-    pathname.startsWith('/_next/') ||
-    pathname.startsWith('/api/auth/') ||
-    pathname.startsWith('/favicon.ico') ||
-    pathname.startsWith('/api/admin/') ||
-    pathname === '/admin'
-  ) {
-    return NextResponse.next()
-  }
-
-  // Handle admin routes
-  if (pathname.startsWith('/admin')) {
-    const token = request.cookies.get('token')?.value
+  // Handle 413 errors for bulk upload endpoint
+  if (request.nextUrl.pathname === '/api/media/bulk-upload') {
+    const contentLength = request.headers.get('content-length')
     
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
+    if (contentLength) {
+      const sizeInMB = parseInt(contentLength) / (1024 * 1024)
       
-      if (decoded.role !== 'SUPER_ADMIN') {
-        return NextResponse.redirect(new URL('/login', request.url))
+      // Vercel has a 4.5MB limit for serverless functions
+      if (sizeInMB > 4.5) {
+        return NextResponse.json(
+          {
+            error: 'Request too large',
+            message: 'Upload size exceeds Vercel serverless function limits',
+            maxSize: '4.5MB',
+            currentSize: `${sizeInMB.toFixed(2)}MB`,
+            suggestion: 'Please reduce file size or upload files individually'
+          },
+          { status: 413 }
+        )
       }
-      
-      return NextResponse.next()
-    } catch (error) {
-      return NextResponse.redirect(new URL('/login', request.url))
     }
-  }
-
-  // Handle tenant-specific routes
-  if (subdomain && subdomain !== 'www' && subdomain !== 'localhost') {
-    // This is a tenant subdomain
-    const response = NextResponse.next()
-    
-    // Add tenant context to headers for API routes
-    response.headers.set('x-tenant-slug', subdomain)
-    
-    return response
-  }
-
-  // Handle main domain - allow access to dashboard for authenticated users
-  if (pathname === '/') {
-    // Let the client-side authentication handle the redirect logic
-    // This allows the dashboard to load and then redirect if needed
-    return NextResponse.next()
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: '/api/media/bulk-upload'
 }

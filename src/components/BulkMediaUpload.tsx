@@ -132,6 +132,30 @@ export default function BulkMediaUpload({ onUploadComplete, className = '' }: Bu
   const uploadFiles = async () => {
     if (files.length === 0) return
 
+    // Client-side validation
+    const maxFileSize = 50 * 1024 * 1024 // 50MB per file
+    const maxTotalSize = 4 * 1024 * 1024 // 4MB total (Vercel limit)
+    
+    let totalSize = 0
+    const oversizedFiles = []
+    
+    for (const fileObj of files) {
+      if (fileObj.file.size > maxFileSize) {
+        oversizedFiles.push(`${fileObj.file.name} (${(fileObj.file.size / 1024 / 1024).toFixed(1)}MB)`)
+      }
+      totalSize += fileObj.file.size
+    }
+    
+    if (oversizedFiles.length > 0) {
+      alert(`Files too large:\n${oversizedFiles.join('\n')}\n\nMaximum file size: 50MB per file`)
+      return
+    }
+    
+    if (totalSize > maxTotalSize) {
+      alert(`Total upload size too large: ${(totalSize / 1024 / 1024).toFixed(1)}MB\n\nMaximum total size: 4MB\n\nPlease upload files individually or reduce file sizes.`)
+      return
+    }
+
     setUploading(true)
     const finalFolder = showCustomFolder && customFolder.trim() ? customFolder.trim() : folder
 
@@ -149,6 +173,22 @@ export default function BulkMediaUpload({ onUploadComplete, className = '' }: Bu
         },
         body: formData,
       })
+
+      // Check if response is ok before parsing JSON
+      if (!response.ok) {
+        let errorMessage = 'Upload failed'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`
+        } catch (parseError) {
+          // If we can't parse JSON, use status text
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`
+          if (response.status === 413) {
+            errorMessage = 'File too large. Please reduce file size or upload files individually.'
+          }
+        }
+        throw new Error(errorMessage)
+      }
 
       const result = await response.json()
 
