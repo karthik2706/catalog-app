@@ -5,6 +5,24 @@ import "./mobile-responsive.css";
 import { AuthProvider } from '@/components/AuthProvider';
 import { generateMetadata as generateSEOMetadata } from '@/lib/seo';
 
+// Utility function to safely get the base URL
+function getBaseUrl(): string {
+  const envUrl = process.env.NEXTAUTH_URL;
+  
+  // If no environment URL, use localhost for development
+  if (!envUrl) {
+    return "http://localhost:3000";
+  }
+  
+  // If URL already has protocol, use as is
+  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
+    return envUrl;
+  }
+  
+  // If URL doesn't have protocol, add https://
+  return `https://${envUrl}`;
+}
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -42,8 +60,8 @@ export const metadata: Metadata = generateSEOMetadata({
   type: "website",
   siteName: "Stock Mind",
   locale: "en_US",
-  url: process.env.NEXTAUTH_URL || "http://localhost:3000",
-  image: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/og-image.png`,
+  url: getBaseUrl(),
+  image: `${getBaseUrl()}/og-image.png`,
 });
 
 export const viewport = {
@@ -70,8 +88,8 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "Organization",
               "name": "Stock Mind",
-              "url": process.env.NEXTAUTH_URL || "http://localhost:3000",
-              "logo": `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/logo.png`,
+              "url": getBaseUrl(),
+              "logo": `${getBaseUrl()}/logo.png`,
               "description": "A comprehensive inventory management system for smart stock tracking",
               "contactPoint": {
                 "@type": "ContactPoint",

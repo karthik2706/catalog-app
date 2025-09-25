@@ -1,7 +1,25 @@
 import { MetadataRoute } from 'next'
 
+// Utility function to safely get the base URL
+function getBaseUrl(): string {
+  const envUrl = process.env.NEXTAUTH_URL;
+  
+  // If no environment URL, use localhost for development
+  if (!envUrl) {
+    return "http://localhost:3000";
+  }
+  
+  // If URL already has protocol, use as is
+  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
+    return envUrl;
+  }
+  
+  // If URL doesn't have protocol, add https://
+  return `https://${envUrl}`;
+}
+
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  const baseUrl = getBaseUrl()
   
   return {
     rules: [

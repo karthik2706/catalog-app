@@ -1,5 +1,23 @@
 import { Metadata } from 'next'
 
+// Utility function to safely get the base URL
+function getBaseUrl(): string {
+  const envUrl = process.env.NEXTAUTH_URL;
+  
+  // If no environment URL, use localhost for development
+  if (!envUrl) {
+    return "http://localhost:3000";
+  }
+  
+  // If URL already has protocol, use as is
+  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
+    return envUrl;
+  }
+  
+  // If URL doesn't have protocol, add https://
+  return `https://${envUrl}`;
+}
+
 export interface SEOConfig {
   title: string
   description: string
@@ -66,7 +84,7 @@ export function generateMetadata(config: SEOConfig): Metadata {
       address: false,
       telephone: false,
     },
-    metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
+    metadataBase: new URL(getBaseUrl()),
     alternates: {
       canonical: url,
     },
@@ -207,7 +225,7 @@ export function generateStructuredData(config: SEOConfig) {
         name: 'Stock Mind',
         logo: {
           '@type': 'ImageObject',
-          url: `${process.env.NEXTAUTH_URL}/logo.png`
+          url: `${getBaseUrl()}/logo.png`
         }
       }
     }
@@ -234,8 +252,8 @@ export function generateOrganizationStructuredData() {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Stock Mind',
-    url: process.env.NEXTAUTH_URL,
-    logo: `${process.env.NEXTAUTH_URL}/logo.png`,
+    url: getBaseUrl(),
+    logo: `${getBaseUrl()}/logo.png`,
     description: 'A comprehensive inventory management system for smart stock tracking',
     contactPoint: {
       '@type': 'ContactPoint',
@@ -254,13 +272,13 @@ export function generateWebSiteStructuredData() {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: 'Stock Mind',
-    url: process.env.NEXTAUTH_URL,
+    url: getBaseUrl(),
     description: 'A comprehensive inventory management system for smart stock tracking',
     potentialAction: {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${process.env.NEXTAUTH_URL}/products?search={search_term_string}`
+        urlTemplate: `${getBaseUrl()}/products?search={search_term_string}`
       },
       'query-input': 'required name=search_term_string'
     }
