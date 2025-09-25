@@ -35,7 +35,10 @@ export async function GET(request: NextRequest) {
     }
 
     const clientId = user.clientId
-    if (!clientId) {
+    
+    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For other roles, clientId is required
+    if (!clientId && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Client ID is required' },
         { status: 400 }
@@ -51,8 +54,11 @@ export async function GET(request: NextRequest) {
     const assigned = searchParams.get('assigned') // true, false, or null for all
 
     // Build where clause
-    const where: any = {
-      s3Key: {
+    const where: any = {}
+    
+    // For non-SUPER_ADMIN users, filter by clientId
+    if (user.role !== 'SUPER_ADMIN' && clientId) {
+      where.s3Key = {
         startsWith: `clients/${clientId}/media/`
       }
     }

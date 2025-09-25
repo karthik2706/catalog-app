@@ -10,12 +10,16 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId || null
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
@@ -26,12 +30,23 @@ function getClientIdFromRequest(request: NextRequest): string | null {
 // GET /api/media/analytics - Get media analytics
 export async function GET(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
-    if (!clientId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      )
+    }
+    
+    const clientId = user.clientId
+    
+    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For other roles, clientId is required
+    if (!clientId && user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
       )
     }
 
@@ -45,8 +60,11 @@ export async function GET(request: NextRequest) {
     startDate.setDate(endDate.getDate() - parseInt(timeRange))
 
     // Build where clause
-    const where: any = { 
-      product: { clientId }
+    const where: any = {}
+    
+    // For non-SUPER_ADMIN users, filter by clientId
+    if (user.role !== 'SUPER_ADMIN' && clientId) {
+      where.product = { clientId }
     }
     
     if (productId) {

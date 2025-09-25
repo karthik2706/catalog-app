@@ -48,22 +48,39 @@ export async function GET(
 ) {
   try {
     const { sku } = params
+    const user = getUserFromRequest(request)
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+    
     const clientId = getClientIdFromRequest(request)
     
-    if (!clientId) {
+    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For other roles, clientId is required
+    if (!clientId && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
       )
     }
 
-    // Find product by SKU and clientId
+    // Find product by SKU and clientId (if not SUPER_ADMIN)
+    const whereClause: any = {
+      sku: sku,
+      isActive: true
+    }
+    
+    // For non-SUPER_ADMIN users, filter by clientId
+    if (user.role !== 'SUPER_ADMIN' && clientId) {
+      whereClause.clientId = clientId
+    }
+    
     const product = await prisma.product.findFirst({
-      where: {
-        sku: sku,
-        clientId: clientId,
-        isActive: true
-      },
+      where: whereClause,
       include: {
         media: {
           where: {
