@@ -497,14 +497,6 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
               </div>
             )}
 
-            {/* Media count indicator */}
-            {mediaCount.total > 1 && (
-              <div className="absolute top-1.5 right-1.5 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-                {mediaCount.imageCount > 0 && `${mediaCount.imageCount}📷`}
-                {mediaCount.imageCount > 0 && mediaCount.videoCount > 0 && ' '}
-                {mediaCount.videoCount > 0 && `${mediaCount.videoCount}🎥`}
-              </div>
-            )}
           </div>
 
           {/* Product Info */}

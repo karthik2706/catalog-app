@@ -3,21 +3,48 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./mobile-responsive.css";
 import { AuthProvider } from '@/components/AuthProvider';
+import { generateMetadata as generateSEOMetadata } from '@/lib/seo';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: 'swap',
+  preload: true,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: 'swap',
+  preload: true,
 });
 
-export const metadata: Metadata = {
-  title: "Stock Mind - Inventory Management",
-  description: "A comprehensive inventory management system for smart stock tracking",
-};
+export const metadata: Metadata = generateSEOMetadata({
+  title: "Stock Mind - Advanced Inventory Management System",
+  description: "Streamline your business operations with Stock Mind's comprehensive inventory management platform. Track products, manage stock levels, analyze performance, and optimize your supply chain with real-time insights and AI-powered features.",
+  keywords: [
+    "inventory management",
+    "stock tracking",
+    "supply chain",
+    "warehouse management",
+    "product catalog",
+    "business analytics",
+    "stock optimization",
+    "inventory control",
+    "retail management",
+    "e-commerce",
+    "barcode scanning",
+    "stock alerts",
+    "inventory reports",
+    "multi-location",
+    "real-time tracking"
+  ],
+  type: "website",
+  siteName: "Stock Mind",
+  locale: "en_US",
+  url: process.env.NEXTAUTH_URL || "http://localhost:3000",
+  image: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/og-image.png`,
+});
 
 export const viewport = {
   width: 'device-width',
@@ -25,6 +52,7 @@ export const viewport = {
   minimumScale: 1,
   maximumScale: 5,
   userScalable: true,
+  themeColor: '#3b82f6',
 };
 
 export default function RootLayout({
@@ -34,6 +62,26 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "Stock Mind",
+              "url": process.env.NEXTAUTH_URL || "http://localhost:3000",
+              "logo": `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/logo.png`,
+              "description": "A comprehensive inventory management system for smart stock tracking",
+              "contactPoint": {
+                "@type": "ContactPoint",
+                "contactType": "customer service",
+                "email": "support@stockmind.com"
+              }
+            })
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

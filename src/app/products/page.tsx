@@ -16,6 +16,8 @@ import { ImportExportModal } from '@/components/ui/ImportExportModal'
 import { MediaPreview } from '@/components/ui/MediaPreview'
 import SearchByImageModal from '@/components/SearchByImageModal'
 import ProductTile from '@/components/ProductTile'
+import InventoryManagementModal from '@/components/InventoryManagementModal'
+import MediaManagementModal from '@/components/MediaManagementModal'
 import {
   Search,
   Filter,
@@ -35,6 +37,7 @@ import {
   List,
   Download,
   Upload,
+  RefreshCw,
 } from 'lucide-react'
 import { Product, ProductFilters } from '@/types'
 
@@ -82,6 +85,8 @@ export default function ProductsPage() {
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false)
   const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
+  const [mediaModalOpen, setMediaModalOpen] = useState(false)
+  const [selectedProductForMedia, setSelectedProductForMedia] = useState<Product | null>(null)
 
   // Debounced search function
   const debouncedSearch = debounce(async (term: string) => {
@@ -164,6 +169,15 @@ export default function ProductsPage() {
       console.error('Error fetching products:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRefresh = async () => {
+    try {
+      setLoading(true)
+      await fetchProducts()
+    } catch (error) {
+      console.error('Error refreshing products:', error)
     }
   }
 
@@ -346,6 +360,9 @@ export default function ProductsPage() {
 
   const isAllSelected = selectedProducts.size === products.length && products.length > 0
   const isPartiallySelected = selectedProducts.size > 0 && selectedProducts.size < products.length
+  
+  // Check if user has admin permissions for delete operations
+  const canDeleteProducts = user && ['SUPER_ADMIN', 'ADMIN'].includes(user.role)
 
   const handleBulkDelete = async () => {
     if (selectedProducts.size === 0) return
@@ -403,6 +420,16 @@ export default function ProductsPage() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleRefresh}
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
             <Button 
               variant="outline" 
               size="sm"
@@ -509,54 +536,56 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
 
-        {/* Selection Controls */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={isAllSelected}
-                ref={(input) => {
-                  if (input) {
-                    input.indeterminate = isPartiallySelected
-                  }
-                }}
-                onChange={handleSelectAll}
-                className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
-              />
-              <label className="text-sm font-medium text-slate-700 cursor-pointer" onClick={handleSelectAll}>
-                Select All ({products.length} products)
-              </label>
+        {/* Selection Controls - Only show for admin users */}
+        {canDeleteProducts && (
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  ref={(input) => {
+                    if (input) {
+                      input.indeterminate = isPartiallySelected
+                    }
+                  }}
+                  onChange={handleSelectAll}
+                  className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                />
+                <label className="text-sm font-medium text-slate-700 cursor-pointer" onClick={handleSelectAll}>
+                  Select All ({products.length} products)
+                </label>
+              </div>
+              {selectedProducts.size > 0 && (
+                <span className="text-sm text-slate-500">
+                  {selectedProducts.size} selected
+                </span>
+              )}
             </div>
-            {selectedProducts.size > 0 && (
-              <span className="text-sm text-slate-500">
-                {selectedProducts.size} selected
-              </span>
-            )}
+            <div className="flex items-center space-x-2">
+              {selectedProducts.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedProducts(new Set())}
+                  className="text-slate-600 hover:text-slate-700"
+                >
+                  Clear selection
+                </Button>
+              )}
+              {products.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  className="text-primary-600 border-primary-200 hover:bg-primary-50"
+                >
+                  {isAllSelected ? 'Deselect All' : 'Select All'}
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            {selectedProducts.size > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedProducts(new Set())}
-                className="text-slate-600 hover:text-slate-700"
-              >
-                Clear selection
-              </Button>
-            )}
-            {products.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSelectAll}
-                className="text-primary-600 border-primary-200 hover:bg-primary-50"
-              >
-                {isAllSelected ? 'Deselect All' : 'Select All'}
-              </Button>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Bulk Actions Bar */}
         {selectedProducts.size > 0 && (
@@ -568,15 +597,17 @@ export default function ProductsPage() {
                 </span>
               </div>
               <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setBulkDeleteModalOpen(true)}
-                  className="text-error-600 border-error-200 hover:bg-error-50"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Selected
-                </Button>
+                {canDeleteProducts && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBulkDeleteModalOpen(true)}
+                    className="text-error-600 border-error-200 hover:bg-error-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Permanently Delete
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -626,14 +657,16 @@ export default function ProductsPage() {
               
               return (
                 <div key={product.id} className="relative">
-                  <div className="absolute top-3 left-3 z-10">
-                    <input
-                      type="checkbox"
-                      checked={selectedProducts.has(product.id)}
-                      onChange={() => handleSelectProduct(product.id)}
-                      className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
-                    />
-                  </div>
+                  {canDeleteProducts && (
+                    <div className="absolute top-3 left-3 z-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.has(product.id)}
+                        onChange={() => handleSelectProduct(product.id)}
+                        className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                      />
+                    </div>
+                  )}
                   <ProductTile
                     product={product}
                     clientCurrency={clientCurrency}
@@ -662,19 +695,21 @@ export default function ProductsPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">
-                      <input
-                        type="checkbox"
-                        checked={isAllSelected}
-                        ref={(input) => {
-                          if (input) {
-                            input.indeterminate = isPartiallySelected
-                          }
-                        }}
-                        onChange={handleSelectAll}
-                        className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
-                      />
-                    </th>
+                    {canDeleteProducts && (
+                      <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          ref={(input) => {
+                            if (input) {
+                              input.indeterminate = isPartiallySelected
+                            }
+                          }}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                        />
+                      </th>
+                    )}
                     <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">Product</th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">SKU</th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-slate-900">Category</th>
@@ -691,14 +726,16 @@ export default function ProductsPage() {
                     
                     return (
                       <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedProducts.has(product.id)}
-                            onChange={() => handleSelectProduct(product.id)}
-                            className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
-                          />
-                        </td>
+                        {canDeleteProducts && (
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts.has(product.id)}
+                              onChange={() => handleSelectProduct(product.id)}
+                              className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                            />
+                          </td>
+                        )}
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
@@ -756,16 +793,18 @@ export default function ProductsPage() {
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedProduct(product)
-                                setInventoryModalOpen(true)
-                              }}
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
+                            {canDeleteProducts && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedProduct(product)
+                                  setInventoryModalOpen(true)
+                                }}
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -820,67 +859,27 @@ export default function ProductsPage() {
           </Card>
         )}
 
-        {/* Inventory Update Modal */}
-        <Modal
+        {/* Enhanced Inventory Management Modal */}
+        <InventoryManagementModal
           isOpen={inventoryModalOpen}
-          onClose={() => setInventoryModalOpen(false)}
-          title="Update Inventory"
-          size="md"
-        >
-          {selectedProduct && (
-            <div className="space-y-6">
-              <div className="p-4 bg-slate-50 rounded-xl">
-                <h3 className="font-semibold text-slate-900">{selectedProduct.name}</h3>
-                <p className="text-sm text-slate-600">Current Stock: {selectedProduct.stockLevel}</p>
-              </div>
+          onClose={() => {
+            setInventoryModalOpen(false)
+            setSelectedProduct(null)
+          }}
+          product={selectedProduct}
+          onInventoryUpdate={fetchProducts}
+        />
 
-              <div className="space-y-4">
-                <Input
-                  label="Quantity Change"
-                  type="number"
-                  value={inventoryQuantity}
-                  onChange={(e) => setInventoryQuantity(Number(e.target.value))}
-                  placeholder="Enter quantity change"
-                />
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Type</label>
-                  <select
-                    value={inventoryType}
-                    onChange={(e) => setInventoryType(e.target.value)}
-                    className="input w-full"
-                  >
-                    <option value="PURCHASE">Purchase</option>
-                    <option value="SALE">Sale</option>
-                    <option value="ADJUSTMENT">Adjustment</option>
-                    <option value="RETURN">Return</option>
-                    <option value="DAMAGE">Damage</option>
-                    <option value="TRANSFER">Transfer</option>
-                  </select>
-                </div>
-
-                <Input
-                  label="Reason (Optional)"
-                  value={inventoryReason}
-                  onChange={(e) => setInventoryReason(e.target.value)}
-                  placeholder="Enter reason for inventory change"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setInventoryModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleInventoryUpdate}>
-                  Update Inventory
-                </Button>
-              </div>
-            </div>
-          )}
-        </Modal>
+        {/* Enhanced Media Management Modal */}
+        <MediaManagementModal
+          isOpen={mediaModalOpen}
+          onClose={() => {
+            setMediaModalOpen(false)
+            setSelectedProductForMedia(null)
+          }}
+          product={selectedProductForMedia}
+          onMediaUpdate={fetchProducts}
+        />
 
         {/* Import/Export Modal */}
         <ImportExportModal
@@ -910,10 +909,10 @@ export default function ProductsPage() {
               <div className="flex items-center">
                 <AlertTriangle className="w-5 h-5 text-error-600 mr-2" />
                 <div>
-                  <h3 className="font-semibold text-error-900">Confirm Deletion</h3>
+                  <h3 className="font-semibold text-error-900">Confirm Permanent Deletion</h3>
                   <p className="text-sm text-error-700 mt-1">
-                    Are you sure you want to delete {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''}? 
-                    This action cannot be undone.
+                    Are you sure you want to <strong>permanently delete</strong> {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''}? 
+                    This will remove all product data, media files, and inventory history. This action cannot be undone.
                   </p>
                 </div>
               </div>
@@ -955,7 +954,7 @@ export default function ProductsPage() {
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Products
+                    Permanently Delete
                   </>
                 )}
               </Button>

@@ -10,12 +10,16 @@ interface JWTPayload {
   clientSlug?: string
 }
 
-function getClientIdFromRequest(request: NextRequest): string | null {
+function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return decoded.clientId || null
+      return {
+        userId: decoded.userId,
+        role: decoded.role,
+        clientId: decoded.clientId || null
+      }
     } catch (error) {
       console.error('Error decoding token:', error)
     }
@@ -26,7 +30,8 @@ function getClientIdFromRequest(request: NextRequest): string | null {
 // POST /api/products/bulk - Bulk import products
 export async function POST(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
+    const clientId = user?.clientId
     
     if (!clientId) {
       return NextResponse.json(
@@ -360,8 +365,25 @@ export async function POST(request: NextRequest) {
 // DELETE /api/products/bulk - Bulk delete products
 export async function DELETE(request: NextRequest) {
   try {
-    const clientId = getClientIdFromRequest(request)
+    const user = getUserFromRequest(request)
     
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Check if user has admin or higher permissions
+    const allowedRoles = ['SUPER_ADMIN', 'ADMIN']
+    if (!allowedRoles.includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions. Admin or higher role required to delete products.' },
+        { status: 403 }
+      )
+    }
+
+    const clientId = user.clientId
     if (!clientId) {
       return NextResponse.json(
         { error: 'Client context required' },
@@ -425,17 +447,44 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Soft delete products by setting isActive to false
-    const deletedProducts = await prisma.product.updateMany({
-      where: {
-        id: {
-          in: productIds
-        },
-        clientId
-      },
-      data: {
-        isActive: false
-      }
+    // Permanently delete products and related data
+    const deletedProducts = await prisma.$transaction(async (tx) => {
+      // First, delete related data
+      await tx.media.deleteMany({
+        where: {
+          productId: {
+            in: productIds
+          }
+        }
+      })
+
+      await tx.inventoryHistory.deleteMany({
+        where: {
+          productId: {
+            in: productIds
+          }
+        }
+      })
+
+      await tx.productCategory.deleteMany({
+        where: {
+          productId: {
+            in: productIds
+          }
+        }
+      })
+
+      // Then delete the products themselves
+      const result = await tx.product.deleteMany({
+        where: {
+          id: {
+            in: productIds
+          },
+          clientId
+        }
+      })
+
+      return result
     })
 
     return NextResponse.json({

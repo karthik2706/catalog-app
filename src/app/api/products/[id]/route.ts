@@ -331,15 +331,35 @@ export async function PUT(
   }
 }
 
-// DELETE /api/products/[id] - Soft delete a product
+// DELETE /api/products/[id] - Permanently delete a product
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
+    
+    // Check user authentication and permissions
+    const user = getUserFromRequest(request)
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Check if user has admin or higher permissions
+    const allowedRoles = ['SUPER_ADMIN', 'ADMIN']
+    if (!allowedRoles.includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions. Admin or higher role required to delete products.' },
+        { status: 403 }
+      )
+    }
+
     try {
-      // Try to delete from database first
+      // Check if product exists and belongs to user's client
       const product = await prisma.product.findUnique({
         where: { id }
       })
@@ -351,13 +371,36 @@ export async function DELETE(
         )
       }
 
-      // Soft delete by setting isActive to false
-      await prisma.product.update({
-        where: { id },
-        data: { isActive: false }
+      // For non-super-admin users, ensure they can only delete products from their own client
+      if (user.role !== 'SUPER_ADMIN' && product.clientId !== user.clientId) {
+        return NextResponse.json(
+          { error: 'You can only delete products from your own organization.' },
+          { status: 403 }
+        )
+      }
+
+      // Permanently delete product and related data
+      await prisma.$transaction(async (tx) => {
+        // Delete related data first
+        await tx.media.deleteMany({
+          where: { productId: id }
+        })
+
+        await tx.inventoryHistory.deleteMany({
+          where: { productId: id }
+        })
+
+        await tx.productCategory.deleteMany({
+          where: { productId: id }
+        })
+
+        // Delete the product itself
+        await tx.product.delete({
+          where: { id }
+        })
       })
 
-      return NextResponse.json({ message: 'Product deleted successfully' })
+      return NextResponse.json({ message: 'Product permanently deleted successfully' })
     } catch (dbError) {
       console.error('Database error:', dbError)
       return NextResponse.json(

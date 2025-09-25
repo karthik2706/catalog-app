@@ -630,7 +630,7 @@ export function MediaUploadPresigned({
                           src={previewUrl}
                           className="w-full h-full object-cover"
                           controls
-                          preload="metadata"
+                          preload="none"
                           onError={(e) => {
                             console.error('Video load error for', file.file?.name, ':', e)
                             console.error('Video URL:', previewUrl)

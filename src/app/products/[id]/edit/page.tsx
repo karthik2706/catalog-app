@@ -13,7 +13,7 @@ import { Loading } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
-import { MediaUploadPresigned as MediaUpload, MediaFile } from '@/components/ui/MediaUploadPresigned'
+import MediaSelectorModal from '@/components/MediaSelectorModal'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import {
   ArrowLeft,
@@ -34,6 +34,9 @@ import {
   Layers,
   TrendingUp,
   Shield,
+  Image as ImageIcon,
+  Video,
+  Star,
 } from 'lucide-react'
 
 interface Category {
@@ -58,8 +61,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [productId, setProductId] = useState<string>('')
   const [categories, setCategories] = useState<Category[]>([])
   const [clientCurrency, setClientCurrency] = useState<string>('USD')
-  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
-  const [uploading, setUploading] = useState(false)
+  // Media selector modal state
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
+  const [selectedMedia, setSelectedMedia] = useState<any[]>([])
 
 
   const [formData, setFormData] = useState({
@@ -119,62 +123,19 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       })
       setVariations(data.variations || [])
       
-      // Load existing media files
+      // Load existing media files for the media selector
       const existingImages = data.images || []
       const existingVideos = data.videos || []
-      const allExistingMedia = [...existingImages, ...existingVideos]
+      const existingMediaItems = data.mediaItems || []
       
-      if (allExistingMedia.length > 0) {
-        const existingMedia: MediaFile[] = allExistingMedia.map((media: any, index: number) => {
-          // Determine file type from URL or file name
-          let fileType = 'image/jpeg' // default
-          if (media.fileType) {
-            fileType = media.fileType
-          } else if (media.fileName) {
-            const extension = media.fileName.split('.').pop()?.toLowerCase()
-            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '')) {
-              fileType = 'image/jpeg'
-            } else if (['mp4', 'webm', 'mov'].includes(extension || '')) {
-              fileType = 'video/mp4'
-            }
-          } else if (media.url) {
-            // Try to determine type from URL
-            const urlExtension = media.url.split('.').pop()?.toLowerCase()
-            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(urlExtension || '')) {
-              fileType = 'image/jpeg'
-            } else if (['mp4', 'webm', 'mov'].includes(urlExtension || '')) {
-              fileType = 'video/mp4'
-            }
-          }
-          
-          console.log('Loading existing media:', {
-            fileName: media.fileName,
-            fileType: media.fileType,
-            url: media.url,
-            detectedType: fileType
-          })
-          
-          // Create a proper File object for existing media
-          const fileBlob = new Blob([''], { type: fileType })
-          const file = new File([fileBlob], media.fileName || 'existing-file', { 
-            type: fileType,
-            lastModified: Date.now()
-          })
-          
-          return {
-            id: `existing-${index}`,
-            file: file,
-            preview: media.url,
-            url: media.url,
-            thumbnailUrl: media.thumbnailUrl,
-            key: media.key,
-            progress: 100,
-            uploading: false,
-            uploaded: true,
-          }
-        })
-        setMediaFiles(existingMedia)
-      }
+      // Combine all existing media
+      const allExistingMedia = [
+        ...existingImages.map((img: any) => ({ ...img, kind: 'image' })),
+        ...existingVideos.map((vid: any) => ({ ...vid, kind: 'video' })),
+        ...existingMediaItems
+      ]
+      
+      setSelectedMedia(allExistingMedia)
     } catch (err: any) {
       setError(err.message)
       console.error('Error fetching product:', err)
@@ -233,48 +194,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       setError('')
       setSuccess('')
 
-      // Check if there are any files still uploading
-      const uploadingFiles = mediaFiles.filter(f => f.uploading)
-      if (uploadingFiles.length > 0) {
-        setError(`Please wait for ${uploadingFiles.length} file(s) to finish uploading before saving.`)
-        setSaving(false)
+      // Validate required fields
+      if (!formData.name || !formData.sku || !formData.price || formData.categoryIds.length === 0) {
+        setError('Please fill in all required fields: Name, SKU, Price, and at least one Category')
         return
       }
 
-      // Check if there are any files with errors
-      const errorFiles = mediaFiles.filter(f => f.error)
-      if (errorFiles.length > 0) {
-        setError(`Please fix upload errors for ${errorFiles.length} file(s) before saving.`)
-        setSaving(false)
-        return
-      }
-
-      // Debug: Log media files before saving
-      console.log('Media files before save:', mediaFiles)
-      console.log('Media files details:', mediaFiles.map(f => ({
-        id: f.id,
-        name: f.file?.name,
-        type: f.file?.type,
-        uploaded: f.uploaded,
-        url: f.url,
-        hasUrl: !!f.url
-      })))
-      
-      const uploadedImages = mediaFiles.filter(file => {
-        const fileType = file.file?.type || ''
-        const isImage = fileType.startsWith('image/') && file.uploaded
-        console.log('Image check for', file.file?.name, ':', { fileType, uploaded: file.uploaded, isImage })
-        return isImage
-      })
-      const uploadedVideos = mediaFiles.filter(file => {
-        const fileType = file.file?.type || ''
-        const isVideo = fileType.startsWith('video/') && file.uploaded
-        console.log('Video check for', file.file?.name, ':', { fileType, uploaded: file.uploaded, isVideo })
-        return isVideo
-      })
-      console.log('Uploaded images:', uploadedImages)
-      console.log('Uploaded videos:', uploadedVideos)
-
+      // Step 1: Update the product (without media assignment)
       const response = await fetch(`/api/products/${productId}`, {
         method: 'PUT',
         headers: {
@@ -283,28 +209,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         },
         body: JSON.stringify({
           ...formData,
+          categoryId: formData.categoryIds[0], // Send first selected category as categoryId
+          categoryIds: formData.categoryIds, // Keep categoryIds for multiple categories
           variations,
-          images: uploadedImages.map(file => ({
-            id: file.id,
-            url: file.url,
-            thumbnailUrl: file.thumbnailUrl,
-            key: file.key,
-            fileName: file.file?.name || 'unknown',
-            fileSize: file.file?.size || 0,
-            fileType: file.file?.type || 'image/jpeg',
-            uploadedAt: new Date(),
-          })),
-          videos: uploadedVideos.map(file => ({
-            id: file.id,
-            url: file.url,
-            thumbnailUrl: file.thumbnailUrl,
-            key: file.key,
-            fileName: file.file?.name || 'unknown',
-            fileSize: file.file?.size || 0,
-            fileType: file.file?.type || 'video/mp4',
-            uploadedAt: new Date(),
-          })),
-          thumbnailUrl: uploadedImages[0]?.thumbnailUrl || uploadedVideos[0]?.thumbnailUrl || null,
+          // Don't include media in product update - will be handled separately
         }),
       })
 
@@ -314,9 +222,81 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       }
 
       const updatedProduct = await response.json()
-      console.log('Product updated successfully:', updatedProduct)
-      console.log('Updated product images:', updatedProduct.images)
-      console.log('Updated product videos:', updatedProduct.videos)
+
+      // Step 2: Handle media assignment if there are changes
+      if (selectedMedia.length > 0) {
+        try {
+          // First, unassign all current media from this product
+          await fetch('/api/media/assign', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+            body: JSON.stringify({
+              mediaIds: [], // Empty array to unassign all
+              productId: productId,
+              isPrimary: false
+            })
+          })
+
+          // Then assign the selected media
+          const mediaResponse = await fetch('/api/media/assign', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+            body: JSON.stringify({
+              mediaIds: selectedMedia.map(media => media.id),
+              productId: productId,
+              isPrimary: false // We'll handle primary selection separately
+            })
+          })
+
+          if (!mediaResponse.ok) {
+            console.warn('Failed to assign media to product, but product was updated successfully')
+            // Don't throw error here - product update was successful
+          } else {
+            // Set primary thumbnail if one is selected
+            const primaryMedia = selectedMedia.find(media => media.isPrimary)
+            if (primaryMedia) {
+              await fetch('/api/media/assign', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                },
+                body: JSON.stringify({
+                  mediaIds: [primaryMedia.id],
+                  productId: productId,
+                  isPrimary: true
+                })
+              })
+            } else {
+              // If no primary is selected, set the first image as primary
+              const firstImage = selectedMedia.find(media => media.kind === 'image')
+              if (firstImage) {
+                await fetch('/api/media/assign', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                  },
+                  body: JSON.stringify({
+                    mediaIds: [firstImage.id],
+                    productId: productId,
+                    isPrimary: true
+                  })
+                })
+              }
+            }
+          }
+        } catch (mediaError) {
+          console.warn('Error assigning media to product:', mediaError)
+          // Don't throw error here - product update was successful
+        }
+      }
 
       setSuccess('Product updated successfully!')
       setTimeout(() => {
@@ -372,19 +352,29 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     setVariations(prev => prev.filter(v => v.id !== id))
   }
 
-  const handleMediaFilesChange = (files: MediaFile[]) => {
-    console.log('handleMediaFilesChange called with:', files.length, 'files')
-    console.log('Files details:', files.map(f => ({
-      id: f.id,
-      name: f.file?.name,
-      uploaded: f.uploaded,
-      url: f.url
-    })))
-    setMediaFiles(files)
+  // Media selector modal handlers
+  const handleOpenMediaModal = () => {
+    setIsMediaModalOpen(true)
   }
 
-  const handleMediaRemove = (fileId: string) => {
-    setMediaFiles(prev => prev.filter(f => f.id !== fileId))
+  const handleCloseMediaModal = () => {
+    setIsMediaModalOpen(false)
+  }
+
+  const handleMediaSelect = (assets: any[]) => {
+    setSelectedMedia(assets)
+    setIsMediaModalOpen(false)
+  }
+
+  const handleRemoveMedia = (mediaId: string) => {
+    setSelectedMedia(prev => prev.filter(media => media.id !== mediaId))
+  }
+
+  const handleSetThumbnail = (mediaId: string) => {
+    setSelectedMedia(prev => prev.map(media => ({
+      ...media,
+      isPrimary: media.id === mediaId
+    })))
   }
 
 
@@ -451,16 +441,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   </Button>
                   <Button
                     onClick={handleSave}
-                    disabled={saving || mediaFiles.some(f => f.uploading) || mediaFiles.some(f => f.error)}
+                    disabled={saving}
                     loading={saving}
                     className="flex items-center space-x-2"
                   >
                     <Save className="w-4 h-4" />
                     <span>
-                      {saving ? 'Saving...' : 
-                       mediaFiles.some(f => f.uploading) ? 'Uploading...' :
-                       mediaFiles.some(f => f.error) ? 'Fix Upload Errors' :
-                       'Save Changes'}
+                      {saving ? 'Saving...' : 'Save Changes'}
                     </span>
                   </Button>
                 </div>
@@ -662,67 +649,129 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                     </Card>
                   </FadeIn>
 
-                  {/* Media Upload */}
+                  {/* Product Media */}
                   <FadeIn delay={0.4}>
                     <Card className="card-hover">
                       <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
-                          <FileText className="w-5 h-5 text-blue-600" />
-                          <span>Product Media</span>
+                          <ImageIcon className="w-5 h-5 text-blue-600" />
+                          <span>Product Media ({selectedMedia.length})</span>
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                           <p className="text-sm text-slate-600">
-                            Upload images and videos for this product
+                            Select media assets from your library
                           </p>
-                          {mediaFiles.some(f => f.uploading) && (
-                            <div className="flex items-center space-x-2 text-blue-600">
-                              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                              <span className="text-sm font-medium">
-                                {mediaFiles.filter(f => f.uploading).length} file(s) uploading...
-                              </span>
-                            </div>
-                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleOpenMediaModal}
+                            className="flex items-center space-x-2"
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                            <span>Select Media</span>
+                          </Button>
                         </div>
 
-                        <MediaUpload
-                          onFilesChange={handleMediaFilesChange}
-                          files={mediaFiles}
-                          sku={formData.sku}
-                          maxFiles={10}
-                          acceptedTypes={['image/*', 'video/*']}
-                          maxSize={50 * 1024 * 1024} // 50MB
-                          className="w-full"
-                          clientId={product?.clientId}
-                        />
-
-                        
-                        {/* Debug: Show current mediaFiles state */}
-                        <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-                          <h4 className="text-sm font-medium mb-2">Debug - Current mediaFiles state:</h4>
-                          <div className="text-xs space-y-1">
-                            {mediaFiles.map((file, index) => (
-                              <div key={file.id} className="flex justify-between items-center">
-                                <span>{file.file?.name || 'Unknown'}</span>
-                                <div className="flex items-center space-x-2">
-                                  <span className={file.uploaded ? 'text-green-600' : 'text-red-600'}>
-                                    {file.uploaded ? 'Uploaded' : 'Not uploaded'}
-                                  </span>
-                                  {file.url && (
-                                    <button
-                                      onClick={() => window.open(file.url, '_blank')}
-                                      className="text-blue-600 hover:text-blue-800 underline"
-                                    >
-                                      Test URL
-                                    </button>
+                        {/* Selected Media Preview */}
+                        {selectedMedia.length > 0 ? (
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {selectedMedia.map((media, index) => (
+                              <div
+                                key={media.id}
+                                className="relative border rounded-lg overflow-hidden group"
+                              >
+                                {/* Media Preview */}
+                                <div className="aspect-square bg-slate-100 flex items-center justify-center">
+                                  {media.kind === 'image' ? (
+                                    <img
+                                      src={media.url || media.thumbnailUrl}
+                                      alt={media.altText || media.originalName}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : media.kind === 'video' ? (
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-800">
+                                      <Video className="w-8 h-8 text-white" />
+                                    </div>
+                                  ) : (
+                                    <div className="text-center">
+                                      <FileText className="w-8 h-8 text-slate-400 mx-auto mb-1" />
+                                      <p className="text-xs text-slate-500">{media.kind}</p>
+                                    </div>
                                   )}
+                                </div>
+
+                                {/* Primary Badge */}
+                                {media.isPrimary && (
+                                  <div className="absolute top-2 left-2">
+                                    <Badge variant="outline" className="text-xs bg-blue-100 text-blue-600">
+                                      <Star className="w-3 h-3 mr-1" />
+                                      Primary
+                                    </Badge>
+                                  </div>
+                                )}
+
+                                {/* Actions */}
+                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex space-x-1">
+                                    {!media.isPrimary && (
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="w-6 h-6 p-0"
+                                        onClick={() => handleSetThumbnail(media.id)}
+                                        title="Set as primary"
+                                      >
+                                        <Star className="w-3 h-3" />
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="w-6 h-6 p-0 text-red-600 hover:text-red-700"
+                                      onClick={() => handleRemoveMedia(media.id)}
+                                      title="Remove media"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Media Info */}
+                                <div className="p-2">
+                                  <p className="text-xs font-medium text-slate-700 truncate">
+                                    {media.originalName}
+                                  </p>
+                                  <div className="flex items-center justify-between mt-1">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {media.kind}
+                                    </Badge>
+                                    <span className="text-xs text-slate-500">
+                                      {media.fileSize ? `${(media.fileSize / 1024 / 1024).toFixed(1)}MB` : ''}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             ))}
                           </div>
-                        </div>
-
+                        ) : (
+                          <div className="text-center py-8 border-2 border-dashed border-slate-300 rounded-lg">
+                            <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                            <p className="text-slate-500 mb-3">No media selected</p>
+                            <Button
+                              variant="outline"
+                              onClick={handleOpenMediaModal}
+                              className="flex items-center space-x-2"
+                            >
+                              <ImageIcon className="w-4 h-4" />
+                              <span>Select Media</span>
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </FadeIn>
@@ -913,6 +962,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
         </Modal>
+
+        {/* Media Selector Modal */}
+        <MediaSelectorModal
+          isOpen={isMediaModalOpen}
+          onClose={handleCloseMediaModal}
+          onSelect={handleMediaSelect}
+          productId={productId}
+          selectedAssets={selectedMedia}
+        />
       </div>
     </DashboardLayout>
   )

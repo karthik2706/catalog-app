@@ -22,6 +22,7 @@ import {
   Activity,
   Users,
   BarChart3,
+  RefreshCw,
 } from 'lucide-react'
 
 interface Stats {
@@ -40,6 +41,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [clientCurrency, setClientCurrency] = useState<string>('USD')
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -65,6 +67,7 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json()
         setStats(data)
+        setLastUpdated(new Date())
       } else {
         throw new Error('Failed to fetch stats')
       }
@@ -199,8 +202,22 @@ export default function DashboardPage() {
               <p className="mt-2 text-slate-600">
                 Welcome back! Here&apos;s what&apos;s happening with your inventory.
               </p>
+              {lastUpdated && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Last updated: {lastUpdated.toLocaleTimeString()}
+                </p>
+              )}
             </div>
-            <div className="mt-4 sm:mt-0">
+            <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-3">
+              <Button 
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={fetchStats}
+                disabled={loading}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
               <Button 
                 className="w-full sm:w-auto"
                 onClick={() => router.push('/products/new')}

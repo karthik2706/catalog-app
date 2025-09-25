@@ -23,6 +23,10 @@ import {
   Users,
   ShoppingCart,
   Menu as MenuIcon,
+  Warehouse,
+  Image,
+  Activity,
+  Database,
 } from 'lucide-react'
 
 const drawerWidth = 280
@@ -42,7 +46,31 @@ const menuItems = [
     text: 'Products', 
     icon: Package, 
     path: '/products',
-    description: 'Manage inventory'
+    description: 'Manage products'
+  },
+  { 
+    text: 'Inventory', 
+    icon: Warehouse, 
+    path: '/inventory',
+    description: 'Stock management'
+  },
+  { 
+    text: 'Media', 
+    icon: Image, 
+    path: '/media',
+    description: 'Media management'
+  },
+  { 
+    text: 'Performance', 
+    icon: Activity, 
+    path: '/performance',
+    description: 'Performance analytics'
+  },
+  { 
+    text: 'Data Quality', 
+    icon: Database, 
+    path: '/data-quality',
+    description: 'Data quality management'
   },
   { 
     text: 'Reports', 

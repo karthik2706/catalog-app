@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/Badge'
 import { Loading } from '@/components/ui/Loading'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
+import { generateMetadata as generateSEOMetadata } from '@/lib/seo'
+import OptimizedImage from '@/components/OptimizedImage'
 // Removed direct import of refreshMediaUrls - now using API endpoint
 import {
   ArrowLeft,
