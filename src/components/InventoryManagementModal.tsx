@@ -396,6 +396,16 @@ export default function InventoryManagementModal({
                         <p className="text-sm text-slate-600">
                           {record.reason || 'No reason provided'}
                         </p>
+                        {record.reason?.includes('Scan2Ship Order:') && (
+                          <div className="mt-1 flex items-center space-x-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              📦 Scan2Ship
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              Order: {record.reason.replace('Scan2Ship Order: ', '')}
+                            </span>
+                          </div>
+                        )}
                         <p className="text-xs text-slate-500">
                           {record.user?.name || 'System'} • {new Date(record.createdAt).toLocaleDateString()}
                         </p>

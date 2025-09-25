@@ -221,6 +221,18 @@ export async function POST(request: NextRequest) {
         // Log inventory reduction for audit trail
         console.log(`Inventory reduced for ${item.sku}: ${product.stockLevel} -> ${updatedProduct.stockLevel} (reduced by ${item.quantity})`)
 
+        // Create inventory history entry for scan2ship order
+        await prisma.inventoryHistory.create({
+          data: {
+            productId: product.id,
+            quantity: -item.quantity, // Negative quantity for reduction
+            type: 'SALE',
+            reason: `Scan2Ship Order: ${orderId}`,
+            clientId: client.id,
+            userId: null // No specific user for external orders
+          }
+        })
+
       } catch (error) {
         console.error(`Error updating inventory for ${item.sku}:`, error)
         errors.push({

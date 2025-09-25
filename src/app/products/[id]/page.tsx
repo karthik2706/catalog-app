@@ -13,6 +13,7 @@ import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import { generateMetadata as generateSEOMetadata } from '@/lib/seo'
 import OptimizedImage from '@/components/OptimizedImage'
+import InventoryManagementModal from '@/components/InventoryManagementModal'
 // Removed direct import of refreshMediaUrls - now using API endpoint
 import {
   ArrowLeft,
@@ -50,6 +51,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const [videoRetryCount, setVideoRetryCount] = useState(0)
   const [videoLoading, setVideoLoading] = useState(false)
+  const [inventoryModalOpen, setInventoryModalOpen] = useState(false)
 
   useEffect(() => {
     const getParams = async () => {
@@ -321,10 +323,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     <span>Edit Product</span>
                   </Button>
                   <Button
-                    onClick={() => {
-                      // This would open inventory update dialog
-                      alert('Inventory update feature coming soon!')
-                    }}
+                    onClick={() => setInventoryModalOpen(true)}
                     className="flex items-center space-x-2"
                   >
                     <BarChart3 className="w-4 h-4" />
@@ -801,6 +800,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                     <p className="text-sm text-slate-600">
                                       {history.reason || 'No reason provided'}
                                     </p>
+                                    {history.reason?.includes('Scan2Ship Order:') && (
+                                      <div className="mt-1 flex items-center space-x-2">
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                          📦 Scan2Ship
+                                        </span>
+                                        <span className="text-xs text-slate-500">
+                                          Order: {history.reason.replace('Scan2Ship Order: ', '')}
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="text-right">
@@ -952,6 +961,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           </FadeIn>
         </div>
       </div>
+
+      {/* Inventory Management Modal */}
+      <InventoryManagementModal
+        isOpen={inventoryModalOpen}
+        onClose={() => setInventoryModalOpen(false)}
+        product={product}
+        onInventoryUpdate={() => {
+          // Refresh product data after inventory update
+          fetchProduct()
+        }}
+      />
     </DashboardLayout>
   )
 }

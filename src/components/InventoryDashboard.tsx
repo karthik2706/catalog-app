@@ -358,13 +358,30 @@ export default function InventoryDashboard({
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={alert.alertLevel === 'critical' ? 'error' : 'warning'} size="sm">
-                        {alert.alertLevel.toUpperCase()}
-                      </Badge>
-                      <p className="text-sm font-medium text-slate-900 mt-1">
-                        {alert.stockLevel} / {alert.minStock}
-                      </p>
+                    <div className="flex items-center space-x-3">
+                      <div className="text-right">
+                        <Badge variant={alert.alertLevel === 'critical' ? 'error' : 'warning'} size="sm">
+                          {alert.alertLevel.toUpperCase()}
+                        </Badge>
+                        <p className="text-sm font-medium text-slate-900 mt-1">
+                          {alert.stockLevel} / {alert.minStock}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onViewProduct?.(alert.id)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => onUpdateInventory?.(alert.id)}
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -403,15 +420,32 @@ export default function InventoryDashboard({
                         </p>
                       </div>
                     </div>
-                    <div className="text-right space-y-2">
-                      <Badge variant={getPriorityColor(rec.priority) as any} size="sm">
-                        {rec.priority.toUpperCase()} PRIORITY
-                      </Badge>
-                      <div className="text-sm">
-                        <p className="text-slate-600">Reorder in {rec.daysUntilReorder} days</p>
-                        <p className="font-medium text-slate-900">
-                          Order {rec.recommendedOrderQuantity} units
-                        </p>
+                    <div className="flex items-center space-x-3">
+                      <div className="text-right space-y-2">
+                        <Badge variant={getPriorityColor(rec.priority) as any} size="sm">
+                          {rec.priority.toUpperCase()} PRIORITY
+                        </Badge>
+                        <div className="text-sm">
+                          <p className="text-slate-600">Reorder in {rec.daysUntilReorder} days</p>
+                          <p className="font-medium text-slate-900">
+                            Order {rec.recommendedOrderQuantity} units
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onViewProduct?.(rec.productId)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => onUpdateInventory?.(rec.productId)}
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>

@@ -203,11 +203,18 @@ async function processMediaWithUrls(products: any[]): Promise<any[]> {
         )
       }
       
+      // Set thumbnailUrl from first image if available
+      let thumbnailUrl = product.thumbnailUrl
+      if (!thumbnailUrl && processedImages.length > 0) {
+        thumbnailUrl = processedImages[0].url
+      }
+      
       const result = {
         ...product,
         media: processedMedia,
         images: processedImages,
-        videos: processedVideos
+        videos: processedVideos,
+        thumbnailUrl: thumbnailUrl
       }
       
       // Debug logging for KB-002
