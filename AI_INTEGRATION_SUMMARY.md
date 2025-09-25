@@ -4,7 +4,7 @@
 
 Successfully implemented OpenAI integration for automatic product title and description generation based on uploaded media (images/videos) in the product creation form. The AI analysis is specifically optimized for Indian e-commerce customers.
 
-## ✨ Features Implemented
+## ✨ Features Implemented 
 
 ### 1. **AI Analysis API Endpoint**
 - **Location**: `/api/ai/analyze-media`
