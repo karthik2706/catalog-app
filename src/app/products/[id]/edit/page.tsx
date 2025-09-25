@@ -76,6 +76,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     stockLevel: 0,
     minStock: 0,
     isActive: true,
+    allowPreorder: false,
   })
 
   useEffect(() => {
@@ -120,6 +121,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         stockLevel: data.stockLevel,
         minStock: data.minStock,
         isActive: data.isActive,
+        allowPreorder: data.allowPreorder || false,
       })
       setVariations(data.variations || [])
       
@@ -575,6 +577,18 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Allow Preorders</label>
+                            <select
+                              value={formData.allowPreorder ? 'true' : 'false'}
+                              onChange={(e) => handleInputChange('allowPreorder', e.target.value === 'true')}
+                              className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            >
+                              <option value="false">No</option>
+                              <option value="true">Yes</option>
+                            </select>
+                            <p className="text-xs text-slate-500">Allow customers to preorder when out of stock</p>
+                          </div>
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Status</label>
                             <select

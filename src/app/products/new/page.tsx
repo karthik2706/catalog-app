@@ -60,6 +60,7 @@ export default function NewProductPage() {
     stockLevel: 0,
     minStock: 0,
     isActive: true,
+    allowPreorder: false,
     path: '', // S3 path for uploaded asset
   })
 
@@ -528,6 +529,26 @@ export default function NewProductPage() {
                           </div>
                         </FadeIn>
 
+                        <FadeIn delay={0.45}>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700 flex items-center space-x-1">
+                              <Package className="w-4 h-4" />
+                              <span>Allow Preorders</span>
+                            </label>
+                            <select
+                              value={formData.allowPreorder ? 'true' : 'false'}
+                              onChange={(e) => handleInputChange('allowPreorder', e.target.value === 'true')}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                              <option value="false">No</option>
+                              <option value="true">Yes</option>
+                            </select>
+                            <p className="text-xs text-slate-500">Allow customers to preorder when out of stock</p>
+                          </div>
+                        </FadeIn>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                         <FadeIn delay={0.5}>
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700 flex items-center space-x-1">

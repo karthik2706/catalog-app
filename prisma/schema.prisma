@@ -16,35 +16,31 @@ model Country {
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  // Relations
-  currency Currency @relation("CountryCurrency", fields: [currencyId], references: [id])
-  clients  Client[] @relation("ClientCountry")
+  clients    Client[] @relation("ClientCountry")
+  currency   Currency @relation("CountryCurrency", fields: [currencyId], references: [id])
 
   @@map("countries")
 }
 
 model Currency {
-  id            String   @id @default(cuid())
-  name          String   @unique
-  code          String   @unique
+  id            String    @id @default(cuid())
+  name          String    @unique
+  code          String    @unique
   symbol        String
-  decimalPlaces Int      @default(2)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  countries Country[] @relation("CountryCurrency")
-  clients   Client[] @relation("ClientCurrency")
+  decimalPlaces Int       @default(2)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  clients       Client[]  @relation("ClientCurrency")
+  countries     Country[] @relation("CountryCurrency")
 
   @@map("currencies")
 }
 
 model Client {
-  id         String   @id @default(cuid())
+  id         String          @id @default(cuid())
   name       String
-  slug       String   @unique
+  slug       String          @unique
   domain     String?
   email      String
   phone      String?
@@ -52,17 +48,15 @@ model Client {
   logo       String?
   countryId  String?
   currencyId String?
-  isActive   Boolean  @default(true)
-  plan       Plan     @default(STARTER)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  country  Country? @relation("ClientCountry", fields: [countryId], references: [id])
-  currency Currency? @relation("ClientCurrency", fields: [currencyId], references: [id])
-  users    User[] @relation("ClientUsers")
-  products Product[] @relation("ClientProducts")
-  settings ClientSettings? @relation("ClientSettings")
+  isActive   Boolean         @default(true)
+  plan       Plan            @default(STARTER)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  settings   ClientSettings? @relation("ClientSettings")
+  country    Country?        @relation("ClientCountry", fields: [countryId], references: [id])
+  currency   Currency?       @relation("ClientCurrency", fields: [currencyId], references: [id])
+  products   Product[]       @relation("ClientProducts")
+  users      User[]          @relation("ClientUsers")
 
   @@map("clients")
 }
@@ -81,57 +75,52 @@ model ClientSettings {
   smsNotifications   Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
-
-  // Relations
-  client Client @relation("ClientSettings", fields: [clientId], references: [id], onDelete: Cascade)
+  client             Client   @relation("ClientSettings", fields: [clientId], references: [id], onDelete: Cascade)
 
   @@map("client_settings")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String
-  password  String
-  name      String?
-  role      Role     @default(ADMIN)
-  clientId  String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  client           Client?            @relation("ClientUsers", fields: [clientId], references: [id])
+  id               String             @id @default(cuid())
+  email            String
+  password         String
+  name             String?
+  role             Role               @default(ADMIN)
+  clientId         String?
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
   inventoryHistory InventoryHistory[] @relation("UserInventoryHistory")
+  client           Client?            @relation("ClientUsers", fields: [clientId], references: [id])
 
   @@unique([email, clientId])
   @@map("users")
 }
 
 model Product {
-  id           String   @id @default(cuid())
-  name         String
-  sku          String
-  description  String?
-  price        Decimal  @db.Decimal(10, 2)
-  category     String
-  categoryId   String?
-  variations   Json?
-  stockLevel   Int      @default(0)
-  minStock     Int      @default(0)
-  isActive     Boolean  @default(true)
-  clientId     String
-  media        Json?
-  images       Json?
-  videos       Json?
-  thumbnailUrl String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  client           Client @relation("ClientProducts", fields: [clientId], references: [id])
-  categories       ProductCategory[] @relation("ProductCategories")
+  id               String             @id @default(cuid())
+  name             String
+  sku              String
+  description      String?
+  price            Decimal            @db.Decimal(10, 2)
+  category         String
+  categoryId       String?
+  variations       Json?
+  stockLevel       Int                @default(0)
+  minStock         Int                @default(0)
+  isActive         Boolean            @default(true)
+  clientId         String
+  media            Json?
+  images           Json?
+  videos           Json?
+  thumbnailUrl     String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  allowPreorder    Boolean            @default(false)
   inventoryHistory InventoryHistory[] @relation("ProductInventoryHistory")
-  mediaItems       Media[] @relation("ProductMedia")
+  mediaItems       Media[]            @relation("ProductMedia")
+  categories       ProductCategory[]  @relation("ProductCategories")
+  client           Client             @relation("ClientProducts", fields: [clientId], references: [id])
 
   @@unique([sku, clientId])
   @@map("products")
@@ -146,31 +135,25 @@ model InventoryHistory {
   userId    String?
   clientId  String
   createdAt DateTime      @default(now())
-
-  // Relations
-  product Product @relation("ProductInventoryHistory", fields: [productId], references: [id])
-  user    User?   @relation("UserInventoryHistory", fields: [userId], references: [id])
+  product   Product       @relation("ProductInventoryHistory", fields: [productId], references: [id])
+  user      User?         @relation("UserInventoryHistory", fields: [userId], references: [id])
 
   @@map("inventory_history")
 }
 
 model Category {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   name        String
   description String?
-  isActive    Boolean  @default(true)
+  isActive    Boolean           @default(true)
   clientId    String
   parentId    String?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Self-referential relations
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children Category[] @relation("CategoryHierarchy")
-
-  // Product relations
-  products ProductCategory[] @relation("CategoryProducts")
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  parent      Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Category[]        @relation("CategoryHierarchy")
+  products    ProductCategory[] @relation("CategoryProducts")
 
   @@unique([name, clientId, parentId])
   @@map("categories")
@@ -181,10 +164,8 @@ model ProductCategory {
   productId  String
   categoryId String
   createdAt  DateTime @default(now())
-
-  // Relations
-  product  Product  @relation("ProductCategories", fields: [productId], references: [id], onDelete: Cascade)
-  category Category @relation("CategoryProducts", fields: [categoryId], references: [id], onDelete: Cascade)
+  category   Category @relation("CategoryProducts", fields: [categoryId], references: [id], onDelete: Cascade)
+  product    Product  @relation("ProductCategories", fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, categoryId])
   @@map("product_categories")
@@ -192,46 +173,44 @@ model ProductCategory {
 
 model Media {
   id           String   @id @default(cuid())
-  productId    String?  // Made optional for unassigned media
-  kind         String   // 'image', 'video', 'audio', 'document'
+  productId    String?
+  kind         String
   s3Key        String
   originalName String
   mimeType     String
   fileSize     Int
   width        Int?
   height       Int?
-  durationMs   Int?     // For videos/audio
+  durationMs   Int?
   altText      String?
   caption      String?
   sortOrder    Int      @default(0)
   isPrimary    Boolean  @default(false)
-  status       String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  status       String   @default("pending")
   error        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
-  // Relations
-  product Product? @relation("ProductMedia", fields: [productId], references: [id], onDelete: Cascade)
+  product      Product? @relation("ProductMedia", fields: [productId], references: [id], onDelete: Cascade)
 
   @@map("media")
 }
 
 model PerformanceMetrics {
-  id                String    @id @default(cuid())
-  url               String
-  timestamp         DateTime
-  fcp               Float?    // First Contentful Paint
-  lcp               Float?    // Largest Contentful Paint
-  fid               Float?    // First Input Delay
-  cls               Float?    // Cumulative Layout Shift
-  ttfb              Float?    // Time to First Byte
-  fmp               Float?    // First Meaningful Paint
-  tti               Float?    // Time to Interactive
-  userAgent         String?
-  connectionType    String?
-  deviceMemory      Int?
+  id                  String   @id @default(cuid())
+  url                 String
+  timestamp           DateTime
+  fcp                 Float?
+  lcp                 Float?
+  fid                 Float?
+  cls                 Float?
+  ttfb                Float?
+  fmp                 Float?
+  tti                 Float?
+  userAgent           String?
+  connectionType      String?
+  deviceMemory        Int?
   hardwareConcurrency Int?
-  createdAt         DateTime  @default(now())
+  createdAt           DateTime @default(now())
 
   @@map("performance_metrics")
 }

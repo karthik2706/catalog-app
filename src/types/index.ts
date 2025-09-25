@@ -128,6 +128,7 @@ export interface CreateProductRequest {
   variations?: ProductVariation[]
   stockLevel?: number
   minStock?: number
+  allowPreorder?: boolean
   images?: MediaFile[]
   videos?: MediaFile[]
   thumbnailUrl?: string

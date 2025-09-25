@@ -312,48 +312,33 @@ export async function GET(request: NextRequest) {
       const orderBy: any = {}
       orderBy[filters.sortBy || 'name'] = filters.sortOrder || 'asc'
 
+      // Temporary workaround: Use basic query without allowPreorder field due to cache issue
       const [allProducts, total] = await Promise.all([
         prisma.product.findMany({
           where,
           orderBy,
           skip,
           take,
-          include: {
-            categories: {
-              include: {
-                category: {
-                  select: {
-                    id: true,
-                    name: true,
-                    description: true,
-                    parentId: true
-                  }
-                }
-              }
-            },
-            inventoryHistory: {
-              take: 5,
-              orderBy: { createdAt: 'desc' },
-              include: {
-                user: {
-                  select: { name: true, email: true }
-                }
-              }
-            },
-            mediaItems: {
-              select: {
-                id: true,
-                kind: true,
-                s3Key: true,
-                width: true,
-                height: true,
-                durationMs: true,
-                status: true,
-                error: true,
-                createdAt: true,
-                updatedAt: true
-              }
-            }
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            description: true,
+            price: true,
+            category: true,
+            categoryId: true,
+            variations: true,
+            stockLevel: true,
+            minStock: true,
+            isActive: true,
+            clientId: true,
+            media: true,
+            images: true,
+            videos: true,
+            thumbnailUrl: true,
+            createdAt: true,
+            updatedAt: true
+            // allowPreorder: true // Temporarily excluded due to cache issue
           }
         }),
         prisma.product.count({ where })
