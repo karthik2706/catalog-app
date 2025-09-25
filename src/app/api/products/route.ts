@@ -348,7 +348,28 @@ export async function GET(request: NextRequest) {
             thumbnailUrl: true,
             createdAt: true,
             updatedAt: true,
-            allowPreorder: true // Re-enabled now that database is properly connected
+            allowPreorder: true, // Re-enabled now that database is properly connected
+            mediaItems: {
+              select: {
+                id: true,
+                kind: true,
+                s3Key: true,
+                originalName: true,
+                mimeType: true,
+                fileSize: true,
+                width: true,
+                height: true,
+                durationMs: true,
+                altText: true,
+                caption: true,
+                sortOrder: true,
+                isPrimary: true,
+                status: true,
+                error: true,
+                createdAt: true,
+                updatedAt: true
+              }
+            }
           }
         }),
         prisma.product.count({ where })
