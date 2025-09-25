@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma, checkPrismaHealth } from '@/lib/prisma'
 import { CreateProductRequest, ProductFilters } from '@/types'
 import jwt from 'jsonwebtoken'
 import { generateSignedUrl } from '@/lib/aws'
@@ -240,6 +240,16 @@ async function processMediaWithUrls(products: any[]): Promise<any[]> {
 // GET /api/products - Get all products with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
+    // Check Prisma health before proceeding
+    const isHealthy = await checkPrismaHealth()
+    if (!isHealthy) {
+      console.error('Prisma client is not healthy')
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+
     const user = getUserFromRequest(request)
     
     if (!user) {
@@ -347,6 +357,12 @@ export async function GET(request: NextRequest) {
       // Fetch media data separately and attach to products
       const productIds = allProducts.map(p => p.id)
       console.log('Fetching media for product IDs:', productIds)
+      
+      // Check if prisma is properly initialized
+      if (!prisma || !prisma.media) {
+        console.error('Prisma client not properly initialized:', { prisma: !!prisma, media: !!prisma?.media })
+        throw new Error('Database connection not available')
+      }
       
       const mediaData = productIds.length > 0 ? await prisma.media.findMany({
         where: {
