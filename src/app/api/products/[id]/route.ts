@@ -192,9 +192,9 @@ export async function PUT(
         })) : []
       })
 
-      // Remove categoryIds, categoryId, clientId, cost, and allowPreorder from the update data as we'll handle them separately
-      // Note: allowPreorder is temporarily removed due to Prisma client cache issue - will be re-enabled once cache clears
-      const { categoryIds, categoryId, clientId, cost, allowPreorder, ...restUpdateData } = updateData
+      // Remove categoryIds, categoryId, clientId, and cost from the update data as we'll handle them separately
+      // allowPreorder is now re-enabled since local database is properly synced
+      const { categoryIds, categoryId, clientId, cost, ...restUpdateData } = updateData
       
       // Double-check: explicitly remove cost if it still exists
       if ('cost' in restUpdateData) {
