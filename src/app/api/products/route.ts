@@ -347,8 +347,8 @@ export async function GET(request: NextRequest) {
             videos: true,
             thumbnailUrl: true,
             createdAt: true,
-            updatedAt: true
-            // allowPreorder: true // Temporarily excluded due to cache issue
+            updatedAt: true,
+            allowPreorder: true // Re-enabled now that database is properly connected
           }
         }),
         prisma.product.count({ where })
