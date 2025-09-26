@@ -554,7 +554,7 @@ export default function SettingsPage() {
       setError('')
 
       // For super admin, we need to include clientId in the request
-      const requestBody = user?.role === 'SUPER_ADMIN' 
+      const requestBody = user?.role === 'MASTER_ADMIN' 
         ? { ...newCategory, clientId: newCategory.clientId }
         : newCategory
 
@@ -785,7 +785,7 @@ export default function SettingsPage() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'SUPER_ADMIN': return 'bg-red-100 text-red-800'
+      case 'MASTER_ADMIN': return 'bg-red-100 text-red-800'
       case 'ADMIN': return 'bg-blue-100 text-blue-800'
       case 'MANAGER': return 'bg-green-100 text-green-800'
       case 'USER': return 'bg-gray-100 text-gray-800'
@@ -807,7 +807,7 @@ export default function SettingsPage() {
     return null
   }
 
-  const isSuperAdmin = user.role === 'SUPER_ADMIN'
+  const isSuperAdmin = user.role === 'MASTER_ADMIN'
   const isAdmin = user.role === 'ADMIN'
   const isManager = user.role === 'MANAGER'
   const isUser = user.role === 'USER'
@@ -1277,7 +1277,7 @@ export default function SettingsPage() {
                 {isManager && <option value="MANAGER">Manager</option>}
                 {isAdmin && <option value="MANAGER">Manager</option>}
                 {isAdmin && <option value="ADMIN">Admin</option>}
-                {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
+                {isSuperAdmin && <option value="MASTER_ADMIN">Master Admin</option>}
               </select>
             </div>
             
@@ -1356,7 +1356,7 @@ export default function SettingsPage() {
                 {isManager && <option value="MANAGER">Manager</option>}
                 {isAdmin && <option value="MANAGER">Manager</option>}
                 {isAdmin && <option value="ADMIN">Admin</option>}
-                {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
+                {isSuperAdmin && <option value="MASTER_ADMIN">Master Admin</option>}
               </select>
             </div>
             

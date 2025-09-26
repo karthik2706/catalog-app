@@ -260,7 +260,7 @@ export async function GET(request: NextRequest) {
     }
 
     // For super admin, show all products; for regular users, show client-specific products
-    const isSuperAdmin = user.role === 'SUPER_ADMIN'
+    const isSuperAdmin = user.role === 'MASTER_ADMIN'
     const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
 
     const { searchParams } = new URL(request.url)
@@ -507,7 +507,7 @@ export async function POST(request: NextRequest) {
     
     // Determine clientId based on user role
     let clientId: string
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'MASTER_ADMIN') {
       // For super admin, require a clientId in the request body
       if (!body.clientId) {
         return NextResponse.json(

@@ -34,7 +34,7 @@ function getClientIdFromRequest(request: NextRequest): string | null {
   }
   
   // For super admin, we need to get clientId from query params or headers
-  if (user.role === 'SUPER_ADMIN') {
+  if (user.role === 'MASTER_ADMIN') {
     const clientId = request.nextUrl.searchParams.get('clientId')
     return clientId
   }

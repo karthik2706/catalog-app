@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Only allow admin and super admin to access data quality reports
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    if (!['ADMIN', 'MASTER_ADMIN'].includes(user.role)) {
       return NextResponse.json(
         { error: 'Insufficient permissions. Admin or higher role required.' },
         { status: 403 }
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Only allow super admin to fix data quality issues
-    if (user.role !== 'SUPER_ADMIN') {
+    if (user.role !== 'MASTER_ADMIN') {
       return NextResponse.json(
         { error: 'Insufficient permissions. Super admin role required to fix data issues.' },
         { status: 403 }

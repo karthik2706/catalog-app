@@ -294,14 +294,14 @@ export default function ProductsPage() {
     const token = localStorage.getItem('token')
     
     // Get tenant slug from JWT token
-    let tenantSlug = 'enterprise' // Default fallback for SUPER_ADMIN
+    let tenantSlug = 'enterprise' // Default fallback for MASTER_ADMIN
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]))
         if (payload.clientSlug) {
           tenantSlug = payload.clientSlug
-        } else if (payload.role === 'SUPER_ADMIN') {
-          // For SUPER_ADMIN, use a default tenant
+        } else if (payload.role === 'MASTER_ADMIN') {
+          // For MASTER_ADMIN, use a default tenant
           tenantSlug = 'enterprise'
         }
       } catch (e) {
@@ -362,7 +362,7 @@ export default function ProductsPage() {
   const isPartiallySelected = selectedProducts.size > 0 && selectedProducts.size < products.length
   
   // Check if user has admin permissions for delete operations
-  const canDeleteProducts = user && ['SUPER_ADMIN', 'ADMIN'].includes(user.role)
+  const canDeleteProducts = user && ['MASTER_ADMIN', 'ADMIN'].includes(user.role)
 
   const handleBulkDelete = async () => {
     if (selectedProducts.size === 0) return

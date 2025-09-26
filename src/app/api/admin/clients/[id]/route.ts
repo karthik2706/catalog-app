@@ -38,18 +38,40 @@ export async function DELETE(
     // Delete related records first to avoid foreign key constraints
     console.log('Deleting related records for client:', clientId)
     
-    // Delete products
+    // Get all products for this client first
+    const products = await prisma.product.findMany({
+      where: { clientId },
+      select: { id: true }
+    })
+    
+    // Delete inventory history for each product
+    for (const product of products) {
+      await prisma.inventoryHistory.deleteMany({
+        where: { productId: product.id }
+      })
+    }
+    
+    // Delete product categories (junction table)
+    await prisma.productCategory.deleteMany({
+      where: { 
+        product: { clientId }
+      }
+    })
+    
+    // Delete media items for products
+    await prisma.media.deleteMany({
+      where: { 
+        product: { clientId }
+      }
+    })
+    
+    // Delete products (after all references)
     await prisma.product.deleteMany({
       where: { clientId }
     })
     
     // Delete categories
     await prisma.category.deleteMany({
-      where: { clientId }
-    })
-    
-    // Delete inventory history
-    await prisma.inventoryHistory.deleteMany({
       where: { clientId }
     })
     

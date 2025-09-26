@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
     
     const clientId = user.clientId
     
-    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For MASTER_ADMIN, clientId can be null (they can access all clients)
     // For other roles, clientId is required
-    if (!clientId && user.role !== 'SUPER_ADMIN') {
+    if (!clientId && user.role !== 'MASTER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -385,7 +385,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if user has admin or higher permissions
-    const allowedRoles = ['SUPER_ADMIN', 'ADMIN']
+    const allowedRoles = ['MASTER_ADMIN', 'ADMIN']
     if (!allowedRoles.includes(user.role)) {
       return NextResponse.json(
         { error: 'Insufficient permissions. Admin or higher role required to delete products.' },
@@ -395,9 +395,9 @@ export async function DELETE(request: NextRequest) {
 
     const clientId = user.clientId
     
-    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For MASTER_ADMIN, clientId can be null (they can access all clients)
     // For other roles, clientId is required
-    if (!clientId && user.role !== 'SUPER_ADMIN') {
+    if (!clientId && user.role !== 'MASTER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -438,15 +438,15 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Verify all products exist and belong to the client (if not SUPER_ADMIN)
+    // Verify all products exist and belong to the client (if not MASTER_ADMIN)
     const whereClause: any = {
       id: {
         in: productIds
       }
     }
     
-    // For non-SUPER_ADMIN users, filter by clientId
-    if (user.role !== 'SUPER_ADMIN' && clientId) {
+    // For non-MASTER_ADMIN users, filter by clientId
+    if (user.role !== 'MASTER_ADMIN' && clientId) {
       whereClause.clientId = clientId
     }
     
@@ -461,7 +461,7 @@ export async function DELETE(request: NextRequest) {
     })
 
     if (products.length !== productIds.length) {
-      const errorMessage = user.role === 'SUPER_ADMIN' 
+      const errorMessage = user.role === 'MASTER_ADMIN' 
         ? 'Some products not found' 
         : 'Some products not found or don\'t belong to your organization'
       return NextResponse.json(
@@ -504,8 +504,8 @@ export async function DELETE(request: NextRequest) {
         }
       }
       
-      // For non-SUPER_ADMIN users, filter by clientId
-      if (user.role !== 'SUPER_ADMIN' && clientId) {
+      // For non-MASTER_ADMIN users, filter by clientId
+      if (user.role !== 'MASTER_ADMIN' && clientId) {
         deleteWhereClause.clientId = clientId
       }
       

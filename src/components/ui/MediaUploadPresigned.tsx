@@ -27,7 +27,7 @@ interface MediaUploadPresignedProps {
   acceptedTypes?: string[]
   maxSize?: number
   className?: string
-  clientId?: string // For SUPER_ADMIN users
+  clientId?: string // For MASTER_ADMIN users
 }
 
 export function MediaUploadPresigned({ 
@@ -169,7 +169,7 @@ export function MediaUploadPresigned({
         console.log('Requesting pre-signed URL for:', mediaFile.file?.name || 'unknown')
         // Determine clientId for the request
         let requestClientId = undefined
-        if (user?.role === 'SUPER_ADMIN' && propClientId) {
+        if (user?.role === 'MASTER_ADMIN' && propClientId) {
           requestClientId = propClientId
         }
 

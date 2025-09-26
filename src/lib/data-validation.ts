@@ -25,7 +25,7 @@ export const categorySchema = z.object({
 export const userSchema = z.object({
   email: z.string().email('Invalid email format'),
   name: z.string().min(1, 'Name is required').max(255, 'Name too long'),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER']),
+  role: z.enum(['MASTER_ADMIN', 'ADMIN', 'MANAGER', 'USER']),
   clientId: z.string().optional(),
   isActive: z.boolean().default(true)
 })

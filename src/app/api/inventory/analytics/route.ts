@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
     
     const clientId = user.clientId
     
-    // For SUPER_ADMIN, clientId can be null (they can access all clients)
+    // For MASTER_ADMIN, clientId can be null (they can access all clients)
     // For other roles, clientId is required
-    if (!clientId && user.role !== 'SUPER_ADMIN') {
+    if (!clientId && user.role !== 'MASTER_ADMIN') {
       return NextResponse.json(
         { error: 'Client context required' },
         { status: 400 }
@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // For non-SUPER_ADMIN users, filter by clientId
-    if (user.role !== 'SUPER_ADMIN' && clientId) {
+    // For non-MASTER_ADMIN users, filter by clientId
+    if (user.role !== 'MASTER_ADMIN' && clientId) {
       where.clientId = clientId
     }
     
@@ -105,16 +105,16 @@ export async function GET(request: NextRequest) {
       stockTrend: calculateStockTrend(inventoryHistory),
       movementTypes: calculateMovementTypes(inventoryHistory),
       dailyMovements: calculateDailyMovements(inventoryHistory, startDate, endDate),
-      lowStockAlerts: await getLowStockAlerts(user.role === 'SUPER_ADMIN' ? null : clientId),
-      reorderRecommendations: await getReorderRecommendations(user.role === 'SUPER_ADMIN' ? null : clientId, includeProjections)
+      lowStockAlerts: await getLowStockAlerts(user.role === 'MASTER_ADMIN' ? null : clientId),
+      reorderRecommendations: await getReorderRecommendations(user.role === 'MASTER_ADMIN' ? null : clientId, includeProjections)
     }
 
     // If specific product, add product-specific analytics
     if (productId) {
       const productWhereClause: any = { id: productId }
       
-      // For non-SUPER_ADMIN users, filter by clientId
-      if (user.role !== 'SUPER_ADMIN' && clientId) {
+      // For non-MASTER_ADMIN users, filter by clientId
+      if (user.role !== 'MASTER_ADMIN' && clientId) {
         productWhereClause.clientId = clientId
       }
       
@@ -204,7 +204,7 @@ async function getLowStockAlerts(clientId: string | null) {
     }
   }
   
-  // For non-SUPER_ADMIN users, filter by clientId
+  // For non-MASTER_ADMIN users, filter by clientId
   if (clientId) {
     whereClause.clientId = clientId
   }
@@ -232,7 +232,7 @@ async function getReorderRecommendations(clientId: string | null, includeProject
     isActive: true
   }
   
-  // For non-SUPER_ADMIN users, filter by clientId
+  // For non-MASTER_ADMIN users, filter by clientId
   if (clientId) {
     whereClause.clientId = clientId
   }

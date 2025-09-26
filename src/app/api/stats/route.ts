@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // For super admin, show global stats; for regular users, show client-specific stats
-    const isSuperAdmin = user.role === 'SUPER_ADMIN'
+    const isSuperAdmin = user.role === 'MASTER_ADMIN'
     const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
 
     // Get total products count

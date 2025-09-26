@@ -21,7 +21,7 @@ async function main() {
         email: 'admin@platform.com',
         password: superAdminPassword,
         name: 'Platform Administrator',
-        role: 'SUPER_ADMIN',
+        role: 'MASTER_ADMIN',
         clientId: null,
         isActive: true,
       },

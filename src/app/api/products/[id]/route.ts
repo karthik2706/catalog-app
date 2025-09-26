@@ -351,7 +351,7 @@ export async function DELETE(
     }
 
     // Check if user has admin or higher permissions
-    const allowedRoles = ['SUPER_ADMIN', 'ADMIN']
+    const allowedRoles = ['MASTER_ADMIN', 'ADMIN']
     if (!allowedRoles.includes(user.role)) {
       return NextResponse.json(
         { error: 'Insufficient permissions. Admin or higher role required to delete products.' },
@@ -373,7 +373,7 @@ export async function DELETE(
       }
 
       // For non-super-admin users, ensure they can only delete products from their own client
-      if (user.role !== 'SUPER_ADMIN' && product.clientId !== user.clientId) {
+      if (user.role !== 'MASTER_ADMIN' && product.clientId !== user.clientId) {
         return NextResponse.json(
           { error: 'You can only delete products from your own organization.' },
           { status: 403 }

@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // For super admin, return global settings or default settings
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'MASTER_ADMIN') {
       const defaultSettings = {
         companyName: 'Stock Mind Platform',
         email: 'admin@stockmind.com',
@@ -125,7 +125,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // For super admin, settings are read-only
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'MASTER_ADMIN') {
       return NextResponse.json(
         { error: 'Super admin settings are read-only' },
         { status: 403 }

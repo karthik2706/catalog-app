@@ -36,7 +36,7 @@ function getClientIdFromRequest(request: NextRequest): string | null {
   }
   
   // For super admin, we need to get clientId from the request body
-  if (user.role === 'SUPER_ADMIN') {
+  if (user.role === 'MASTER_ADMIN') {
     // We'll handle this in the main function
     return null
   }
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Determine clientId based on user role
     let clientId: string
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'MASTER_ADMIN') {
       // For super admin, require a clientId in the request body
       if (!requestClientId) {
         return NextResponse.json(

@@ -34,7 +34,7 @@ function getClientIdFromRequest(request: NextRequest): string | null {
   }
   
   // For super admin, we need to get clientId from the request body or headers
-  if (user.role === 'SUPER_ADMIN') {
+  if (user.role === 'MASTER_ADMIN') {
     // For super admin, we'll need to handle this differently
     // For now, return null to maintain existing behavior
     return null
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     }
 
     // For super admin, show all categories; for regular users, show client-specific categories
-    const isSuperAdmin = user.role === 'SUPER_ADMIN'
+    const isSuperAdmin = user.role === 'MASTER_ADMIN'
     const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
 
     // Get categories from the categories table with full hierarchy
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     // Determine clientId based on user role
     let clientId: string
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'MASTER_ADMIN') {
       // For super admin, require a clientId in the request body
       if (!requestClientId) {
         return NextResponse.json(
@@ -271,7 +271,7 @@ export async function PUT(request: NextRequest) {
 
     // Determine clientId based on user role
     let clientId: string
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'MASTER_ADMIN') {
       // For super admin, require a clientId in the request body
       if (!requestClientId) {
         return NextResponse.json(
@@ -389,7 +389,7 @@ export async function DELETE(request: NextRequest) {
 
     // Determine clientId based on user role
     let clientId: string
-    if (user.role === 'SUPER_ADMIN') {
+    if (user.role === 'MASTER_ADMIN') {
       // For super admin, require a clientId in the query params
       if (!requestClientId) {
         return NextResponse.json(

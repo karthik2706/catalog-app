@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Super admins can see all users, others see only their client's users
-    const where = decoded?.role === 'SUPER_ADMIN' ? {} : { clientId }
+    const where = decoded?.role === 'MASTER_ADMIN' ? {} : { clientId }
 
     const users = await prisma.user.findMany({
       where,
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Determine the client ID based on user role
     let targetClientId = clientId
-    if (decoded?.role !== 'SUPER_ADMIN') {
+    if (decoded?.role !== 'MASTER_ADMIN') {
       // Non-super admins can only create users for their own client
       targetClientId = decoded?.clientId || null
     }

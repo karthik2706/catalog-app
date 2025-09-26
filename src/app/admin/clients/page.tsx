@@ -40,6 +40,27 @@ export default function ClientsPage() {
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Get user role from JWT token
+  const getUserRole = () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role;
+      }
+    } catch (error) {
+      console.error('Error parsing JWT token:', error);
+    }
+    return null;
+  };
+
+  // Check if user can delete clients
+  const canDeleteClients = () => {
+    const role = userRole || getUserRole();
+    return role === 'MASTER_ADMIN' || role === 'SUPER_ADMIN'; // Support both old and new roles
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -58,6 +79,9 @@ export default function ClientsPage() {
 
   useEffect(() => {
     fetchClients();
+    // Get user role on mount
+    const role = getUserRole();
+    setUserRole(role);
   }, []);
 
   const fetchClients = async () => {
@@ -199,6 +223,19 @@ export default function ClientsPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Client Management</h1>
           <p className="text-gray-600 mt-2">Manage client accounts and their settings</p>
+          {userRole && (
+            <div className="mt-2">
+              <span className="text-sm text-gray-500">Current role: </span>
+              <span className={`text-sm font-medium ${userRole === 'MASTER_ADMIN' || userRole === 'SUPER_ADMIN' ? 'text-green-600' : 'text-orange-600'}`}>
+                {userRole}
+              </span>
+              {userRole === 'SUPER_ADMIN' && (
+                <span className="text-xs text-orange-500 ml-2">
+                  (Please refresh your session to get the updated MASTER_ADMIN role)
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <Button
           onClick={() => setShowCreateForm(true)}
@@ -315,14 +352,16 @@ export default function ClientsPage() {
                   <Edit className="w-4 h-4 mr-1" />
                   Edit
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => handleDeleteClient(client.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                {canDeleteClients() && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleDeleteClient(client.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

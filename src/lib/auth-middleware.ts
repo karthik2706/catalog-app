@@ -65,11 +65,11 @@ export async function authorizeSuperAdmin(request: NextRequest): Promise<AuthRes
       }
     }
 
-    // Check if user is super admin
-    if (user.role !== 'SUPER_ADMIN') {
+    // Check if user is master admin
+    if (user.role !== 'MASTER_ADMIN') {
       return {
         response: NextResponse.json(
-          { error: 'Super admin access required' },
+          { error: 'Master admin access required' },
           { status: 403 }
         )
       }

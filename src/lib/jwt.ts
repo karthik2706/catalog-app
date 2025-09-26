@@ -106,7 +106,7 @@ export function withJWTValidation(handler: (request: NextRequest, user: JWTPaylo
  */
 export function hasRole(user: JWTPayload, requiredRole: string): boolean {
   const roleHierarchy = {
-    'SUPER_ADMIN': 4,
+    'MASTER_ADMIN': 4,
     'ADMIN': 3,
     'MANAGER': 2,
     'USER': 1,
@@ -123,7 +123,7 @@ export function hasRole(user: JWTPayload, requiredRole: string): boolean {
  */
 export function canAccessTenant(user: JWTPayload, tenantSlug: string): boolean {
   // Super admins can access any tenant
-  if (user.role === 'SUPER_ADMIN') {
+  if (user.role === 'MASTER_ADMIN') {
     return true;
   }
 
