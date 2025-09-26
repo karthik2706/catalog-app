@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // For master admin or super admin, show all categories; for regular users, show client-specific categories
-    const isMasterAdmin = user.role === 'MASTER_ADMIN' || user.role === 'SUPER_ADMIN'
+    // For master admin, show all categories; for regular users, show client-specific categories
+    const isMasterAdmin = user.role === 'MASTER_ADMIN'
     const whereClause = isMasterAdmin ? {} : { clientId: user.clientId }
     
     console.log('🔍 [CATEGORIES] User role:', user.role, 'isMasterAdmin:', isMasterAdmin, 'clientId:', user.clientId)

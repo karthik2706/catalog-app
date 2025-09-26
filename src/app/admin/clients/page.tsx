@@ -59,7 +59,7 @@ export default function ClientsPage() {
   // Check if user can delete clients
   const canDeleteClients = () => {
     const role = userRole || getUserRole();
-    return role === 'MASTER_ADMIN' || role === 'SUPER_ADMIN'; // Support both old and new roles
+    return role === 'MASTER_ADMIN';
   };
 
   // Form state
@@ -226,14 +226,9 @@ export default function ClientsPage() {
           {userRole && (
             <div className="mt-2">
               <span className="text-sm text-gray-500">Current role: </span>
-              <span className={`text-sm font-medium ${userRole === 'MASTER_ADMIN' || userRole === 'SUPER_ADMIN' ? 'text-green-600' : 'text-orange-600'}`}>
+              <span className={`text-sm font-medium ${userRole === 'MASTER_ADMIN' ? 'text-green-600' : 'text-orange-600'}`}>
                 {userRole}
               </span>
-              {userRole === 'SUPER_ADMIN' && (
-                <span className="text-xs text-orange-500 ml-2">
-                  (Please refresh your session to get the updated MASTER_ADMIN role)
-                </span>
-              )}
             </div>
           )}
         </div>

@@ -221,7 +221,6 @@ model PerformanceMetrics {
 }
 
 enum Role {
-  SUPER_ADMIN
   MASTER_ADMIN
   ADMIN
   MANAGER

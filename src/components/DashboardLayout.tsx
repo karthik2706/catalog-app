@@ -188,7 +188,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <nav className="flex-1 card-spacing list-spacing min-w-0">
         {menuItems.map((item) => {
           // Check if user has admin access for admin-only items
-          const isAdmin = user?.role === 'MASTER_ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN'
+          const isAdmin = user?.role === 'MASTER_ADMIN' || user?.role === 'ADMIN'
           if (item.adminOnly && !isAdmin) {
             return null
           }
