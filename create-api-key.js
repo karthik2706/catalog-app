@@ -1,58 +1,52 @@
+#!/usr/bin/env node
+
+/**
+ * Create API key for the catalog client
+ */
+
 const { PrismaClient } = require('@prisma/client');
+const crypto = require('crypto');
 
 async function createApiKey() {
-  const prisma = new PrismaClient();
-  
+  console.log('🔑 Creating API key for catalog client...\n');
+
   try {
-    console.log('Creating API key...');
+    const prisma = new PrismaClient();
+
+    // Generate a secure API key
+    const apiKey = crypto.randomBytes(32).toString('hex');
     
-    // First, check if the client exists
-    let client = await prisma.client.findFirst({
-      where: { slug: 'scan2ship' }
+    // Create API key for the yoshita client
+    const apiKeyRecord = await prisma.ApiKey.create({
+      data: {
+        key: apiKey,
+        name: 'Scan2Ship Integration Key',
+        clientId: 'cmg1a4yaa0000y7ndiwcbp1iq', // Yoshita client ID
+        isActive: true,
+        permissions: ['inventory:read', 'inventory:write', 'products:read']
+      }
     });
+
+    console.log('✅ Created API key:');
+    console.log(`Key: ${apiKey}`);
+    console.log(`ID: ${apiKeyRecord.id}`);
+    console.log(`Client ID: ${apiKeyRecord.clientId}`);
+    console.log(`Active: ${apiKeyRecord.isActive}`);
+
+    // Update the scan2ship mapping with the real API key
+    console.log('\n🔧 Updating scan2ship mapping with real API key...');
     
-    if (!client) {
-      console.log('Creating client...');
-      client = await prisma.client.create({
-        data: {
-          name: 'Scan2Ship',
-          slug: 'scan2ship',
-          isActive: true
-        }
-      });
-      console.log('Client created:', client.id);
-    } else {
-      console.log('Client found:', client.id);
-    }
-    
-    // Check if API key exists
-    let apiKey = await prisma.apiKey.findFirst({
-      where: { key: 'cat_sk_d2d906dd5b9c28e4d7bbe8e58f140603de86de5f096bfdfaf6192064210a29ae' }
-    });
-    
-    if (!apiKey) {
-      console.log('Creating API key...');
-      apiKey = await prisma.apiKey.create({
-        data: {
-          key: 'cat_sk_d2d906dd5b9c28e4d7bbe8e58f140603de86de5f096bfdfaf6192064210a29ae',
-          clientId: client.id,
-          isActive: true,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year from now
-        }
-      });
-      console.log('API key created:', apiKey.id);
-    } else {
-      console.log('API key already exists:', apiKey.id);
-    }
-    
-    console.log('✅ Setup complete');
-    
-  } catch (error) {
-    console.error('Error:', error.message);
-    console.error('Stack:', error.stack);
-  } finally {
+    // We need to update this in scan2ship database
+    console.log('Please run this command in scan2ship:');
+    console.log(`UPDATE cross_app_mappings SET "catalogApiKey" = '${apiKey}' WHERE "catalogClientId" = 'cmg1a4yaa0000y7ndiwcbp1iq';`);
+
     await prisma.$disconnect();
+    console.log('\n✅ API key creation completed');
+
+  } catch (error) {
+    console.error('❌ Error creating API key:', error);
   }
 }
 
+// Run the script
 createApiKey();
