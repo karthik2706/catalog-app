@@ -35,27 +35,80 @@ export async function GET(request: NextRequest) {
     
     const client = directCheck.client;
     
-    // Simple test response
+    // Get search parameters
+    const search = request.nextUrl.searchParams.get('search') || '';
+    const page = parseInt(request.nextUrl.searchParams.get('page') || '1');
+    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
+    
+    console.log('🔍 [PUBLIC_PRODUCTS] Searching for products:', {
+      search,
+      page,
+      limit,
+      clientId: client.id
+    });
+    
+    // Query products from database
+    const whereClause: any = {
+      clientId: client.id,
+      isActive: true
+    };
+    
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where: whereClause,
+        include: {
+          categories: {
+            include: {
+              category: true
+            }
+          },
+          mediaItems: {
+            where: { isPrimary: true },
+            take: 1
+          }
+        },
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.product.count({ where: whereClause })
+    ]);
+    
+    // Format products for response
+    const formattedProducts = products.map(product => ({
+      id: product.id,
+      sku: product.sku,
+      name: product.name,
+      description: product.description || '',
+      price: product.price?.toString() || '0.00',
+      stockLevel: product.stockLevel || 0,
+      minStock: product.minStock || 0,
+      allowPreorder: product.allowPreorder || false,
+      thumbnailUrl: product.mediaItems[0]?.url || null,
+      categories: product.categories.map(pc => ({
+        id: pc.category.id,
+        name: pc.category.name
+      }))
+    }));
+    
+    console.log('🔍 [PUBLIC_PRODUCTS] Found products:', formattedProducts.length);
+    
     return NextResponse.json({
-      products: [
-        {
-          id: 'test-1',
-          sku: 'TEST-001',
-          name: 'Test Product',
-          description: 'A test product',
-          price: '100.00',
-          stockLevel: 10,
-          minStock: 2,
-          allowPreorder: true,
-          thumbnailUrl: null,
-          categories: []
-        }
-      ],
+      products: formattedProducts,
       pagination: {
-        page: 1,
-        limit: 10,
-        total: 1,
-        pages: 1
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
       }
     })
 
