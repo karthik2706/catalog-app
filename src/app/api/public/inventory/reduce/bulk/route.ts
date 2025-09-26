@@ -207,48 +207,45 @@ export async function POST(request: NextRequest) {
           // Calculate new stock level
           const newStockLevel = Math.max(0, product.stockLevel - item.quantity)
           
-          // Update the product and create inventory history in a transaction
-          const result = await prisma.$transaction(async (tx) => {
-            // Update the product
-            const updatedProduct = await tx.product.update({
-              where: { id: product.id },
-              data: { stockLevel: newStockLevel },
-              select: {
-                id: true,
-                sku: true,
-                name: true,
-                stockLevel: true,
-                minStock: true
+          // Update the product
+          const updatedProduct = await prisma.product.update({
+            where: { id: product.id },
+            data: { stockLevel: newStockLevel },
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+              stockLevel: true,
+              minStock: true
+            }
+          })
+
+          // Create inventory history record (outside transaction to avoid rollback issues)
+          try {
+            console.log(`🔍 Creating inventory history for ${item.sku} with clientId: ${client.id}`)
+            const historyRecord = await prisma.inventoryHistory.create({
+              data: {
+                productId: product.id,
+                quantity: -item.quantity, // Negative for reduction
+                type: 'SALE',
+                reason: `Order ${order.orderId} - Inventory reduction via API`,
+                clientId: client.id,
+                userId: null // API call, no specific user
               }
             })
+            console.log(`✅ Created inventory history for ${item.sku}:`, historyRecord.id)
+          } catch (historyError) {
+            console.error(`❌ Failed to create inventory history for ${item.sku}:`, historyError)
+            console.error(`❌ Error details:`, {
+              productId: product.id,
+              clientId: client.id,
+              quantity: -item.quantity,
+              type: 'SALE'
+            })
+            // Don't fail the operation, just log the error
+          }
 
-            // Create inventory history record
-            try {
-              console.log(`🔍 Creating inventory history for ${item.sku} with clientId: ${client.id}`)
-              const historyRecord = await tx.inventoryHistory.create({
-                data: {
-                  productId: product.id,
-                  quantity: -item.quantity, // Negative for reduction
-                  type: 'SALE',
-                  reason: `Order ${order.orderId} - Inventory reduction via API`,
-                  clientId: client.id,
-                  userId: null // API call, no specific user
-                }
-              })
-              console.log(`✅ Created inventory history for ${item.sku}:`, historyRecord.id)
-            } catch (historyError) {
-              console.error(`❌ Failed to create inventory history for ${item.sku}:`, historyError)
-              console.error(`❌ Error details:`, {
-                productId: product.id,
-                clientId: client.id,
-                quantity: -item.quantity,
-                type: 'SALE'
-              })
-              // Don't fail the transaction, just log the error
-            }
-
-            return updatedProduct
-          })
+          const result = updatedProduct
 
           // Update the product map for subsequent orders
           productMap.set(item.sku, result)
