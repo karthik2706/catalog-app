@@ -27,6 +27,7 @@ import {
   Image,
   Activity,
   Database,
+  Shield,
 } from 'lucide-react'
 
 const drawerWidth = 280
@@ -35,7 +36,15 @@ interface DashboardLayoutProps {
   children: React.ReactNode
 }
 
-const menuItems = [
+interface MenuItem {
+  text: string
+  icon: any
+  path: string
+  description: string
+  adminOnly?: boolean
+}
+
+const menuItems: MenuItem[] = [
   { 
     text: 'Dashboard', 
     icon: LayoutDashboard, 
@@ -83,6 +92,13 @@ const menuItems = [
     icon: Settings, 
     path: '/settings',
     description: 'System configuration'
+  },
+  { 
+    text: 'Admin Panel', 
+    icon: Shield, 
+    path: '/admin',
+    description: 'Administrative controls',
+    adminOnly: true
   },
 ]
 
@@ -171,6 +187,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Navigation */}
       <nav className="flex-1 card-spacing list-spacing min-w-0">
         {menuItems.map((item) => {
+          // Check if user has admin access for admin-only items
+          const isAdmin = user?.role === 'MASTER_ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN'
+          if (item.adminOnly && !isAdmin) {
+            return null
+          }
+          
           const Icon = item.icon
           const active = isActive(item.path)
           
