@@ -7,33 +7,17 @@ import crypto from 'crypto';
  * Handles creation and listing of API keys for clients
  */
 
-// GET /api/admin/api-keys - List API keys for a client
+// GET /api/admin/api-keys - List API keys for all clients or a specific client
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get('clientId');
 
-    if (!clientId) {
-      return NextResponse.json(
-        { error: 'Client ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if client exists
-    const client = await prisma.client.findUnique({
-      where: { id: clientId }
-    });
-
-    if (!client) {
-      return NextResponse.json(
-        { error: 'Client not found' },
-        { status: 404 }
-      );
-    }
+    // Build where clause - if clientId provided, filter by it, otherwise get all
+    const whereClause = clientId ? { clientId } : {};
 
     const apiKeys = await prisma.apiKey.findMany({
-      where: { clientId },
+      where: whereClause,
       include: {
         client: {
           select: {

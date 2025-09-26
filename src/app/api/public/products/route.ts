@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       clientId: client.id,
       isActive: true
     };
-    
+
     if (search) {
       whereClause.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         { description: { contains: search, mode: 'insensitive' } }
       ];
     }
-    
+
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where: whereClause,
@@ -71,10 +71,7 @@ export async function GET(request: NextRequest) {
               category: true
             }
           },
-          mediaItems: {
-            where: { isPrimary: true },
-            take: 1
-          }
+          mediaItems: true
         },
         skip: offset,
         take: limit,
@@ -83,21 +80,41 @@ export async function GET(request: NextRequest) {
       prisma.product.count({ where: whereClause })
     ]);
     
-    // Format products for response
-    const formattedProducts = products.map(product => ({
-      id: product.id,
-      sku: product.sku,
-      name: product.name,
-      description: product.description || '',
-      price: product.price?.toString() || '0.00',
-      stockLevel: product.stockLevel || 0,
-      minStock: product.minStock || 0,
-      allowPreorder: product.allowPreorder || false,
-      thumbnailUrl: product.mediaItems[0]?.url || null,
-      categories: product.categories.map(pc => ({
-        id: pc.category.id,
-        name: pc.category.name
-      }))
+    // Process products and generate signed URLs for images
+    const formattedProducts = await Promise.all(products.map(async product => {
+      let thumbnailUrl = product.thumbnailUrl;
+      let images = [];
+      
+      // If no thumbnailUrl, try to get it from mediaItems
+      if (!thumbnailUrl && product.mediaItems && product.mediaItems.length > 0) {
+        const imageMedia = product.mediaItems.filter(media => media.kind === 'image' && media.status === 'completed');
+        if (imageMedia.length > 0) {
+          try {
+            const signedUrl = await generateSignedUrl(imageMedia[0].s3Key, 7 * 24 * 60 * 60); // 7 days
+            thumbnailUrl = signedUrl;
+            images = [signedUrl];
+          } catch (error) {
+            console.error('Error generating signed URL for product', product.sku, ':', error);
+          }
+        }
+      }
+      
+      return {
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        description: product.description || '',
+        price: product.price?.toString() || '0.00',
+        stockLevel: product.stockLevel || 0,
+        minStock: product.minStock || 0,
+        allowPreorder: product.allowPreorder || false,
+        thumbnailUrl: thumbnailUrl,
+        images: images,
+        categories: product.categories.map(pc => ({
+          id: pc.category.id,
+          name: pc.category.name
+        }))
+      };
     }));
     
     console.log('🔍 [PUBLIC_PRODUCTS] Found products:', formattedProducts.length);

@@ -366,7 +366,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                 const isVideo = media.fileType?.startsWith('video/') || 
                                   media.type?.startsWith('video/') ||
                                   (media.url && /\.(mp4|webm|mov)$/i.test(media.url))
-                                const displayUrl = media.url || media.thumbnailUrl
+                                const displayUrl = media.url || product.thumbnailUrl
                                 
                                 // Debug logging for image URL
                                 console.log('Image display URL:', {
@@ -391,7 +391,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                   
                                   // For videos, show thumbnail first with play button overlay
                                   // This provides better UX and avoids video loading issues
-                                  const thumbnailUrl = media.thumbnailUrl || product.thumbnailUrl
+                                  const thumbnailUrl = product.thumbnailUrl
                                   
                                   console.log('Video thumbnail check:', {
                                     mediaThumbnailUrl: media.thumbnailUrl,
@@ -637,11 +637,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                           </div>
                                         </div>
                                       )
-                                    } else if (media.thumbnailUrl) {
+                                    } else if (product.thumbnailUrl) {
                                       // For images, show thumbnail
                                       return (
                                         <img
-                                          src={media.thumbnailUrl}
+                                          src={product.thumbnailUrl}
                                           alt={`Media ${index + 1}`}
                                           className="w-full h-full object-cover"
                                         />

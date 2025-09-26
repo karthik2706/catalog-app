@@ -51,6 +51,13 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
   // Generate signed URLs for all media
   useEffect(() => {
     const generateUrls = async () => {
+      // If we have thumbnailUrl, we don't need to process images
+      if (product.thumbnailUrl) {
+        console.log('Product has thumbnailUrl, skipping image processing for', product.sku)
+        setIsLoading(false)
+        return
+      }
+      
       const urlMap: Record<string, string> = {}
       
       // Process legacy images

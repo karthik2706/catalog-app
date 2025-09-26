@@ -1,6 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// DELETE /api/admin/clients/[id] - Delete client
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: clientId } = await params
+    
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Check if client exists
+    const client = await prisma.client.findUnique({
+      where: { id: clientId }
+    })
+
+    if (!client) {
+      return NextResponse.json(
+        { error: 'Client not found' },
+        { status: 404 }
+      )
+    }
+
+    // Delete client (this will cascade delete related records)
+    await prisma.client.delete({
+      where: { id: clientId }
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Client deleted successfully'
+    })
+  } catch (error) {
+    console.error('Error deleting client:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 // PUT /api/admin/clients/[id] - Update client
 export async function PUT(
   request: NextRequest,

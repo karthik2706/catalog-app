@@ -229,21 +229,17 @@ export default function ApiKeysPage() {
               </div>
               
               <div>
-                <Label htmlFor="clientId">Client</Label>
-                <select
+                <Label htmlFor="clientId">Client ID</Label>
+                <Input
                   id="clientId"
                   value={formData.clientId}
                   onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  placeholder="e.g., cmfohvqxb0001jp04hqvisj49"
                   required
-                >
-                  <option value="">Select a client</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name} ({client.slug})
-                    </option>
-                  ))}
-                </select>
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Enter the client ID from Catalog App (e.g., Vanitha Fashion Jewelry: cmfohvqxb0001jp04hqvisj49)
+                </p>
               </div>
 
               <div>
