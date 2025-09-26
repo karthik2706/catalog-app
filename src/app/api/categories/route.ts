@@ -15,6 +15,7 @@ function getUserFromRequest(request: NextRequest): { userId: string; role: strin
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
+      console.log('🔍 [CATEGORIES] Decoded token:', { userId: decoded.userId, role: decoded.role, clientId: decoded.clientId })
       return {
         userId: decoded.userId,
         role: decoded.role,
@@ -54,9 +55,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // For super admin, show all categories; for regular users, show client-specific categories
-    const isSuperAdmin = user.role === 'MASTER_ADMIN'
-    const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
+    // For master admin, show all categories; for regular users, show client-specific categories
+    const isMasterAdmin = user.role === 'MASTER_ADMIN'
+    const whereClause = isMasterAdmin ? {} : { clientId: user.clientId }
+    
+    console.log('🔍 [CATEGORIES] User role:', user.role, 'isMasterAdmin:', isMasterAdmin, 'clientId:', user.clientId)
+    console.log('🔍 [CATEGORIES] Where clause:', whereClause)
 
     // Get categories from the categories table with full hierarchy
     // Only fetch parent categories (parentId is null), children will be fetched recursively
