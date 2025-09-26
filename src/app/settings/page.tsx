@@ -726,6 +726,37 @@ export default function SettingsPage() {
     }
   }
 
+  const handleDeleteClient = async (clientId: string) => {
+    if (!confirm('Are you sure you want to delete this client? This action cannot be undone and will delete all associated data.')) {
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError('')
+
+      const response = await fetch(`/api/admin/clients/${clientId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      })
+
+      if (response.ok) {
+        setSuccess('Client deleted successfully!')
+        setClients(clients.filter(client => client.id !== clientId))
+        fetchData() // Refresh all data
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Failed to delete client')
+      }
+    } catch (error) {
+      setError('Failed to delete client')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Helper function to find category by ID (including in children)
   const findCategoryById = (categories: Category[], id: string): Category | null => {
     for (const category of categories) {
@@ -1212,6 +1243,14 @@ export default function SettingsPage() {
                                     onClick={() => handleEditClient(client)}
                                   >
                                     <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDeleteClient(client.id)}
+                                    className="text-red-600 hover:bg-red-50 hover:border-red-300"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
                                   </Button>
                                 </div>
                               </div>
