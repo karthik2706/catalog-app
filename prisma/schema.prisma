@@ -57,6 +57,7 @@ model Client {
   currency   Currency?       @relation("ClientCurrency", fields: [currencyId], references: [id])
   products   Product[]       @relation("ClientProducts")
   users      User[]          @relation("ClientUsers")
+  apiKeys    ApiKey[]        @relation("ClientApiKeys")
 
   @@map("clients")
 }
@@ -235,4 +236,23 @@ enum InventoryType {
   RETURN
   DAMAGE
   TRANSFER
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  key         String    @unique
+  secret      String?
+  clientId    String
+  isActive    Boolean   @default(true)
+  permissions String[]  @default([])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  client      Client    @relation("ClientApiKeys", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([key])
+  @@map("api_keys")
 }

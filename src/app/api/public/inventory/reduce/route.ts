@@ -1,36 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-
-// Optional API key validation for public access
-function validateApiKey(request: NextRequest): boolean {
-  const apiKey = request.headers.get('x-api-key')
-  const expectedApiKey = process.env.PUBLIC_API_KEY
-  
-  // If no API key is configured, allow public access
-  if (!expectedApiKey) {
-    return true
-  }
-  
-  // If API key is configured, validate it
-  return apiKey === expectedApiKey
-}
+import { authenticateApiKey } from '@/lib/api-key-middleware'
 
 export async function POST(request: NextRequest) {
   try {
-    // Validate API key if configured
-    if (!validateApiKey(request)) {
-      return NextResponse.json(
-        { error: 'Invalid or missing API key' },
-        { status: 401 }
-      )
+    // Authenticate API key
+    const authResult = await authenticateApiKey(request);
+    if (authResult.response) {
+      return authResult.response;
     }
 
+    const { apiKey } = authResult;
     const clientSlug = request.nextUrl.searchParams.get('client')
     
     if (!clientSlug) {
       return NextResponse.json(
         { error: 'Client slug is required. Use ?client=your-client-slug' },
         { status: 400 }
+      )
+    }
+
+    // Verify client matches API key
+    if (apiKey.client.slug !== clientSlug) {
+      return NextResponse.json(
+        { error: 'Client slug does not match API key client' },
+        { status: 403 }
       )
     }
 

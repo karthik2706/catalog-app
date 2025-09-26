@@ -39,6 +39,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Eye,
 } from 'lucide-react'
 
 interface User {
@@ -260,6 +261,10 @@ export default function SettingsPage() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [editCategoryModalOpen, setEditCategoryModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [viewClientModalOpen, setViewClientModalOpen] = useState(false)
+  const [editClientModalOpen, setEditClientModalOpen] = useState(false)
+  const [viewingClient, setViewingClient] = useState<Client | null>(null)
+  const [editingClient, setEditingClient] = useState<Client | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -656,6 +661,66 @@ export default function SettingsPage() {
       }
     } catch (error) {
       setError('Failed to delete category')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleViewClient = (client: Client) => {
+    setViewingClient(client)
+    setViewClientModalOpen(true)
+  }
+
+  const handleEditClient = (client: Client) => {
+    setEditingClient(client)
+    setNewClient({
+      name: client.name,
+      email: client.email,
+      phone: client.phone || '',
+      address: client.address || '',
+      plan: client.plan as any,
+      countryId: client.countryId || '',
+      currencyId: client.currencyId || '',
+      password: '', // Don't pre-fill password
+    })
+    setEditClientModalOpen(true)
+  }
+
+  const handleSaveEditClient = async () => {
+    if (!editingClient) return
+
+    try {
+      setSaving(true)
+      setError('')
+
+      const response = await fetch(`/api/admin/clients/${editingClient.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          name: newClient.name,
+          email: newClient.email,
+          phone: newClient.phone,
+          address: newClient.address,
+          plan: newClient.plan,
+          countryId: newClient.countryId || null,
+          currencyId: newClient.currencyId || null,
+        }),
+      })
+
+      if (response.ok) {
+        setSuccess('Client updated successfully!')
+        setEditClientModalOpen(false)
+        setEditingClient(null)
+        fetchData()
+      } else {
+        const errorData = await response.json()
+        setError(errorData.error || 'Failed to update client')
+      }
+    } catch (error) {
+      setError('Failed to update client')
     } finally {
       setSaving(false)
     }
@@ -1121,15 +1186,34 @@ export default function SettingsPage() {
                                 <span>{client._count?.users || 0} users</span>
                                 <span>{client._count?.products || 0} products</span>
                               </div>
-                              <div className="flex items-center space-x-1">
-                                {client.isActive ? (
-                                  <CheckCircle className="w-4 h-4 text-success-600" />
-                                ) : (
-                                  <XCircle className="w-4 h-4 text-error-600" />
-                                )}
-                                <span className={`text-xs ${client.isActive ? 'text-success-600' : 'text-error-600'}`}>
-                                  {client.isActive ? 'Active' : 'Inactive'}
-                                </span>
+                              <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1">
+                                  {client.isActive ? (
+                                    <CheckCircle className="w-4 h-4 text-success-600" />
+                                  ) : (
+                                    <XCircle className="w-4 h-4 text-error-600" />
+                                  )}
+                                  <span className={`text-xs ${client.isActive ? 'text-success-600' : 'text-error-600'}`}>
+                                    {client.isActive ? 'Active' : 'Inactive'}
+                                  </span>
+                                </div>
+                                <div className="flex space-x-1">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleViewClient(client)}
+                                    className="text-primary-600 hover:bg-primary-50"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditClient(client)}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1317,9 +1401,10 @@ export default function SettingsPage() {
           isOpen={clientModalOpen}
           onClose={() => setClientModalOpen(false)}
           title="Add New Client"
+          className="max-w-3xl max-h-[90vh] overflow-y-auto"
         >
-          <div className="space-y-6">
-            <div className="space-y-2">
+          <div className="space-y-8 p-1">
+            <div className="space-y-3">
               <label className="text-sm font-medium text-slate-700">Company Name</label>
               <Input
                 value={newClient.name}
@@ -1329,7 +1414,7 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="text-sm font-medium text-slate-700">Email</label>
               <Input
                 type="email"
@@ -1340,7 +1425,7 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="text-sm font-medium text-slate-700">Phone</label>
               <Input
                 value={newClient.phone}
@@ -1350,7 +1435,7 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="text-sm font-medium text-slate-700">Address</label>
               <textarea
                 value={newClient.address}
@@ -1362,7 +1447,7 @@ export default function SettingsPage() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-sm font-medium text-slate-700">Country</label>
                 <select
                   value={newClient.countryId}
@@ -1378,7 +1463,7 @@ export default function SettingsPage() {
                 </select>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-sm font-medium text-slate-700">Currency</label>
                 <select
                   value={newClient.currencyId}
@@ -1395,7 +1480,7 @@ export default function SettingsPage() {
               </div>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="text-sm font-medium text-slate-700">Password</label>
               <Input
                 type="password"
@@ -1406,7 +1491,7 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
               <label className="text-sm font-medium text-slate-700">Plan</label>
               <select
                 value={newClient.plan}
@@ -1621,6 +1706,274 @@ export default function SettingsPage() {
               <Button
                 onClick={handleSaveEditCategory}
                 disabled={saving || !newCategory.name}
+                loading={saving}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* View Client Modal */}
+        <Modal
+          isOpen={viewClientModalOpen}
+          onClose={() => setViewClientModalOpen(false)}
+          title="Client Details"
+          className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        >
+          {viewingClient && (
+            <div className="space-y-8 p-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Client ID</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <code className="text-sm text-slate-600 font-mono break-all">{viewingClient.id}</code>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Slug</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <code className="text-sm text-slate-600 font-mono">@{viewingClient.slug}</code>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-slate-700">Company Name</label>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-slate-900 font-medium">{viewingClient.name}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-slate-700">Email</label>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-slate-900">{viewingClient.email}</span>
+                </div>
+              </div>
+
+              {viewingClient.phone && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Phone</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900">{viewingClient.phone}</span>
+                  </div>
+                </div>
+              )}
+
+              {viewingClient.address && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Address</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900">{viewingClient.address}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Plan</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <Badge className={getPlanColor(viewingClient.plan)}>
+                      {viewingClient.plan}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Status</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      {viewingClient.isActive ? (
+                        <CheckCircle className="w-4 h-4 text-success-600" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-error-600" />
+                      )}
+                      <span className={`text-sm font-medium ${viewingClient.isActive ? 'text-success-600' : 'text-error-600'}`}>
+                        {viewingClient.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {viewingClient.country && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Country</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900">{viewingClient.country.name} ({viewingClient.country.code})</span>
+                  </div>
+                </div>
+              )}
+
+              {viewingClient.currency && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Currency</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      {React.createElement(getCurrencyIcon(viewingClient.currency.code), { className: "w-4 h-4" })}
+                      <span className="text-slate-900">{viewingClient.currency.symbol} {viewingClient.currency.code} - {viewingClient.currency.name}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Users</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900 font-medium text-lg">{viewingClient._count?.users || 0}</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Products</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900 font-medium text-lg">{viewingClient._count?.products || 0}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Created At</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900">{new Date(viewingClient.createdAt).toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-700">Updated At</label>
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900">{new Date(viewingClient.updatedAt).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setViewClientModalOpen(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    setViewClientModalOpen(false)
+                    handleEditClient(viewingClient)
+                  }}
+                >
+                  Edit Client
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+
+        {/* Edit Client Modal */}
+        <Modal
+          isOpen={editClientModalOpen}
+          onClose={() => setEditClientModalOpen(false)}
+          title="Edit Client"
+          className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        >
+          <div className="space-y-8 p-1">
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-700">Company Name</label>
+              <Input
+                value={newClient.name}
+                onChange={(e) => setNewClient(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter company name"
+                leftIcon={<Building2 className="w-4 h-4" />}
+              />
+            </div>
+            
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-700">Email</label>
+              <Input
+                type="email"
+                value={newClient.email}
+                onChange={(e) => setNewClient(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="Enter email address"
+                leftIcon={<Mail className="w-4 h-4" />}
+              />
+            </div>
+            
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-700">Phone</label>
+              <Input
+                value={newClient.phone}
+                onChange={(e) => setNewClient(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="Enter phone number"
+                leftIcon={<Phone className="w-4 h-4" />}
+              />
+            </div>
+            
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-700">Address</label>
+              <textarea
+                value={newClient.address}
+                onChange={(e) => setNewClient(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="Enter company address"
+                rows={3}
+                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-slate-700">Country</label>
+                <select
+                  value={newClient.countryId}
+                  onChange={(e) => setNewClient(prev => ({ ...prev, countryId: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Select Country</option>
+                  {countries.map((country) => (
+                    <option key={country.id} value={country.id}>
+                      {country.name} ({country.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-slate-700">Currency</label>
+                <select
+                  value={newClient.currencyId}
+                  onChange={(e) => setNewClient(prev => ({ ...prev, currencyId: e.target.value }))}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Select Currency</option>
+                  {currencies.map((currency) => (
+                    <option key={currency.id} value={currency.id}>
+                      {currency.name} ({currency.symbol} {currency.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-700">Plan</label>
+              <select
+                value={newClient.plan}
+                onChange={(e) => setNewClient(prev => ({ ...prev, plan: e.target.value as any }))}
+                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="STARTER">Starter</option>
+                <option value="PROFESSIONAL">Professional</option>
+                <option value="ENTERPRISE">Enterprise</option>
+              </select>
+            </div>
+            
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setEditClientModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveEditClient}
+                disabled={saving || !newClient.name || !newClient.email}
                 loading={saving}
               >
                 Save Changes
