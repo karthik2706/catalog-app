@@ -224,7 +224,8 @@ export async function POST(request: NextRequest) {
 
             // Create inventory history record
             try {
-              await tx.inventoryHistory.create({
+              console.log(`🔍 Creating inventory history for ${item.sku} with clientId: ${client.id}`)
+              const historyRecord = await tx.inventoryHistory.create({
                 data: {
                   productId: product.id,
                   quantity: -item.quantity, // Negative for reduction
@@ -234,9 +235,15 @@ export async function POST(request: NextRequest) {
                   userId: null // API call, no specific user
                 }
               })
-              console.log(`✅ Created inventory history for ${item.sku}`)
+              console.log(`✅ Created inventory history for ${item.sku}:`, historyRecord.id)
             } catch (historyError) {
               console.error(`❌ Failed to create inventory history for ${item.sku}:`, historyError)
+              console.error(`❌ Error details:`, {
+                productId: product.id,
+                clientId: client.id,
+                quantity: -item.quantity,
+                type: 'SALE'
+              })
               // Don't fail the transaction, just log the error
             }
 
