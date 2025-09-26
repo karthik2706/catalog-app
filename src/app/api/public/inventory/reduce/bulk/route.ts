@@ -223,16 +223,22 @@ export async function POST(request: NextRequest) {
             })
 
             // Create inventory history record
-            await tx.inventoryHistory.create({
-              data: {
-                productId: product.id,
-                quantity: -item.quantity, // Negative for reduction
-                type: 'SALE',
-                reason: `Order ${order.orderId} - Inventory reduction via API`,
-                clientId: client.id,
-                userId: null // API call, no specific user
-              }
-            })
+            try {
+              await tx.inventoryHistory.create({
+                data: {
+                  productId: product.id,
+                  quantity: -item.quantity, // Negative for reduction
+                  type: 'SALE',
+                  reason: `Order ${order.orderId} - Inventory reduction via API`,
+                  clientId: client.id,
+                  userId: null // API call, no specific user
+                }
+              })
+              console.log(`✅ Created inventory history for ${item.sku}`)
+            } catch (historyError) {
+              console.error(`❌ Failed to create inventory history for ${item.sku}:`, historyError)
+              // Don't fail the transaction, just log the error
+            }
 
             return updatedProduct
           })
