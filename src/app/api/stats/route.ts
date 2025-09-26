@@ -51,14 +51,22 @@ export async function GET(request: NextRequest) {
     })
 
     // Get low stock products count (stock level <= min stock)
-    const lowStockProducts = await prisma.product.count({
+    // First get all products to check stock levels
+    const products = await prisma.product.findMany({
       where: {
         ...whereClause,
-        stockLevel: {
-          lte: prisma.product.fields.minStock
-        }
+        isActive: true
+      },
+      select: {
+        stockLevel: true,
+        minStock: true,
+        price: true
       }
     })
+
+    const lowStockProducts = products.filter(product => 
+      product.stockLevel <= product.minStock
+    ).length
 
     // Get total categories count
     const totalCategories = await prisma.category.count({
@@ -76,18 +84,7 @@ export async function GET(request: NextRequest) {
     // Get total clients count (only for super admin)
     const totalClients = isSuperAdmin ? await prisma.client.count() : 0
 
-    // Get total value of inventory
-    const products = await prisma.product.findMany({
-      where: {
-        ...whereClause,
-        isActive: true
-      },
-      select: {
-        price: true,
-        stockLevel: true
-      }
-    })
-
+    // Get total value of inventory (reuse products from low stock calculation)
     const totalValue = products.reduce((sum, product) => {
       return sum + (Number(product.price) * product.stockLevel)
     }, 0)
