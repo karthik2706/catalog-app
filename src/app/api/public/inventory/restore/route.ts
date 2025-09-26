@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
         // Calculate new stock level (add back the quantity)
         const newStockLevel = product.stockLevel + item.quantity
         
-        // Update the product
+        // Update the product and create inventory history
         const updatedProduct = await prisma.product.update({
           where: { id: product.id },
           data: { stockLevel: newStockLevel },
@@ -150,6 +150,24 @@ export async function POST(request: NextRequest) {
             minStock: true
           }
         })
+
+        // Create inventory history record for restoration
+        try {
+          await prisma.inventoryHistory.create({
+            data: {
+              productId: product.id,
+              quantity: item.quantity, // Positive for restoration
+              type: 'RETURN',
+              reason: `Order ${orderId} - Inventory restoration via API (${reason})`,
+              clientId: client.id,
+              userId: null // API call, no specific user
+            }
+          })
+          console.log(`✅ Created inventory history for restoration of ${item.sku}`)
+        } catch (historyError) {
+          console.error(`❌ Failed to create inventory history for restoration of ${item.sku}:`, historyError)
+          // Don't fail the operation, just log the error
+        }
 
         restoreResults.push({
           sku: item.sku,
