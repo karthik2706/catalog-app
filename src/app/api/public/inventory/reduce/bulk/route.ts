@@ -207,30 +207,47 @@ export async function POST(request: NextRequest) {
           // Calculate new stock level
           const newStockLevel = Math.max(0, product.stockLevel - item.quantity)
           
-          // Update the product
-          const updatedProduct = await prisma.product.update({
-            where: { id: product.id },
-            data: { stockLevel: newStockLevel },
-            select: {
-              id: true,
-              sku: true,
-              name: true,
-              stockLevel: true,
-              minStock: true
-            }
+          // Update the product and create inventory history in a transaction
+          const result = await prisma.$transaction(async (tx) => {
+            // Update the product
+            const updatedProduct = await tx.product.update({
+              where: { id: product.id },
+              data: { stockLevel: newStockLevel },
+              select: {
+                id: true,
+                sku: true,
+                name: true,
+                stockLevel: true,
+                minStock: true
+              }
+            })
+
+            // Create inventory history record
+            await tx.inventoryHistory.create({
+              data: {
+                productId: product.id,
+                quantity: -item.quantity, // Negative for reduction
+                type: 'SALE',
+                reason: `Order ${order.orderId} - Inventory reduction via API`,
+                clientId: client.id,
+                userId: null // API call, no specific user
+              }
+            })
+
+            return updatedProduct
           })
 
           // Update the product map for subsequent orders
-          productMap.set(item.sku, updatedProduct)
+          productMap.set(item.sku, result)
 
           orderResult.items.push({
             sku: item.sku,
             productName: product.name,
             success: true,
             previousStock: product.stockLevel,
-            newStock: updatedProduct.stockLevel,
+            newStock: result.stockLevel,
             reduced: item.quantity,
-            belowMinStock: updatedProduct.stockLevel < updatedProduct.minStock
+            belowMinStock: result.stockLevel < result.minStock
           })
 
           orderResult.summary.successful++
