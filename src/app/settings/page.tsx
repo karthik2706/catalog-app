@@ -807,7 +807,7 @@ export default function SettingsPage() {
     return null
   }
 
-  const isSuperAdmin = user.role === 'MASTER_ADMIN'
+  const isSuperAdmin = user.role === 'MASTER_ADMIN' || user.role === 'SUPER_ADMIN'
   const isAdmin = user.role === 'ADMIN'
   const isManager = user.role === 'MANAGER'
   const isUser = user.role === 'USER'
