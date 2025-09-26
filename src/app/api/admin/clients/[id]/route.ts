@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { authorizeSuperAdmin } from '@/lib/auth-middleware'
 
 // DELETE /api/admin/clients/[id] - Delete client
 export async function DELETE(
@@ -7,6 +8,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check if user is super admin
+    const authResult = await authorizeSuperAdmin(request)
+    if (authResult.response) {
+      return authResult.response
+    }
+
     const { id: clientId } = await params
     
     if (!clientId) {
@@ -28,7 +35,40 @@ export async function DELETE(
       )
     }
 
-    // Delete client (this will cascade delete related records)
+    // Delete related records first to avoid foreign key constraints
+    console.log('Deleting related records for client:', clientId)
+    
+    // Delete products
+    await prisma.product.deleteMany({
+      where: { clientId }
+    })
+    
+    // Delete categories
+    await prisma.category.deleteMany({
+      where: { clientId }
+    })
+    
+    // Delete inventory history
+    await prisma.inventoryHistory.deleteMany({
+      where: { clientId }
+    })
+    
+    // Delete users
+    await prisma.user.deleteMany({
+      where: { clientId }
+    })
+    
+    // Delete API keys
+    await prisma.apiKey.deleteMany({
+      where: { clientId }
+    })
+    
+    // Delete client settings
+    await prisma.clientSettings.deleteMany({
+      where: { clientId }
+    })
+    
+    // Finally delete the client
     await prisma.client.delete({
       where: { id: clientId }
     })
@@ -39,8 +79,17 @@ export async function DELETE(
     })
   } catch (error) {
     console.error('Error deleting client:', error)
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      meta: error.meta
+    })
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: error.message,
+        code: error.code
+      },
       { status: 500 }
     )
   }
@@ -52,6 +101,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check if user is super admin
+    const authResult = await authorizeSuperAdmin(request)
+    if (authResult.response) {
+      return authResult.response
+    }
+
     const { id: clientId } = await params
     
     if (!clientId) {
