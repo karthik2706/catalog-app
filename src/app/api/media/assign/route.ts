@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     // If setting as primary, first unset any existing primary media for this product
     if (isPrimary) {
-      await prisma.media.updateMany({
+      await prisma.productMedia.updateMany({
         where: {
           productId: productId,
           isPrimary: true
@@ -102,37 +102,54 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Assign media to product
-    const updatePromises = mediaAssets.map((asset, index) => 
-      prisma.media.update({
-        where: { id: asset.id },
-        data: {
-          productId: productId,
+    // Assign media to product using the junction table
+    const assignmentPromises = mediaAssets.map((asset, index) =>
+      prisma.productMedia.upsert({
+        where: {
+          productId_mediaId: {
+            productId: productId,
+            mediaId: asset.id
+          }
+        },
+        update: {
           isPrimary: isPrimary && index === 0, // Only first asset is primary if isPrimary is true
           sortOrder: index,
           updatedAt: new Date()
+        },
+        create: {
+          productId: productId,
+          mediaId: asset.id,
+          isPrimary: isPrimary && index === 0,
+          sortOrder: index
         }
       })
     )
 
-    await Promise.all(updatePromises)
+    await Promise.all(assignmentPromises)
 
-    // Get updated media assets with product info
-    const updatedMedia = await prisma.media.findMany({
-      where: { id: { in: mediaIds } },
+    // Get updated media assets with product info from junction table
+    const updatedMedia = await prisma.productMedia.findMany({
+      where: { 
+        mediaId: { in: mediaIds },
+        productId: productId
+      },
       select: {
-        id: true,
-        kind: true,
-        s3Key: true,
-        originalName: true,
-        mimeType: true,
-        fileSize: true,
-        width: true,
-        height: true,
-        altText: true,
-        caption: true,
         isPrimary: true,
         sortOrder: true,
+        media: {
+          select: {
+            id: true,
+            kind: true,
+            s3Key: true,
+            originalName: true,
+            mimeType: true,
+            fileSize: true,
+            width: true,
+            height: true,
+            altText: true,
+            caption: true
+          }
+        },
         product: {
           select: {
             id: true,
@@ -143,6 +160,14 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Check if environment variables are available
+    if (!process.env.S3_BUCKET_NAME || !process.env.AWS_REGION) {
+      return NextResponse.json(
+        { error: 'S3 configuration missing' },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       message: `Successfully assigned ${mediaAssets.length} media assets to product`,
@@ -151,11 +176,13 @@ export async function POST(request: NextRequest) {
         name: product.name,
         sku: product.sku
       },
-      assignedMedia: updatedMedia.map(asset => ({
-        ...asset,
-        url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${asset.s3Key}`,
-        thumbnailUrl: asset.kind === 'image' 
-          ? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${asset.s3Key}`
+      assignedMedia: updatedMedia.map(assignment => ({
+        ...assignment.media,
+        isPrimary: assignment.isPrimary,
+        sortOrder: assignment.sortOrder,
+        url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${assignment.media.s3Key}`,
+        thumbnailUrl: assignment.media.kind === 'image' 
+          ? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${assignment.media.s3Key}`
           : null
       }))
     })
@@ -208,7 +235,7 @@ export async function DELETE(request: NextRequest) {
           startsWith: `clients/${clientId}/media/`
         }
       },
-      select: { id: true, originalName: true, productId: true }
+      select: { id: true, originalName: true }
     })
 
     if (mediaAssets.length !== mediaIds.length) {
@@ -218,29 +245,23 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // If productId is provided, verify the media belongs to that product
+    // Unassign media from products using the junction table
     if (productId) {
-      const invalidMedia = mediaAssets.filter(asset => asset.productId !== productId)
-      if (invalidMedia.length > 0) {
-        return NextResponse.json(
-          { error: 'Some media assets do not belong to the specified product' },
-          { status: 400 }
-        )
-      }
+      // Remove specific product-media associations
+      await prisma.productMedia.deleteMany({
+        where: {
+          mediaId: { in: mediaIds },
+          productId: productId
+        }
+      })
+    } else {
+      // Remove all product associations for these media items
+      await prisma.productMedia.deleteMany({
+        where: {
+          mediaId: { in: mediaIds }
+        }
+      })
     }
-
-    // Unassign media from products
-    await prisma.media.updateMany({
-      where: {
-        id: { in: mediaIds }
-      },
-      data: {
-        productId: null,
-        isPrimary: false,
-        sortOrder: 0,
-        updatedAt: new Date()
-      }
-    })
 
     return NextResponse.json({
       success: true,

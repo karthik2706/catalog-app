@@ -59,17 +59,18 @@ export async function GET(request: NextRequest) {
     const startDate = new Date()
     startDate.setDate(endDate.getDate() - parseInt(timeRange))
 
-    // Build where clause
+    // Build where clause for media filtering by S3 key path
     const where: any = {}
     
-    // For non-MASTER_ADMIN users, filter by clientId
+    // For non-MASTER_ADMIN users, filter by clientId through S3 key
     if (user.role !== 'MASTER_ADMIN' && clientId) {
-      where.product = { clientId }
+      where.s3Key = {
+        startsWith: `clients/${clientId}/`
+      }
     }
     
-    if (productId) {
-      where.productId = productId
-    }
+    // Note: productId filtering is now handled through ProductMedia junction table
+    // We'll filter media by productId in the queries that need it
 
     // Get media statistics
     const [
@@ -112,10 +113,12 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { createdAt: 'desc' },
         take: 10,
-        include: {
-          product: {
-            select: { sku: true, name: true }
-          }
+        select: {
+          id: true,
+          originalName: true,
+          kind: true,
+          fileSize: true,
+          createdAt: true
         }
       }),
       
@@ -147,7 +150,7 @@ export async function GET(request: NextRequest) {
       prisma.product.count({
         where: {
           clientId,
-          mediaItems: {
+          productMedia: {
             some: {}
           }
         }
@@ -157,7 +160,7 @@ export async function GET(request: NextRequest) {
       prisma.product.count({
         where: {
           clientId,
-          mediaItems: {
+          productMedia: {
             none: {}
           }
         }
@@ -173,11 +176,11 @@ export async function GET(request: NextRequest) {
       where: { clientId },
       include: {
         _count: {
-          select: { mediaItems: true }
+          select: { productMedia: true }
         }
       },
       orderBy: {
-        mediaItems: {
+        productMedia: {
           _count: 'desc'
         }
       },
@@ -243,13 +246,13 @@ export async function GET(request: NextRequest) {
         kind: media.kind,
         fileSize: media.fileSize,
         createdAt: media.createdAt,
-        product: media.product
+        product: null // Simplified for now
       })),
       topProductsByMedia: topProductsByMedia.map(product => ({
         id: product.id,
         sku: product.sku,
         name: product.name,
-        mediaCount: product._count.mediaItems
+        mediaCount: product._count.productMedia
       })),
       dailyTrends,
       issues: {

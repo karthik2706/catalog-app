@@ -42,7 +42,7 @@ import {
 import { Product, ProductFilters } from '@/types'
 
 export default function ProductsPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, token, loading: authLoading } = useAuth()
   const router = useRouter()
 
   // Helper function to get display URL for media
@@ -288,32 +288,31 @@ export default function ProductsPage() {
   }
 
   const handleSearchByImage = async (file: File) => {
+    if (!token) {
+      throw new Error('Authentication required. Please log in.')
+    }
+
     const formData = new FormData()
     formData.append('file', file)
-
-    const token = localStorage.getItem('token')
     
     // Get tenant slug from JWT token
     let tenantSlug = 'enterprise' // Default fallback for MASTER_ADMIN
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        if (payload.clientSlug) {
-          tenantSlug = payload.clientSlug
-        } else if (payload.role === 'MASTER_ADMIN') {
-          // For MASTER_ADMIN, use a default tenant
-          tenantSlug = 'enterprise'
-        }
-      } catch (e) {
-        console.warn('Could not parse JWT token for tenant slug')
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      if (payload.clientSlug) {
+        tenantSlug = payload.clientSlug
+      } else if (payload.role === 'MASTER_ADMIN') {
+        // For MASTER_ADMIN, use a default tenant
+        tenantSlug = 'enterprise'
       }
+    } catch (e) {
+      console.warn('Could not parse JWT token for tenant slug')
     }
     
-    const response = await fetch('/api/search/by-image', {
+    const response = await fetch('/api/search/by-image-simple', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'x-tenant-slug': tenantSlug,
       },
       body: formData,
     })

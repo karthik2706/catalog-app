@@ -51,7 +51,6 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
-    const assigned = searchParams.get('assigned') // true, false, or null for all
 
     // Build where clause
     const where: any = {}
@@ -75,16 +74,11 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    if (assigned === 'true') {
-      where.productId = { not: null }
-    } else if (assigned === 'false') {
-      where.productId = null
-    }
 
-    // Get total count
-    const total = await prisma.media.count({ where })
+    // Get total count (we'll adjust this after filtering if needed)
+    let total = await prisma.media.count({ where })
 
-    // Get media assets
+    // Get media assets with junction table data
     const mediaAssets = await prisma.media.findMany({
       where,
       orderBy: [
@@ -104,32 +98,43 @@ export async function GET(request: NextRequest) {
         durationMs: true,
         altText: true,
         caption: true,
-        isPrimary: true,
         status: true,
         createdAt: true,
         updatedAt: true,
-        product: {
+        productMedia: {
           select: {
-            id: true,
-            name: true,
-            sku: true
+            isPrimary: true,
+            sortOrder: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true
+              }
+            }
           }
         }
       }
     })
 
     // Generate URLs for each asset
-    const assetsWithUrls = mediaAssets.map(asset => ({
-      ...asset,
-      url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${asset.s3Key}`,
-      thumbnailUrl: asset.kind === 'image' 
-        ? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${asset.s3Key}`
-        : null,
-      folder: asset.s3Key.split('/')[3] || 'general', // Extract folder from S3 key
-      assigned: !!asset.product,
-      productName: asset.product?.name || null,
-      productSku: asset.product?.sku || null
-    }))
+    const assetsWithUrls = mediaAssets.map(asset => {
+      const primaryAssignment = asset.productMedia.find(pm => pm.isPrimary);
+      const firstAssignment = asset.productMedia[0];
+      
+      return {
+        ...asset,
+        url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${asset.s3Key}`,
+        thumbnailUrl: asset.kind === 'image' 
+          ? `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${asset.s3Key}`
+          : null,
+        folder: asset.s3Key.split('/')[3] || 'general', // Extract folder from S3 key
+        productName: primaryAssignment?.product?.name || firstAssignment?.product?.name || null,
+        productSku: primaryAssignment?.product?.sku || firstAssignment?.product?.sku || null,
+        // Remove the productMedia array from the response to keep it clean
+        productMedia: undefined
+      };
+    });
 
     // Get folder statistics
     const folderStats = await prisma.media.groupBy({

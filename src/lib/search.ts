@@ -86,6 +86,11 @@ export async function searchSimilarImages(
     return filteredResults.length > 0 ? filteredResults : result.rows.slice(0, 3);
   } catch (error) {
     console.error('Error searching similar images:', error);
+    // If the table doesn't exist, return empty results instead of throwing
+    if (error instanceof Error && error.message.includes('does not exist')) {
+      console.warn('Vector search tables not found. Returning empty results.');
+      return [];
+    }
     throw new Error('Failed to search similar images');
   }
 }
@@ -137,6 +142,11 @@ export async function searchSimilarVideoFrames(
     return result.rows;
   } catch (error) {
     console.error('Error searching similar video frames:', error);
+    // If the table doesn't exist, return empty results instead of throwing
+    if (error instanceof Error && error.message.includes('does not exist')) {
+      console.warn('Vector search tables not found. Returning empty results.');
+      return [];
+    }
     throw new Error('Failed to search similar video frames');
   }
 }

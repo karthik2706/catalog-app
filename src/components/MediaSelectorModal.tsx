@@ -71,7 +71,6 @@ export default function MediaSelectorModal({
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
-  const [assignedFilter, setAssignedFilter] = useState('unassigned')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedAssets, setSelectedAssets] = useState<MediaAsset[]>(currentMedia)
   const [assigning, setAssigning] = useState(false)
@@ -88,7 +87,6 @@ export default function MediaSelectorModal({
 
       if (search) params.append('search', search)
       if (typeFilter !== 'all') params.append('type', typeFilter)
-      if (assignedFilter !== 'all') params.append('assigned', assignedFilter)
 
       const response = await fetch(`/api/media/assets?${params}`, {
         headers: {
@@ -115,7 +113,7 @@ export default function MediaSelectorModal({
       fetchAssets()
       setSelectedAssets(currentMedia)
     }
-  }, [isOpen, search, typeFilter, assignedFilter])
+  }, [isOpen, search, typeFilter])
 
   const getFileIcon = (asset: MediaAsset) => {
     switch (asset.kind) {
@@ -243,16 +241,6 @@ export default function MediaSelectorModal({
             <option value="document">Documents</option>
           </select>
 
-          {/* Assigned Filter */}
-          <select
-            value={assignedFilter}
-            onChange={(e) => setAssignedFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-md text-sm"
-          >
-            <option value="all">All Assets</option>
-            <option value="false">Unassigned</option>
-            <option value="true">Assigned</option>
-          </select>
 
           {/* View Mode */}
           <div className="flex border border-slate-300 rounded-md">
@@ -451,7 +439,7 @@ export default function MediaSelectorModal({
                 <Image className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-slate-700 mb-2">No media assets found</h3>
                 <p className="text-slate-500">
-                  {search || typeFilter !== 'all' || assignedFilter !== 'all'
+                  {search || typeFilter !== 'all'
                     ? 'Try adjusting your filters'
                     : 'Upload some media assets to get started'
                   }

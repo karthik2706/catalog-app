@@ -16,7 +16,7 @@ import {
 
 /**
  * @deprecated This component is deprecated. Use MediaUploadPresigned instead for better performance and large file support.
- * This component has a 4MB file size limit due to Vercel serverless function constraints.
+ * This component has a 20MB file size limit for media uploads.
  */
 
 export interface MediaFile {
@@ -49,7 +49,7 @@ export function MediaUpload({
   sku,
   maxFiles = 10,
   acceptedTypes = ['image/*', 'video/*'],
-  maxSize = 10 * 1024 * 1024, // 10MB
+  maxSize = 20 * 1024 * 1024, // 20MB
   className = ''
 }: MediaUploadProps) {
   const [dragActive, setDragActive] = useState(false)
@@ -153,9 +153,9 @@ export function MediaUpload({
         return prevFiles.map(f => f.id === mediaFile.id ? uploadingFile : f)
       })
 
-      // For large files (>4MB), show error
-      if (mediaFile.file.size > 4 * 1024 * 1024) {
-        throw new Error('File too large. Please use MediaUploadPresigned component for files over 4MB.')
+      // For large files (>20MB), show error
+      if (mediaFile.file.size > 20 * 1024 * 1024) {
+        throw new Error('File too large. Please use MediaUploadPresigned component for files over 20MB.')
       }
 
       const token = localStorage.getItem('token')

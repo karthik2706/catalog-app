@@ -14,7 +14,7 @@ import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { CategorySelect } from '@/components/ui/CategorySelect'
 import MediaSelectorModal from '@/components/MediaSelectorModal'
-import { formatCurrency, getCurrencyIcon, generateSku } from '@/lib/utils'
+import { formatCurrency, getCurrencyIcon } from '@/lib/utils'
 import { 
   ArrowLeft, 
   Save, 
@@ -32,7 +32,6 @@ import {
   Palette,
   Ruler,
   Image as ImageIcon,
-  RefreshCw,
   Video,
   Star
 } from 'lucide-react'
@@ -108,11 +107,6 @@ export default function NewProductPage() {
       }
     }
 
-    // Generate initial SKU
-    setFormData(prev => ({
-      ...prev,
-      sku: generateSku()
-    }))
 
     loadCategories()
     fetchClientCurrency()
@@ -126,12 +120,6 @@ export default function NewProductPage() {
     }))
   }
 
-  const handleRegenerateSku = () => {
-    setFormData(prev => ({
-      ...prev,
-      sku: generateSku()
-    }))
-  }
 
 
 
@@ -415,25 +403,13 @@ export default function NewProductPage() {
                               <span>SKU</span>
                               <span className="text-red-500">*</span>
                             </label>
-                            <div className="flex space-x-2">
-                              <Input
-                                placeholder="Unique product identifier"
-                                value={formData.sku}
-                                onChange={(e) => handleInputChange('sku', e.target.value)}
-                                className="flex-1"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleRegenerateSku}
-                                className="px-3 flex items-center justify-center"
-                                title="Generate new SKU"
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                              </Button>
-                            </div>
-                            <p className="text-xs text-slate-500">SKU is automatically generated in VFJ-***** format</p>
+                            <Input
+                              placeholder="Enter unique product identifier"
+                              value={formData.sku}
+                              onChange={(e) => handleInputChange('sku', e.target.value)}
+                              className="w-full"
+                            />
+                            <p className="text-xs text-slate-500">Enter a unique SKU for this product</p>
                           </div>
                         </FadeIn>
                       </div>

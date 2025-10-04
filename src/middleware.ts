@@ -8,13 +8,13 @@ export function middleware(request: NextRequest) {
     if (contentLength) {
       const sizeInMB = parseInt(contentLength) / (1024 * 1024)
       
-      // Vercel has a 4.5MB limit for serverless functions
-      if (sizeInMB > 4.5) {
+      // Increased limit to 20MB for media uploads
+      if (sizeInMB > 20) {
         return NextResponse.json(
           {
             error: 'Request too large',
-            message: 'Upload size exceeds Vercel serverless function limits',
-            maxSize: '4.5MB',
+            message: 'Upload size exceeds server limits',
+            maxSize: '20MB',
             currentSize: `${sizeInMB.toFixed(2)}MB`,
             suggestion: 'Please reduce file size or upload files individually'
           },

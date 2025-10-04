@@ -13,7 +13,7 @@ import { processMediaForEmbedding } from '@/lib/embeddings'
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '50mb',
+      sizeLimit: '25mb',
     },
   },
 }
@@ -54,15 +54,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check content length before processing - Vercel has a 4.5MB limit for serverless functions
+    // Check content length before processing - increased limit to 20MB
     const contentLength = request.headers.get('content-length')
-    if (contentLength && parseInt(contentLength) > 4.5 * 1024 * 1024) {
-      console.log(`Large file upload rejected: ${contentLength} bytes > 4.5MB limit`)
+    if (contentLength && parseInt(contentLength) > 20 * 1024 * 1024) {
+      console.log(`Large file upload rejected: ${contentLength} bytes > 20MB limit`)
       return NextResponse.json(
         { 
-          error: 'File too large for direct upload. Maximum size is 4.5MB. Please use MediaUploadPresigned component for larger files.',
+          error: 'File too large for direct upload. Maximum size is 20MB. Please use MediaUploadPresigned component for larger files.',
           usePresignedUpload: true,
-          maxSize: '4.5MB',
+          maxSize: '20MB',
           currentSize: `${(parseInt(contentLength) / 1024 / 1024).toFixed(2)}MB`
         },
         { status: 413 }
@@ -96,12 +96,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Additional check: Reject video files larger than 4MB to force use of presigned URLs
-    if (file.type.startsWith('video/') && file.size > 4 * 1024 * 1024) {
+    // Additional check: Reject video files larger than 20MB to force use of presigned URLs
+    if (file.type.startsWith('video/') && file.size > 20 * 1024 * 1024) {
       console.log(`Video file rejected: ${file.name} (${file.size} bytes) - use presigned URL upload`)
       return NextResponse.json(
         { 
-          error: 'Video files larger than 4MB must use presigned URL upload. Please use MediaUploadPresigned component.',
+          error: 'Video files larger than 20MB must use presigned URL upload. Please use MediaUploadPresigned component.',
           usePresignedUpload: true,
           fileType: 'video',
           fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import jwt from 'jsonwebtoken'
+import { generateBulkUploadFileName } from '@/lib/unique-naming'
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'us-east-2',
@@ -117,11 +118,9 @@ export async function POST(request: NextRequest) {
                         file.type.startsWith('video/') ? 'video' :
                         file.type.startsWith('audio/') ? 'audio' : 'document'
 
-        // Generate S3 key for client-specific folder
-        const timestamp = Date.now()
-        const fileExtension = file.name.split('.').pop()
-        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-        const s3Key = `clients/${clientId}/media/${folder}/${fileType}/${timestamp}-${sanitizedFileName}`
+        // Generate S3 key with unique naming
+        const uniqueFileName = generateBulkUploadFileName(file.name, fileType, folder, clientId)
+        const s3Key = `clients/${clientId}/media/${folder}/${fileType}/${uniqueFileName}`
 
         // Upload to S3
         const buffer = Buffer.from(await file.arrayBuffer())
@@ -174,7 +173,6 @@ export async function POST(request: NextRequest) {
         // Create media record in database
         const mediaRecord = await prisma.media.create({
           data: {
-            productId: null, // null for unassigned media
             kind: fileType,
             s3Key: s3Key,
             originalName: file.name,
@@ -185,8 +183,6 @@ export async function POST(request: NextRequest) {
             durationMs: durationMs,
             altText: null,
             caption: null,
-            sortOrder: 0,
-            isPrimary: false,
             status: 'completed',
             error: null
           }

@@ -1,5 +1,6 @@
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { generateProductMediaFileName, generateBulkUploadFileName } from './unique-naming'
 
 // AWS S3 Configuration
 export const s3Client = new S3Client({
@@ -65,38 +66,38 @@ export function validateFileType(file: File): { valid: boolean; error?: string }
   return { valid: true }
 }
 
-// Generate S3 key for file upload with proper folder structure
+// Generate S3 key for file upload with proper folder structure and unique naming
 export function generateS3Key(
   fileName: string, 
   clientId: string, 
   sku: string, 
   fileType: 'image' | 'video' = 'image'
 ): string {
-  const timestamp = Date.now()
-  const randomString = Math.random().toString(36).substring(2, 15)
-  const extension = fileName.split('.').pop()
+  // Generate unique filename with product context
+  const uniqueFileName = generateProductMediaFileName(fileName, fileType, sku, clientId)
   
   // Clean SKU to be filesystem-safe (remove special characters)
   const cleanSku = sku.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase()
   
-  // Structure: clients/{clientId}/products/{sku}/media/{fileType}/{timestamp}-{random}.{ext}
-  return `clients/${clientId}/products/${cleanSku}/media/${fileType}/${timestamp}-${randomString}.${extension}`
+  // Structure: clients/{clientId}/products/{sku}/media/{fileType}/{unique-filename}
+  return `clients/${clientId}/products/${cleanSku}/media/${fileType}/${uniqueFileName}`
 }
 
-// Generate thumbnail S3 key
+// Generate thumbnail S3 key with unique naming
 export function generateThumbnailS3Key(
   fileName: string, 
   clientId: string, 
   sku: string
 ): string {
-  const timestamp = Date.now()
-  const randomString = Math.random().toString(36).substring(2, 15)
+  // Generate unique filename for thumbnail (always .jpg)
+  const uniqueFileName = generateProductMediaFileName(fileName, 'image', sku, clientId)
+  const thumbnailFileName = uniqueFileName.replace(/\.[^/.]+$/, '.jpg')
   
   // Clean SKU to be filesystem-safe
   const cleanSku = sku.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase()
   
-  // Structure: clients/{clientId}/products/{sku}/media/thumbnails/{timestamp}-{random}.jpg
-  return `clients/${clientId}/products/${cleanSku}/media/thumbnails/${timestamp}-${randomString}.jpg`
+  // Structure: clients/{clientId}/products/{sku}/media/thumbnails/{unique-filename}
+  return `clients/${clientId}/products/${cleanSku}/media/thumbnails/${thumbnailFileName}`
 }
 
 // Generate folder path for a product's media

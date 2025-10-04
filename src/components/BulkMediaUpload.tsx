@@ -134,7 +134,7 @@ export default function BulkMediaUpload({ onUploadComplete, className = '' }: Bu
 
     // Client-side validation
     const maxFileSize = 50 * 1024 * 1024 // 50MB per file
-    const maxTotalSize = 4 * 1024 * 1024 // 4MB total (Vercel limit)
+    const maxTotalSize = 20 * 1024 * 1024 // 20MB total
     
     let totalSize = 0
     const oversizedFiles = []
@@ -152,7 +152,7 @@ export default function BulkMediaUpload({ onUploadComplete, className = '' }: Bu
     }
     
     if (totalSize > maxTotalSize) {
-      alert(`Total upload size too large: ${(totalSize / 1024 / 1024).toFixed(1)}MB\n\nMaximum total size: 4MB\n\nPlease upload files individually or reduce file sizes.`)
+      alert(`Total upload size too large: ${(totalSize / 1024 / 1024).toFixed(1)}MB\n\nMaximum total size: 20MB\n\nPlease upload files individually or reduce file sizes.`)
       return
     }
 

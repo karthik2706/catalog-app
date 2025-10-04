@@ -38,28 +38,28 @@ model Currency {
 }
 
 model Client {
-  id         String          @id @default(cuid())
-  name       String
-  slug       String          @unique
-  domain     String?
-  email      String
-  phone      String?
-  address    String?
-  logo       String?
-  countryId  String?
-  currencyId String?
-  isActive   Boolean         @default(true)
-  plan       Plan            @default(STARTER)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-  settings   ClientSettings? @relation("ClientSettings")
-  country    Country?        @relation("ClientCountry", fields: [countryId], references: [id])
-  currency   Currency?       @relation("ClientCurrency", fields: [currencyId], references: [id])
-  products         Product[]         @relation("ClientProducts")
-  users            User[]            @relation("ClientUsers")
-  apiKeys          ApiKey[]          @relation("ClientApiKeys")
-  categories       Category[]        @relation("ClientCategories")
+  id               String             @id @default(cuid())
+  name             String
+  slug             String             @unique
+  domain           String?
+  email            String
+  phone            String?
+  address          String?
+  logo             String?
+  countryId        String?
+  currencyId       String?
+  isActive         Boolean            @default(true)
+  plan             Plan               @default(STARTER)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  apiKeys          ApiKey[]           @relation("ClientApiKeys")
+  categories       Category[]         @relation("ClientCategories")
+  settings         ClientSettings?    @relation("ClientSettings")
+  country          Country?           @relation("ClientCountry", fields: [countryId], references: [id])
+  currency         Currency?          @relation("ClientCurrency", fields: [currencyId], references: [id])
   inventoryHistory InventoryHistory[] @relation("ClientInventoryHistory")
+  products         Product[]          @relation("ClientProducts")
+  users            User[]             @relation("ClientUsers")
 
   @@map("clients")
 }
@@ -113,16 +113,16 @@ model Product {
   minStock         Int                @default(0)
   isActive         Boolean            @default(true)
   clientId         String
-  media            Json?
   images           Json?
   videos           Json?
   thumbnailUrl     String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+  media            Json?
   allowPreorder    Boolean            @default(false)
   inventoryHistory InventoryHistory[] @relation("ProductInventoryHistory")
-  mediaItems       Media[]            @relation("ProductMedia")
   categories       ProductCategory[]  @relation("ProductCategories")
+  productMedia     ProductMedia[]     @relation("ProductMediaJunction")
   client           Client             @relation("ClientProducts", fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([sku, clientId])
@@ -138,9 +138,9 @@ model InventoryHistory {
   userId    String?
   clientId  String
   createdAt DateTime      @default(now())
+  client    Client        @relation("ClientInventoryHistory", fields: [clientId], references: [id], onDelete: Cascade)
   product   Product       @relation("ProductInventoryHistory", fields: [productId], references: [id])
   user      User?         @relation("UserInventoryHistory", fields: [userId], references: [id])
-  client    Client        @relation("ClientInventoryHistory", fields: [clientId], references: [id], onDelete: Cascade)
 
   @@map("inventory_history")
 }
@@ -155,10 +155,10 @@ model Category {
   sortOrder   Int               @default(0)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+  client      Client            @relation("ClientCategories", fields: [clientId], references: [id], onDelete: Cascade)
   parent      Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children    Category[]        @relation("CategoryHierarchy")
   products    ProductCategory[] @relation("CategoryProducts")
-  client      Client            @relation("ClientCategories", fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([name, clientId, parentId])
   @@map("categories")
@@ -177,27 +177,41 @@ model ProductCategory {
 }
 
 model Media {
-  id           String   @id @default(cuid())
-  productId    String?
+  id           String         @id @default(cuid())
   kind         String
   s3Key        String
-  originalName String
-  mimeType     String
-  fileSize     Int
   width        Int?
   height       Int?
   durationMs   Int?
+  status       String         @default("pending")
+  error        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   altText      String?
   caption      String?
-  sortOrder    Int      @default(0)
-  isPrimary    Boolean  @default(false)
-  status       String   @default("pending")
-  error        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  product      Product? @relation("ProductMedia", fields: [productId], references: [id], onDelete: Cascade)
+  fileSize     Int
+  mimeType     String
+  originalName String
+  productMedia ProductMedia[] @relation("MediaProducts")
+  imageEmbedding ImageEmbedding? @relation("ImageEmbedding")
+  videoFrames  VideoFrame[]   @relation("VideoFrames")
 
   @@map("media")
+}
+
+model ProductMedia {
+  id        String   @id @default(cuid())
+  productId String
+  mediaId   String
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  media     Media    @relation("MediaProducts", fields: [mediaId], references: [id], onDelete: Cascade)
+  product   Product  @relation("ProductMediaJunction", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, mediaId])
+  @@map("product_media")
 }
 
 model PerformanceMetrics {
@@ -220,28 +234,6 @@ model PerformanceMetrics {
   @@map("performance_metrics")
 }
 
-enum Role {
-  MASTER_ADMIN
-  ADMIN
-  MANAGER
-  USER
-}
-
-enum Plan {
-  STARTER
-  PROFESSIONAL
-  ENTERPRISE
-}
-
-enum InventoryType {
-  PURCHASE
-  SALE
-  ADJUSTMENT
-  RETURN
-  DAMAGE
-  TRANSFER
-}
-
 model ApiKey {
   id          String    @id @default(cuid())
   name        String
@@ -259,4 +251,63 @@ model ApiKey {
   @@index([clientId])
   @@index([key])
   @@map("api_keys")
+}
+
+enum Role {
+  MASTER_ADMIN
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum Plan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model ImageEmbedding {
+  id        String   @id @default(cuid())
+  mediaId   String   @unique
+  embedding Unsupported("vector(512)") // pgvector extension
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  media     Media    @relation("ImageEmbedding", fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@map("image_embeddings")
+}
+
+model VideoFrame {
+  id        String   @id @default(cuid())
+  mediaId   String
+  frameS3Key String
+  tsMs      Int      // Timestamp in milliseconds
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  media     Media    @relation("VideoFrames", fields: [mediaId], references: [id], onDelete: Cascade)
+  embeddings FrameEmbedding[]
+
+  @@map("video_frames")
+}
+
+model FrameEmbedding {
+  id        String     @id @default(cuid())
+  frameId   String     @unique
+  embedding Unsupported("vector(512)") // pgvector extension
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  frame     VideoFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
+
+  @@map("frame_embeddings")
+}
+
+enum InventoryType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  RETURN
+  DAMAGE
+  TRANSFER
 }

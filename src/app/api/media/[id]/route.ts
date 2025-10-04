@@ -114,11 +114,12 @@ export async function PATCH(
       )
     }
 
-    // If setting as primary, unset other primary files
-    if (isPrimary) {
-      await prisma.media.updateMany({
+    // If setting as primary, unset other primary files for the same product
+    if (isPrimary && media.productMedia.length > 0) {
+      const productId = media.productMedia[0].productId
+      await prisma.productMedia.updateMany({
         where: { 
-          productId: media.productId,
+          productId: productId,
           isPrimary: true
         },
         data: { isPrimary: false }
@@ -130,11 +131,21 @@ export async function PATCH(
       where: { id },
       data: {
         ...(altText !== undefined && { altText }),
-        ...(caption !== undefined && { caption }),
-        ...(sortOrder !== undefined && { sortOrder }),
-        ...(isPrimary !== undefined && { isPrimary })
+        ...(caption !== undefined && { caption })
       }
     })
+
+    // Update ProductMedia junction table if needed
+    if (media.productMedia.length > 0) {
+      const productMediaId = media.productMedia[0].id
+      await prisma.productMedia.update({
+        where: { id: productMediaId },
+        data: {
+          ...(sortOrder !== undefined && { sortOrder }),
+          ...(isPrimary !== undefined && { isPrimary })
+        }
+      })
+    }
 
     return NextResponse.json({ 
       success: true,
@@ -165,14 +176,20 @@ export async function DELETE(
       )
     }
 
-    // Verify media belongs to client
+    // Verify media belongs to client through S3 key path
     const media = await prisma.media.findFirst({
       where: { 
         id,
-        product: { clientId }
+        s3Key: {
+          startsWith: `clients/${clientId}/`
+        }
       },
       include: {
-        product: true
+        productMedia: {
+          include: {
+            product: true
+          }
+        }
       }
     })
 
@@ -205,23 +222,33 @@ export async function DELETE(
       // Continue with database deletion even if S3 deletion fails
     }
 
+    // Delete from junction table first (cascade will handle media deletion)
+    await prisma.productMedia.deleteMany({
+      where: { mediaId: id }
+    })
+
     // Delete from database
     await prisma.media.delete({
       where: { id }
     })
 
-    // If this was the primary media, set another one as primary
-    if (media.isPrimary) {
-      const nextMedia = await prisma.media.findFirst({
-        where: { productId: media.productId },
-        orderBy: { sortOrder: 'asc' }
-      })
-
-      if (nextMedia) {
-        await prisma.media.update({
-          where: { id: nextMedia.id },
-          data: { isPrimary: true }
+    // Handle primary media reassignment for each product that had this media
+    for (const productMedia of media.productMedia) {
+      if (productMedia.isPrimary) {
+        const nextProductMedia = await prisma.productMedia.findFirst({
+          where: { 
+            productId: productMedia.productId,
+            mediaId: { not: id }
+          },
+          orderBy: { sortOrder: 'asc' }
         })
+
+        if (nextProductMedia) {
+          await prisma.productMedia.update({
+            where: { id: nextProductMedia.id },
+            data: { isPrimary: true }
+          })
+        }
       }
     }
 

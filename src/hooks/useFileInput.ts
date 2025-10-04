@@ -29,7 +29,7 @@ export interface FileInputActions {
 export function useFileInput(options: FileInputOptions = {}): FileInputState & FileInputActions {
   const {
     accept = 'image/*',
-    maxSize = 10 * 1024 * 1024, // 10MB default
+    maxSize = 20 * 1024 * 1024, // 20MB default
     multiple = false,
     onError,
   } = options;

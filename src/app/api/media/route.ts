@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import sharp from 'sharp'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { generateProductMediaFileName } from '@/lib/unique-naming'
 
 interface JWTPayload {
   userId: string
@@ -74,23 +75,44 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Build where clause
-    const where: any = { productId }
+    // Build where clause using ProductMedia junction table
+    const where: any = {}
     if (kind) where.kind = kind
     if (status) where.status = status
 
     const [mediaFiles, total] = await Promise.all([
       prisma.media.findMany({
-        where,
-        orderBy: [
-          { isPrimary: 'desc' },
-          { sortOrder: 'asc' },
-          { createdAt: 'desc' }
-        ],
+        where: {
+          ...where,
+          productMedia: {
+            some: {
+              productId: productId
+            }
+          }
+        },
+        include: {
+          productMedia: {
+            where: { productId },
+            orderBy: [
+              { isPrimary: 'desc' },
+              { sortOrder: 'asc' }
+            ]
+          }
+        },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit
       }),
-      prisma.media.count({ where })
+      prisma.media.count({ 
+        where: {
+          ...where,
+          productMedia: {
+            some: {
+              productId: productId
+            }
+          }
+        }
+      })
     ])
 
     // Generate signed URLs for media files
@@ -194,10 +216,9 @@ export async function POST(request: NextRequest) {
                     file.type.startsWith('video/') ? 'video' :
                     file.type.startsWith('audio/') ? 'audio' : 'document'
 
-    // Generate S3 key
-    const timestamp = Date.now()
-    const fileExtension = file.name.split('.').pop()
-    const s3Key = `clients/${clientId}/products/${sku}/media/${fileType}/${timestamp}-${file.name}`
+    // Generate S3 key with unique naming
+    const uniqueFileName = generateProductMediaFileName(file.name, fileType, sku, clientId)
+    const s3Key = `clients/${clientId}/products/${sku}/media/${fileType}/${uniqueFileName}`
 
     // Upload to S3
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -256,19 +277,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get next sort order
-    const lastMedia = await prisma.media.findFirst({
+    // Get next sort order from ProductMedia junction table
+    const lastProductMedia = await prisma.productMedia.findFirst({
       where: { productId },
       orderBy: { sortOrder: 'desc' },
       select: { sortOrder: true }
     })
 
-    const nextSortOrder = (lastMedia?.sortOrder || 0) + 1
+    const nextSortOrder = (lastProductMedia?.sortOrder || 0) + 1
 
-    // Create media record
+    // Create media record (without productId)
     const media = await prisma.media.create({
       data: {
-        productId,
         kind: fileType,
         s3Key,
         originalName: file.name,
@@ -276,26 +296,30 @@ export async function POST(request: NextRequest) {
         fileSize: file.size,
         width,
         height,
-        sortOrder: nextSortOrder,
-        isPrimary: false, // Will be set to true if it's the first media file
         status: 'completed'
       }
     })
 
-    // Set as primary if it's the first media file
-    const mediaCount = await prisma.media.count({ where: { productId } })
-    if (mediaCount === 1) {
-      await prisma.media.update({
-        where: { id: media.id },
-        data: { isPrimary: true }
-      })
-    }
+    // Check if this is the first media file for this product
+    const mediaCount = await prisma.productMedia.count({ where: { productId } })
+    const isPrimary = mediaCount === 0
+
+    // Create ProductMedia junction record
+    const productMedia = await prisma.productMedia.create({
+      data: {
+        productId,
+        mediaId: media.id,
+        sortOrder: nextSortOrder,
+        isPrimary
+      }
+    })
 
     return NextResponse.json({
       success: true,
       media: {
         ...media,
-        thumbnailS3Key
+        thumbnailS3Key,
+        productMedia: productMedia
       }
     })
   } catch (error) {

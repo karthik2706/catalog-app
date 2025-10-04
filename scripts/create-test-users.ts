@@ -46,7 +46,7 @@ async function createTestUsers() {
           email: 'superadmin@stockmind.com',
           password: hashedPassword,
           name: 'Super Admin',
-          role: 'SUPER_ADMIN',
+          role: 'MASTER_ADMIN',
           clientId: null,
         },
       });
@@ -112,7 +112,7 @@ async function createTestUsers() {
     console.log('Super Admin:');
     console.log('  Email: superadmin@stockmind.com');
     console.log('  Password: password123');
-    console.log('  Role: SUPER_ADMIN (can access all clients)');
+    console.log('  Role: MASTER_ADMIN (can access all clients)');
     console.log('');
     console.log('Test Company Users:');
     console.log('  Email: admin@testcompany.com');

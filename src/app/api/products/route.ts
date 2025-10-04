@@ -32,19 +32,22 @@ function getUserFromRequest(request: NextRequest): { userId: string; role: strin
 
 // Helper function to process media and generate signed URLs
 async function processMediaWithUrls(products: any[]): Promise<any[]> {
-  console.log('processMediaWithUrls called with:', {
-    productCount: products.length,
-    productsWithMedia: products.filter(p => p.media && p.media.length > 0).length,
-    productsWithLegacyImages: products.filter(p => p.images && p.images.length > 0).length
-  })
+      console.log('processMediaWithUrls called with:', {
+        productCount: products.length,
+        productsWithMedia: products.filter(p => p.media && p.media.length > 0).length,
+        productsWithProductMedia: products.filter(p => p.productMedia && p.productMedia.length > 0).length,
+        productsWithLegacyImages: products.filter(p => p.images && p.images.length > 0).length
+      })
   
   const processedProducts = await Promise.all(
     products.map(async (product) => {
       console.log('Processing product:', {
         sku: product.sku,
-        hasMedia: !!(product.mediaItems && product.mediaItems.length > 0),
+        hasMedia: !!(product.media && product.media.length > 0),
+        hasProductMedia: !!(product.productMedia && product.productMedia.length > 0),
         hasLegacyImages: !!(product.images && product.images.length > 0),
-        mediaCount: product.mediaItems?.length || 0,
+        mediaCount: product.media?.length || 0,
+        productMediaCount: product.productMedia?.length || 0,
         legacyImageCount: product.images?.length || 0
       })
       
@@ -52,10 +55,10 @@ async function processMediaWithUrls(products: any[]): Promise<any[]> {
       let processedImages = []
       let processedVideos = []
       
-      // Process new media table
-      if (product.mediaItems && product.mediaItems.length > 0) {
+      // Process media from the attached media array (from the separate query)
+      if (product.media && product.media.length > 0) {
         processedMedia = await Promise.all(
-          product.mediaItems.map(async (media: any) => {
+          product.media.map(async (media: any) => {
             try {
               const signedUrl = await generateSignedUrl(media.s3Key, 7 * 24 * 60 * 60) // 7 days
               console.log('Generated signed URL for new media:', {
@@ -349,25 +352,29 @@ export async function GET(request: NextRequest) {
             createdAt: true,
             updatedAt: true,
             allowPreorder: true, // Re-enabled now that database is properly connected
-            mediaItems: {
+            productMedia: {
               select: {
-                id: true,
-                kind: true,
-                s3Key: true,
-                originalName: true,
-                mimeType: true,
-                fileSize: true,
-                width: true,
-                height: true,
-                durationMs: true,
-                altText: true,
-                caption: true,
-                sortOrder: true,
                 isPrimary: true,
-                status: true,
-                error: true,
-                createdAt: true,
-                updatedAt: true
+                sortOrder: true,
+                media: {
+                  select: {
+                    id: true,
+                    kind: true,
+                    s3Key: true,
+                    originalName: true,
+                    mimeType: true,
+                    fileSize: true,
+                    width: true,
+                    height: true,
+                    durationMs: true,
+                    altText: true,
+                    caption: true,
+                    status: true,
+                    error: true,
+                    createdAt: true,
+                    updatedAt: true
+                  }
+                }
               }
             }
           }
@@ -387,11 +394,14 @@ export async function GET(request: NextRequest) {
       
       const mediaData = productIds.length > 0 ? await prisma.media.findMany({
         where: {
-          productId: { in: productIds }
+          productMedia: {
+            some: {
+              productId: { in: productIds }
+            }
+          }
         },
         select: {
           id: true,
-          productId: true,
           kind: true,
           s3Key: true,
           width: true,
@@ -400,21 +410,39 @@ export async function GET(request: NextRequest) {
           status: true,
           error: true,
           createdAt: true,
-          updatedAt: true
+          updatedAt: true,
+          productMedia: {
+            select: {
+              productId: true,
+              isPrimary: true,
+              sortOrder: true
+            }
+          }
         }
       }) : []
 
       console.log('Raw media data from database:', {
         mediaCount: mediaData.length,
-        mediaData: mediaData.map(m => ({ id: m.id, productId: m.productId, kind: m.kind, s3Key: m.s3Key }))
+        mediaData: mediaData.map(m => ({ 
+          id: m.id, 
+          productIds: m.productMedia.map(pm => pm.productId), 
+          kind: m.kind, 
+          s3Key: m.s3Key 
+        }))
       })
 
-      // Group media by productId
+      // Group media by productId (since one media can be associated with multiple products)
       const mediaByProduct = mediaData.reduce((acc, media) => {
-        if (!acc[media.productId]) {
-          acc[media.productId] = []
-        }
-        acc[media.productId].push(media)
+        media.productMedia.forEach(productMedia => {
+          if (!acc[productMedia.productId]) {
+            acc[productMedia.productId] = []
+          }
+          acc[productMedia.productId].push({
+            ...media,
+            isPrimary: productMedia.isPrimary,
+            sortOrder: productMedia.sortOrder
+          })
+        })
         return acc
       }, {} as Record<string, any[]>)
 
@@ -599,24 +627,36 @@ export async function POST(request: NextRequest) {
               categoryId
             }))
           } : undefined,
-          // Create media table entries for better consistency
-          mediaItems: {
+          // Create media entries and ProductMedia relationships
+          productMedia: {
             create: [
               // Create media entries for images
-              ...images.map((img: any) => ({
-                kind: 'image' as const,
-                s3Key: img.key || img.url,
-                width: 0,
-                height: 0,
-                status: 'completed' as const
+              ...images.map((img: any, index: number) => ({
+                media: {
+                  create: {
+                    kind: 'image' as const,
+                    s3Key: img.key || img.url,
+                    width: 0,
+                    height: 0,
+                    status: 'completed' as const
+                  }
+                },
+                isPrimary: index === 0, // First image is primary
+                sortOrder: index + 1
               })),
               // Create media entries for videos
-              ...(body.videos || []).map((vid: any) => ({
-                kind: 'video' as const,
-                s3Key: vid.key || vid.url,
-                width: 0,
-                height: 0,
-                status: 'completed' as const
+              ...(body.videos || []).map((vid: any, index: number) => ({
+                media: {
+                  create: {
+                    kind: 'video' as const,
+                    s3Key: vid.key || vid.url,
+                    width: 0,
+                    height: 0,
+                    status: 'completed' as const
+                  }
+                },
+                isPrimary: false, // Videos are not primary
+                sortOrder: images.length + index + 1
               }))
             ]
           }
@@ -634,18 +674,24 @@ export async function POST(request: NextRequest) {
               }
             }
           },
-          mediaItems: {
+          productMedia: {
             select: {
-              id: true,
-              kind: true,
-              s3Key: true,
-              width: true,
-              height: true,
-              durationMs: true,
-              status: true,
-              error: true,
-              createdAt: true,
-              updatedAt: true
+              isPrimary: true,
+              sortOrder: true,
+              media: {
+                select: {
+                  id: true,
+                  kind: true,
+                  s3Key: true,
+                  width: true,
+                  height: true,
+                  durationMs: true,
+                  status: true,
+                  error: true,
+                  createdAt: true,
+                  updatedAt: true
+                }
+              }
             }
           },
           inventoryHistory: {
@@ -661,9 +707,11 @@ export async function POST(request: NextRequest) {
       })
 
       // Process embeddings for uploaded media (images and videos) in the background
-      if (product.mediaItems && product.mediaItems.length > 0) {
+      if (product.productMedia && product.productMedia.length > 0) {
+        // Extract media items from productMedia relationships
+        const mediaItems = product.productMedia.map(pm => pm.media)
         // Process embeddings asynchronously (don't wait for completion)
-        processMediaForEmbedding(product.mediaItems).catch(error => {
+        processMediaForEmbedding(mediaItems).catch(error => {
           console.error('Error processing media embeddings:', error)
         })
       }

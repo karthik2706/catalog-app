@@ -43,7 +43,6 @@ interface MediaAsset {
   url: string
   thumbnailUrl?: string
   folder: string
-  assigned: boolean
   productName?: string
   productSku?: string
 }
@@ -67,7 +66,6 @@ export default function MediaLibrary({
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
-  const [assignedFilter, setAssignedFilter] = useState('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -86,7 +84,6 @@ export default function MediaLibrary({
 
       if (search) params.append('search', search)
       if (typeFilter !== 'all') params.append('type', typeFilter)
-      if (assignedFilter !== 'all') params.append('assigned', assignedFilter)
 
       const response = await fetch(`/api/media/assets?${params}`, {
         headers: {
@@ -112,7 +109,7 @@ export default function MediaLibrary({
 
   useEffect(() => {
     fetchAssets()
-  }, [page, search, typeFilter, assignedFilter])
+  }, [page, search, typeFilter])
 
   const getFileIcon = (asset: MediaAsset) => {
     switch (asset.kind) {
@@ -133,6 +130,10 @@ export default function MediaLibrary({
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString()
+  }
+
+  const getUniqueFileName = (s3Key: string) => {
+    return s3Key.split('/').pop() || s3Key
   }
 
   const handleSelectAsset = (assetId: string) => {
@@ -276,16 +277,6 @@ export default function MediaLibrary({
               <option value="document">Documents</option>
             </select>
 
-            {/* Assigned Filter */}
-            <select
-              value={assignedFilter}
-              onChange={(e) => setAssignedFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-md text-sm"
-            >
-              <option value="all">All Assets</option>
-              <option value="false">Unassigned</option>
-              <option value="true">Assigned</option>
-            </select>
 
             {/* View Mode */}
             <div className="flex border border-slate-300 rounded-md">
@@ -366,18 +357,13 @@ export default function MediaLibrary({
 
               {/* Info */}
               <div className="p-2">
-                <p className="text-xs font-medium text-slate-700 truncate">
-                  {asset.originalName}
+                <p className="text-xs font-medium text-slate-700 truncate" title={asset.originalName}>
+                  {getUniqueFileName(asset.s3Key)}
+                </p>
+                <p className="text-xs text-slate-500 truncate" title={asset.originalName}>
+                  Original: {asset.originalName}
                 </p>
                 <div className="flex items-center justify-between mt-1">
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${
-                      asset.assigned ? 'text-green-600' : 'text-slate-500'
-                    }`}
-                  >
-                    {asset.assigned ? 'Assigned' : 'Unassigned'}
-                  </Badge>
                   <span className="text-xs text-slate-500">
                     {formatFileSize(asset.fileSize)}
                   </span>
@@ -386,7 +372,7 @@ export default function MediaLibrary({
 
               {/* Actions */}
               {!selectionMode && (
-                <div className="absolute top-2 left-2 opacity-0 hover:opacity-100 transition-opacity">
+                <div className="absolute top-2 left-2 opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-md p-1 shadow-sm">
                   <div className="flex space-x-1">
                     <Button
                       size="sm"
@@ -482,9 +468,14 @@ export default function MediaLibrary({
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
-                  <p className="font-medium text-slate-700 truncate">
-                    {asset.originalName}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-700 truncate" title={asset.originalName}>
+                      {getUniqueFileName(asset.s3Key)}
+                    </p>
+                    <p className="text-sm text-slate-500 truncate" title={asset.originalName}>
+                      Original: {asset.originalName}
+                    </p>
+                  </div>
                   {asset.isPrimary && (
                     <Badge variant="outline" className="text-xs text-blue-600">
                       Primary
@@ -498,21 +489,17 @@ export default function MediaLibrary({
                   <span className="text-sm text-slate-500">
                     {formatDate(asset.createdAt)}
                   </span>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${
-                      asset.assigned ? 'text-green-600' : 'text-slate-500'
-                    }`}
-                  >
-                    {asset.assigned ? (
+                  {asset.productName && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-green-600"
+                    >
                       <span className="flex items-center">
                         <Package className="w-3 h-3 mr-1" />
                         {asset.productName}
                       </span>
-                    ) : (
-                      'Unassigned'
-                    )}
-                  </Badge>
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -593,7 +580,7 @@ export default function MediaLibrary({
           <Image className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-slate-700 mb-2">No media assets found</h3>
           <p className="text-slate-500">
-            {search || typeFilter !== 'all' || assignedFilter !== 'all'
+            {search || typeFilter !== 'all'
               ? 'Try adjusting your filters'
               : 'Upload some media assets to get started'
             }

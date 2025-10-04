@@ -54,18 +54,24 @@ export async function GET(
               }
             }
           },
-          mediaItems: {
+          productMedia: {
             select: {
-              id: true,
-              kind: true,
-              s3Key: true,
-              width: true,
-              height: true,
-              durationMs: true,
-              status: true,
-              error: true,
-              createdAt: true,
-              updatedAt: true
+              isPrimary: true,
+              sortOrder: true,
+              media: {
+                select: {
+                  id: true,
+                  kind: true,
+                  s3Key: true,
+                  width: true,
+                  height: true,
+                  durationMs: true,
+                  status: true,
+                  error: true,
+                  createdAt: true,
+                  updatedAt: true
+                }
+              }
             }
           },
           inventoryHistory: {
@@ -223,24 +229,36 @@ export async function PUT(
           }),
           // Handle media updates
           ...(body.images || body.videos ? {
-            mediaItems: {
+            productMedia: {
               deleteMany: {}, // Remove all existing media associations
               create: [
                 // Create media entries for images
-                ...(body.images || []).map((img: any) => ({
-                  kind: 'image' as const,
-                  s3Key: img.key || img.url,
-                  width: 0,
-                  height: 0,
-                  status: 'completed' as const
+                ...(body.images || []).map((img: any, index: number) => ({
+                  media: {
+                    create: {
+                      kind: 'image' as const,
+                      s3Key: img.key || img.url,
+                      width: 0,
+                      height: 0,
+                      status: 'completed' as const
+                    }
+                  },
+                  isPrimary: index === 0, // First image is primary
+                  sortOrder: index + 1
                 })),
                 // Create media entries for videos
-                ...(body.videos || []).map((vid: any) => ({
-                  kind: 'video' as const,
-                  s3Key: vid.key || vid.url,
-                  width: 0,
-                  height: 0,
-                  status: 'completed' as const
+                ...(body.videos || []).map((vid: any, index: number) => ({
+                  media: {
+                    create: {
+                      kind: 'video' as const,
+                      s3Key: vid.key || vid.url,
+                      width: 0,
+                      height: 0,
+                      status: 'completed' as const
+                    }
+                  },
+                  isPrimary: false, // Videos are not primary
+                  sortOrder: (body.images?.length || 0) + index + 1
                 }))
               ]
             }
@@ -268,18 +286,24 @@ export async function PUT(
               }
             }
           },
-          mediaItems: {
+          productMedia: {
             select: {
-              id: true,
-              kind: true,
-              s3Key: true,
-              width: true,
-              height: true,
-              durationMs: true,
-              status: true,
-              error: true,
-              createdAt: true,
-              updatedAt: true
+              isPrimary: true,
+              sortOrder: true,
+              media: {
+                select: {
+                  id: true,
+                  kind: true,
+                  s3Key: true,
+                  width: true,
+                  height: true,
+                  durationMs: true,
+                  status: true,
+                  error: true,
+                  createdAt: true,
+                  updatedAt: true
+                }
+              }
             }
           }
         }
@@ -304,9 +328,11 @@ export async function PUT(
       })
 
       // Process embeddings for newly uploaded media (images and videos) in the background
-      if (product.mediaItems && product.mediaItems.length > 0) {
+      if (product.productMedia && product.productMedia.length > 0) {
+        // Extract media items from productMedia relationships
+        const mediaItems = product.productMedia.map(pm => pm.media)
         // Process embeddings asynchronously (don't wait for completion)
-        processMediaForEmbedding(product.mediaItems).catch(error => {
+        processMediaForEmbedding(mediaItems).catch(error => {
           console.error('Error processing media embeddings:', error)
         })
       }
@@ -383,9 +409,27 @@ export async function DELETE(
       // Permanently delete product and related data
       await prisma.$transaction(async (tx) => {
         // Delete related data first
-        await tx.media.deleteMany({
+        // Delete ProductMedia relationships first
+        await tx.productMedia.deleteMany({
           where: { productId: id }
         })
+
+        // Delete media files that are no longer associated with any products
+        const orphanedMedia = await tx.media.findMany({
+          where: {
+            productMedia: {
+              none: {}
+            }
+          }
+        })
+
+        if (orphanedMedia.length > 0) {
+          await tx.media.deleteMany({
+            where: {
+              id: { in: orphanedMedia.map(m => m.id) }
+            }
+          })
+        }
 
         await tx.inventoryHistory.deleteMany({
           where: { productId: id }
