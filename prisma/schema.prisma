@@ -118,11 +118,10 @@ model Product {
   thumbnailUrl     String?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
-  media            Json?
   allowPreorder    Boolean            @default(false)
   inventoryHistory InventoryHistory[] @relation("ProductInventoryHistory")
+  media            Media[]
   categories       ProductCategory[]  @relation("ProductCategories")
-  productMedia     ProductMedia[]     @relation("ProductMediaJunction")
   client           Client             @relation("ClientProducts", fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([sku, clientId])
@@ -177,41 +176,29 @@ model ProductCategory {
 }
 
 model Media {
-  id           String         @id @default(cuid())
+  id           String   @id @default(cuid())
+  productId    String?
   kind         String
   s3Key        String
+  originalName String
+  mimeType     String
+  fileSize     Int
   width        Int?
   height       Int?
   durationMs   Int?
-  status       String         @default("pending")
-  error        String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
   altText      String?
   caption      String?
-  fileSize     Int
-  mimeType     String
-  originalName String
-  productMedia ProductMedia[] @relation("MediaProducts")
+  sortOrder    Int      @default(0)
+  isPrimary    Boolean  @default(false)
+  status       String   @default("pending")
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  products     Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
   imageEmbedding ImageEmbedding? @relation("ImageEmbedding")
   videoFrames  VideoFrame[]   @relation("VideoFrames")
 
   @@map("media")
-}
-
-model ProductMedia {
-  id        String   @id @default(cuid())
-  productId String
-  mediaId   String
-  isPrimary Boolean  @default(false)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  media     Media    @relation("MediaProducts", fields: [mediaId], references: [id], onDelete: Cascade)
-  product   Product  @relation("ProductMediaJunction", fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([productId, mediaId])
-  @@map("product_media")
 }
 
 model PerformanceMetrics {
