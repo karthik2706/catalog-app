@@ -120,7 +120,8 @@ model Product {
   updatedAt        DateTime           @updatedAt
   allowPreorder    Boolean            @default(false)
   inventoryHistory InventoryHistory[] @relation("ProductInventoryHistory")
-  media            Media[]
+  media            Media[]            @relation("DirectProductMedia")
+  productMedia     ProductMedia[]     @relation("ProductMediaRelations")
   categories       ProductCategory[]  @relation("ProductCategories")
   client           Client             @relation("ClientProducts", fields: [clientId], references: [id], onDelete: Cascade)
 
@@ -175,28 +176,44 @@ model ProductCategory {
   @@map("product_categories")
 }
 
+model ProductMedia {
+  id        String   @id @default(cuid())
+  productId String
+  mediaId   String
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  media     Media    @relation("MediaProductRelations", fields: [mediaId], references: [id], onDelete: Cascade)
+  product   Product  @relation("ProductMediaRelations", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, mediaId])
+  @@map("product_media")
+}
+
 model Media {
-  id           String   @id @default(cuid())
-  productId    String?
-  kind         String
-  s3Key        String
-  originalName String
-  mimeType     String
-  fileSize     Int
-  width        Int?
-  height       Int?
-  durationMs   Int?
-  altText      String?
-  caption      String?
-  sortOrder    Int      @default(0)
-  isPrimary    Boolean  @default(false)
-  status       String   @default("pending")
-  error        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  products     Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id             String          @id @default(cuid())
+  productId      String?
+  kind           String
+  s3Key          String
+  originalName   String
+  mimeType       String
+  fileSize       Int
+  width          Int?
+  height         Int?
+  durationMs     Int?
+  altText        String?
+  caption        String?
+  sortOrder      Int             @default(0)
+  isPrimary      Boolean         @default(false)
+  status         String          @default("pending")
+  error          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   imageEmbedding ImageEmbedding? @relation("ImageEmbedding")
-  videoFrames  VideoFrame[]   @relation("VideoFrames")
+  products       Product?        @relation("DirectProductMedia", fields: [productId], references: [id], onDelete: Cascade)
+  productMedia   ProductMedia[]  @relation("MediaProductRelations")
+  videoFrames    VideoFrame[]    @relation("VideoFrames")
 
   @@map("media")
 }
@@ -240,6 +257,43 @@ model ApiKey {
   @@map("api_keys")
 }
 
+model ImageEmbedding {
+  id        String                @id @default(cuid())
+  mediaId   String                @unique
+  embedding Unsupported("vector")
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  media     Media                 @relation("ImageEmbedding", fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@map("image_embeddings")
+}
+
+model VideoFrame {
+  id         String          @id @default(cuid())
+  mediaId    String
+  frameS3Key String
+  tsMs       Int
+  width      Int?
+  height     Int?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  embeddings FrameEmbedding?
+  media      Media           @relation("VideoFrames", fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@map("video_frames")
+}
+
+model FrameEmbedding {
+  id        String                @id @default(cuid())
+  frameId   String                @unique
+  embedding Unsupported("vector")
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  frame     VideoFrame            @relation(fields: [frameId], references: [id], onDelete: Cascade)
+
+  @@map("frame_embeddings")
+}
+
 enum Role {
   MASTER_ADMIN
   ADMIN
@@ -251,43 +305,6 @@ enum Plan {
   STARTER
   PROFESSIONAL
   ENTERPRISE
-}
-
-model ImageEmbedding {
-  id        String   @id @default(cuid())
-  mediaId   String   @unique
-  embedding Unsupported("vector(512)") // pgvector extension
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  media     Media    @relation("ImageEmbedding", fields: [mediaId], references: [id], onDelete: Cascade)
-
-  @@map("image_embeddings")
-}
-
-model VideoFrame {
-  id        String   @id @default(cuid())
-  mediaId   String
-  frameS3Key String
-  tsMs      Int      // Timestamp in milliseconds
-  width     Int?
-  height    Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  media     Media    @relation("VideoFrames", fields: [mediaId], references: [id], onDelete: Cascade)
-  embeddings FrameEmbedding[]
-
-  @@map("video_frames")
-}
-
-model FrameEmbedding {
-  id        String     @id @default(cuid())
-  frameId   String     @unique
-  embedding Unsupported("vector(512)") // pgvector extension
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  frame     VideoFrame @relation(fields: [frameId], references: [id], onDelete: Cascade)
-
-  @@map("frame_embeddings")
 }
 
 enum InventoryType {

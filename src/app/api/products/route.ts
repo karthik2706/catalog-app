@@ -636,6 +636,9 @@ export async function POST(request: NextRequest) {
                   create: {
                     kind: 'image' as const,
                     s3Key: img.key || img.url,
+                    originalName: img.fileName || 'unknown',
+                    mimeType: img.fileType || 'image/jpeg',
+                    fileSize: img.fileSize || 0,
                     width: 0,
                     height: 0,
                     status: 'completed' as const
@@ -650,6 +653,9 @@ export async function POST(request: NextRequest) {
                   create: {
                     kind: 'video' as const,
                     s3Key: vid.key || vid.url,
+                    originalName: vid.fileName || 'unknown',
+                    mimeType: vid.fileType || 'video/mp4',
+                    fileSize: vid.fileSize || 0,
                     width: 0,
                     height: 0,
                     status: 'completed' as const
@@ -683,6 +689,9 @@ export async function POST(request: NextRequest) {
                   id: true,
                   kind: true,
                   s3Key: true,
+                  originalName: true,
+                  mimeType: true,
+                  fileSize: true,
                   width: true,
                   height: true,
                   durationMs: true,
