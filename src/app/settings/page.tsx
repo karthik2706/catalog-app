@@ -13,6 +13,7 @@ import { Modal } from '@/components/ui/Modal'
 import { FadeIn, StaggerWrapper } from '@/components/ui/AnimatedWrapper'
 import { cn, getCurrencyIcon } from '@/lib/utils'
 import { Client } from '@/types'
+import GuestAccessSettings from '@/components/GuestAccessSettings'
 import {
   Save,
   Plus,
@@ -40,6 +41,7 @@ import {
   ChevronRight,
   X,
   Eye,
+  Share2,
 } from 'lucide-react'
 
 interface User {
@@ -883,6 +885,7 @@ export default function SettingsPage() {
                 <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max">
                   {[
                     { id: 'general', label: 'General Settings', icon: SettingsIcon, shortLabel: 'General' },
+                    { id: 'guest-access', label: 'Guest Access', icon: Share2, shortLabel: 'Guest' },
                     { id: 'categories', label: 'Category Management', icon: Tag, shortLabel: 'Categories' },
                     ...(isUser ? [] : [{ id: 'users', label: 'User Management', icon: Users, shortLabel: 'Users' }]),
                     ...(isSuperAdmin ? [{ id: 'clients', label: 'Client Management', icon: Building2, shortLabel: 'Clients' }] : []),
@@ -1011,6 +1014,13 @@ export default function SettingsPage() {
                       )}
                     </CardContent>
                   </Card>
+                </FadeIn>
+              )}
+
+              {/* Guest Access */}
+              {activeTab === 'guest-access' && (
+                <FadeIn delay={0.15}>
+                  <GuestAccessSettings />
                 </FadeIn>
               )}
 

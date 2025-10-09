@@ -50,6 +50,8 @@ model Client {
   currencyId       String?
   isActive         Boolean            @default(true)
   plan             Plan               @default(STARTER)
+  guestPassword    String?
+  guestAccessEnabled Boolean          @default(false)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   apiKeys          ApiKey[]           @relation("ClientApiKeys")
