@@ -1047,7 +1047,14 @@ export default function SettingsPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {users.map((user) => (
+                        {users.filter(userItem => {
+                          // Additional frontend filtering for extra security
+                          if (isUser) {
+                            // Regular users can only see their own details
+                            return userItem.id === user.id
+                          }
+                          return true
+                        }).map((user) => (
                           <div key={user.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
                             <div className="flex items-center space-x-4">
                               <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">

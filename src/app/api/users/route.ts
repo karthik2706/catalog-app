@@ -37,8 +37,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Super admins can see all users, others see only their client's users
-    const where = decoded?.role === 'MASTER_ADMIN' ? {} : { clientId }
+    if (!decoded) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Build where clause based on user role
+    let where: any = {}
+    
+    if (decoded.role === 'MASTER_ADMIN') {
+      // Super admins can see all users
+      where = {}
+    } else if (decoded.role === 'ADMIN' || decoded.role === 'MANAGER') {
+      // Admin and Manager users can see all users from their company
+      where = { clientId: decoded.clientId }
+    } else if (decoded.role === 'USER') {
+      // Regular users can only see their own details
+      where = { 
+        clientId: decoded.clientId,
+        id: decoded.userId 
+      }
+    } else {
+      // Unknown role - default to own client only
+      where = { clientId: decoded.clientId }
+    }
 
     const users = await prisma.user.findMany({
       where,
