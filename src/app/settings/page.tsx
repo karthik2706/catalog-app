@@ -108,73 +108,74 @@ function CategoryItem({ category, onEdit, onDelete, onAddSubcategory, level }: C
   return (
     <div className="space-y-2">
       <div 
-        className={`flex items-center justify-between p-4 border border-slate-200 rounded-xl ${
-          level > 0 ? `ml-${level * 6} bg-slate-50` : 'bg-white'
+        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border border-slate-200 rounded-xl ${
+          level > 0 ? 'bg-slate-50' : 'bg-white'
         }`}
-        style={{ marginLeft: level > 0 ? `${level * 24}px` : '0' }}
+        style={{ marginLeft: level > 0 ? `${Math.min(level * 12, 48)}px` : '0' }}
       >
-        <div className="flex items-center space-x-4">
+        <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0">
           {hasChildren && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1 hover:bg-slate-100 rounded"
+              className="p-1 hover:bg-slate-100 rounded flex-shrink-0"
             >
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-slate-500" />
+                <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
               ) : (
-                <ChevronRight className="w-4 h-4 text-slate-500" />
+                <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500" />
               )}
             </button>
           )}
-          {!hasChildren && <div className="w-6" />}
+          {!hasChildren && <div className="w-5 sm:w-6" />}
           
-          <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
-            <Tag className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <Tag className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="font-medium text-slate-900">
-                {level > 0 && '— '.repeat(level)}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h3 className="text-xs sm:text-sm font-medium text-slate-900 truncate">
+                {level > 0 && '— '.repeat(Math.min(level, 2))}
                 {category.name}
               </h3>
               {level > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  Level {level}
+                <Badge variant="secondary">
+                  <span className="text-[10px] sm:text-xs">Level {level}</span>
                 </Badge>
               )}
             </div>
             {category.description && (
-              <p className="text-sm text-slate-500">{category.description}</p>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 line-clamp-2">{category.description}</p>
             )}
-            <p className="text-xs text-slate-400">
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">
               Created {new Date(category.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex justify-end sm:justify-start space-x-1 sm:space-x-2 ml-auto sm:ml-0">
           <Button
             variant="outline"
             size="sm"
             onClick={() => onAddSubcategory(category.id)}
-            className="text-primary-600 hover:bg-primary-50"
+            className="text-primary-600 hover:bg-primary-50 h-7 sm:h-8"
           >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline ml-1">Add Sub</span>
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline ml-1 text-xs">Add Sub</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => onEdit(category)}
+            className="h-7 sm:h-8"
           >
-            <Edit className="w-4 h-4" />
+            <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => onDelete(category.id)}
-            className="text-error-600 hover:bg-error-50"
+            className="text-error-600 hover:bg-error-50 h-7 sm:h-8"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
         </div>
       </div>
@@ -847,42 +848,42 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
           <FadeIn>
             {/* Header */}
-            <div className="mb-6 sm:mb-8">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center space-x-2 sm:space-x-3">
-                <SettingsIcon className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600 flex-shrink-0" />
+            <div className="mb-4 sm:mb-6 lg:mb-8">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 flex items-center space-x-2 sm:space-x-3">
+                <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-8 text-primary-600 flex-shrink-0" />
                 <span className="truncate">Settings</span>
               </h1>
-              <p className="mt-2 text-sm sm:text-base text-slate-600">
+              <p className="mt-1 sm:mt-2 text-xs sm:text-sm lg:text-base text-slate-600">
                 Manage your application settings, users, and clients
               </p>
             </div>
 
             {/* Alerts */}
             {error && (
-              <div className="mb-6 bg-error-50 border border-error-200 rounded-xl p-4">
-                <div className="flex items-center">
-                  <AlertTriangle className="w-5 h-5 text-error-600 mr-3" />
-                  <p className="text-error-800">{error}</p>
+              <div className="mb-4 sm:mb-6 bg-error-50 border border-error-200 rounded-xl p-3 sm:p-4">
+                <div className="flex items-start">
+                  <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-error-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs sm:text-sm text-error-800">{error}</p>
                 </div>
               </div>
             )}
 
             {success && (
-              <div className="mb-6 bg-success-50 border border-success-200 rounded-xl p-4">
-                <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 text-success-600 mr-3" />
-                  <p className="text-success-800">{success}</p>
+              <div className="mb-4 sm:mb-6 bg-success-50 border border-success-200 rounded-xl p-3 sm:p-4">
+                <div className="flex items-start">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-success-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs sm:text-sm text-success-800">{success}</p>
                 </div>
               </div>
             )}
 
             {/* Tabs */}
-            <div className="mb-6 sm:mb-8">
-              <div className="border-b border-slate-200 overflow-x-auto">
-                <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max">
+            <div className="mb-4 sm:mb-6 lg:mb-8">
+              <div className="border-b border-slate-200 overflow-x-auto no-scrollbar pb-1">
+                <nav className="-mb-px flex space-x-2 sm:space-x-4 lg:space-x-8 min-w-max">
                   {[
                     { id: 'general', label: 'General Settings', icon: SettingsIcon, shortLabel: 'General' },
                     { id: 'guest-access', label: 'Guest Access', icon: Share2, shortLabel: 'Guest' },
@@ -894,9 +895,9 @@ export default function SettingsPage() {
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       className={cn(
-                        'flex items-center space-x-1 sm:space-x-2 py-2 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap',
+                        'flex items-center space-x-1 sm:space-x-2 py-2 sm:py-3 px-2 sm:px-4 border-b-2 font-medium text-[11px] sm:text-xs lg:text-sm whitespace-nowrap transition-all active:scale-95 min-w-max',
                         activeTab === tab.id
-                          ? 'border-primary-500 text-primary-600'
+                          ? 'border-primary-500 text-primary-600 bg-primary-50/30'
                           : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                       )}
                     >
@@ -915,16 +916,16 @@ export default function SettingsPage() {
               {activeTab === 'general' && (
                 <FadeIn delay={0.1}>
                   <Card className="card-hover">
-                    <CardHeader>
+                    <CardHeader className="p-4 sm:p-6">
                       <CardTitle className="flex items-center space-x-2">
-                        <SettingsIcon className="w-5 h-5 text-primary-600" />
-                        <span>General Settings</span>
+                        <SettingsIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600" />
+                        <span className="text-base sm:text-lg">General Settings</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">Company Name</label>
+                          <label className="text-xs sm:text-sm font-medium text-slate-700">Company Name</label>
                           <Input
                             value={settingsForm.companyName}
                             onChange={(e) => setSettingsForm(prev => ({ ...prev, companyName: e.target.value }))}
@@ -934,7 +935,7 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">Email</label>
+                          <label className="text-xs sm:text-sm font-medium text-slate-700">Email</label>
                           <Input
                             value={settingsForm.email}
                             onChange={(e) => setSettingsForm(prev => ({ ...prev, email: e.target.value }))}
@@ -945,9 +946,9 @@ export default function SettingsPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">Phone</label>
+                          <label className="text-xs sm:text-sm font-medium text-slate-700">Phone</label>
                           <Input
                             value={settingsForm.phone}
                             onChange={(e) => setSettingsForm(prev => ({ ...prev, phone: e.target.value }))}
@@ -957,11 +958,11 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-slate-700">Currency</label>
+                          <label className="text-xs sm:text-sm font-medium text-slate-700">Currency</label>
                           <select
                             value={settingsForm.currency}
                             onChange={(e) => setSettingsForm(prev => ({ ...prev, currency: e.target.value }))}
-                            className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${(isUser || isManager) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                            className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${(isUser || isManager) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                             disabled={isUser || isManager}
                           >
                             {currencies.map((currency) => (
@@ -974,13 +975,13 @@ export default function SettingsPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Address</label>
+                        <label className="text-xs sm:text-sm font-medium text-slate-700">Address</label>
                         <textarea
                           value={settingsForm.address}
                           onChange={(e) => setSettingsForm(prev => ({ ...prev, address: e.target.value }))}
                           placeholder="Enter company address"
                           rows={3}
-                          className={`w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none ${(isUser || isManager) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                          className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none ${(isUser || isManager) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                           disabled={isUser || isManager}
                         />
                       </div>
@@ -991,7 +992,7 @@ export default function SettingsPage() {
                             onClick={handleSaveSettings}
                             disabled={saving}
                             loading={saving}
-                            className="flex items-center space-x-2"
+                            className="flex items-center space-x-2 w-full sm:w-auto"
                           >
                             <Save className="w-4 h-4" />
                             <span>Save Settings</span>
@@ -1000,10 +1001,10 @@ export default function SettingsPage() {
                       )}
 
                       {(isUser || isManager) && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                          <div className="flex items-center">
-                            <Shield className="w-5 h-5 text-blue-600 mr-3" />
-                            <p className="text-blue-800 text-sm">
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4">
+                          <div className="flex items-start">
+                            <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs sm:text-sm text-blue-800">
                               {isUser 
                                 ? "You have read-only access to settings. Contact your administrator to make changes."
                                 : "You have read-only access to general settings. Contact your administrator to make changes."
@@ -1028,16 +1029,16 @@ export default function SettingsPage() {
               {activeTab === 'users' && (
                 <FadeIn delay={0.2}>
                   <Card className="card-hover">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
+                    <CardHeader className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                         <CardTitle className="flex items-center space-x-2">
-                          <Users className="w-5 h-5 text-primary-600" />
-                          <span>User Management</span>
+                          <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600" />
+                          <span className="text-base sm:text-lg">User Management</span>
                         </CardTitle>
                         {!isUser && (
                           <Button
                             onClick={() => setUserModalOpen(true)}
-                            className="flex items-center space-x-2"
+                            className="flex items-center space-x-2 w-full sm:w-auto"
                           >
                             <UserPlus className="w-4 h-4" />
                             <span>Add User</span>
@@ -1045,8 +1046,8 @@ export default function SettingsPage() {
                         )}
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="space-y-3 sm:space-y-4">
                         {users.filter(userItem => {
                           // Additional frontend filtering for extra security
                           if (isUser) {
@@ -1054,42 +1055,43 @@ export default function SettingsPage() {
                             return userItem.id === user.id
                           }
                           return true
-                        }).map((user) => (
-                          <div key={user.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">
-                                <span className="text-white font-medium">
-                                  {user.name?.charAt(0) || user.email.charAt(0)}
+                        }).map((userItem) => (
+                          <div key={userItem.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 border border-slate-200 rounded-xl">
+                            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+                              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                <span className="text-white font-medium text-sm sm:text-base">
+                                  {userItem.name?.charAt(0) || userItem.email.charAt(0)}
                                 </span>
                               </div>
-                              <div>
-                                <h3 className="font-medium text-slate-900">{user.name || 'No name'}</h3>
-                                <p className="text-sm text-slate-500">{user.email}</p>
-                                {user.client && (
-                                  <p className="text-xs text-slate-400">{user.client.name}</p>
+                              <div className="min-w-0">
+                                <h3 className="text-sm sm:text-base font-medium text-slate-900 truncate">{userItem.name || 'No name'}</h3>
+                                <p className="text-xs sm:text-sm text-slate-500 truncate">{userItem.email}</p>
+                                {userItem.client && (
+                                  <p className="text-[10px] sm:text-xs text-slate-400 truncate">{userItem.client.name}</p>
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center space-x-3">
-                              <Badge className={getRoleColor(user.role)}>
-                                {user.role}
+                            <div className="flex items-center justify-between sm:justify-end gap-2 sm:space-x-3">
+                              <Badge className={getRoleColor(userItem.role)}>
+                                <span className="text-[10px] sm:text-xs">{userItem.role}</span>
                               </Badge>
                               {!isUser && (
-                                <div className="flex space-x-2">
+                                <div className="flex space-x-1 sm:space-x-2">
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleEditUser(user)}
+                                    onClick={() => handleEditUser(userItem)}
+                                    className="h-8 sm:h-9"
                                   >
-                                    <Edit className="w-4 h-4" />
+                                    <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                   </Button>
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleDeleteUser(user.id)}
-                                    className="text-error-600 hover:bg-error-50"
+                                    onClick={() => handleDeleteUser(userItem.id)}
+                                    className="text-error-600 hover:bg-error-50 h-8 sm:h-9"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                   </Button>
                                 </div>
                               )}
@@ -1099,10 +1101,10 @@ export default function SettingsPage() {
                       </div>
                       
                       {isManager && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-6">
-                          <div className="flex items-center">
-                            <Shield className="w-5 h-5 text-amber-600 mr-3" />
-                            <p className="text-amber-800 text-sm">
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 sm:p-4 mt-4 sm:mt-6">
+                          <div className="flex items-start">
+                            <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 mr-2 sm:mr-3 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs sm:text-sm text-amber-800">
                               As a manager, you can only create and manage users with "User" role. You cannot create other managers or admins.
                             </p>
                           </div>
@@ -1117,23 +1119,23 @@ export default function SettingsPage() {
               {activeTab === 'categories' && (
                 <FadeIn delay={0.25}>
                   <Card className="card-hover">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
+                    <CardHeader className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                         <CardTitle className="flex items-center space-x-2">
-                          <Tag className="w-5 h-5 text-primary-600" />
-                          <span>Category Management</span>
+                          <Tag className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600" />
+                          <span className="text-base sm:text-lg">Category Management</span>
                         </CardTitle>
                         <Button
                           onClick={() => setCategoryModalOpen(true)}
-                          className="flex items-center space-x-2"
+                          className="flex items-center space-x-2 w-full sm:w-auto"
                         >
                           <Plus className="w-4 h-4" />
                           <span>Add Category</span>
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="space-y-3 sm:space-y-4">
                         {categories.map((category) => (
                           <CategoryItem
                             key={category.id}
@@ -1149,10 +1151,10 @@ export default function SettingsPage() {
                         ))}
                         
                         {categories.length === 0 && (
-                          <div className="text-center py-12">
-                            <Tag className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-slate-900 mb-2">No categories yet</h3>
-                            <p className="text-slate-500 mb-4">Create your first category to organize your products</p>
+                          <div className="text-center py-8 sm:py-12">
+                            <Tag className="w-10 h-10 sm:w-12 sm:h-12 text-slate-400 mx-auto mb-3 sm:mb-4" />
+                            <h3 className="text-base sm:text-lg font-medium text-slate-900 mb-1 sm:mb-2">No categories yet</h3>
+                            <p className="text-xs sm:text-sm text-slate-500 mb-3 sm:mb-4">Create your first category to organize your products</p>
                             <Button
                               onClick={() => setCategoryModalOpen(true)}
                               className="flex items-center space-x-2 mx-auto"
@@ -1172,76 +1174,76 @@ export default function SettingsPage() {
               {activeTab === 'clients' && isSuperAdmin && (
                 <FadeIn delay={0.3}>
                   <Card className="card-hover">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
+                    <CardHeader className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
                         <CardTitle className="flex items-center space-x-2">
-                          <Building2 className="w-5 h-5 text-primary-600" />
-                          <span>Client Management</span>
+                          <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600" />
+                          <span className="text-base sm:text-lg">Client Management</span>
                         </CardTitle>
                         <Button
                           onClick={() => setClientModalOpen(true)}
-                          className="flex items-center space-x-2"
+                          className="flex items-center space-x-2 w-full sm:w-auto"
                         >
                           <Plus className="w-4 h-4" />
                           <span>Add Client</span>
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                         {clients.map((client) => (
-                          <div key={client.id} className="p-4 border border-slate-200 rounded-xl">
+                          <div key={client.id} className="p-3 sm:p-4 border border-slate-200 rounded-xl">
                             <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-                                  <Building2 className="w-5 h-5 text-white" />
+                              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                                  <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                                 </div>
-                                <div>
-                                  <h3 className="font-medium text-slate-900">{client.name}</h3>
-                                  <p className="text-sm text-slate-500">@{client.slug}</p>
+                                <div className="min-w-0">
+                                  <h3 className="text-xs sm:text-sm font-medium text-slate-900 truncate">{client.name}</h3>
+                                  <p className="text-[10px] sm:text-xs text-slate-500 truncate">@{client.slug}</p>
                                 </div>
                               </div>
                               <Badge className={getPlanColor(client.plan)}>
-                                {client.plan}
+                                <span className="text-[10px] sm:text-xs">{client.plan}</span>
                               </Badge>
                             </div>
-                            <div className="space-y-2 text-sm text-slate-600">
+                            <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-slate-600">
                               <div className="flex items-center space-x-2">
-                                <Mail className="w-4 h-4" />
-                                <span>{client.email}</span>
+                                <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                <span className="truncate">{client.email}</span>
                               </div>
                               {client.phone && (
                                 <div className="flex items-center space-x-2">
-                                  <Phone className="w-4 h-4" />
-                                  <span>{client.phone}</span>
+                                  <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                  <span className="truncate">{client.phone}</span>
                                 </div>
                               )}
                               {client.country && (
                                 <div className="flex items-center space-x-2">
-                                  <Globe className="w-4 h-4" />
-                                  <span>{client.country.name}</span>
+                                  <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                  <span className="truncate">{client.country.name}</span>
                                 </div>
                               )}
                               {client.currency && (
                                 <div className="flex items-center space-x-2">
-                                  {React.createElement(getCurrencyIcon(client.currency.code), { className: "w-4 h-4" })}
-                                  <span>{client.currency.symbol} {client.currency.code}</span>
+                                  {React.createElement(getCurrencyIcon(client.currency.code), { className: "w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" })}
+                                  <span className="truncate">{client.currency.symbol} {client.currency.code}</span>
                                 </div>
                               )}
                             </div>
-                            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-200">
-                              <div className="flex space-x-4 text-xs text-slate-500">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mt-3 sm:mt-4 pt-3 border-t border-slate-200">
+                              <div className="flex space-x-3 sm:space-x-4 text-[10px] sm:text-xs text-slate-500">
                                 <span>{client._count?.users || 0} users</span>
                                 <span>{client._count?.products || 0} products</span>
                               </div>
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center justify-between sm:justify-end gap-2 sm:space-x-2">
                                 <div className="flex items-center space-x-1">
                                   {client.isActive ? (
-                                    <CheckCircle className="w-4 h-4 text-success-600" />
+                                    <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-success-600 flex-shrink-0" />
                                   ) : (
-                                    <XCircle className="w-4 h-4 text-error-600" />
+                                    <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-error-600 flex-shrink-0" />
                                   )}
-                                  <span className={`text-xs ${client.isActive ? 'text-success-600' : 'text-error-600'}`}>
+                                  <span className={`text-[10px] sm:text-xs ${client.isActive ? 'text-success-600' : 'text-error-600'}`}>
                                     {client.isActive ? 'Active' : 'Inactive'}
                                   </span>
                                 </div>
@@ -1250,24 +1252,25 @@ export default function SettingsPage() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleViewClient(client)}
-                                    className="text-primary-600 hover:bg-primary-50"
+                                    className="text-primary-600 hover:bg-primary-50 h-7 sm:h-8"
                                   >
-                                    <Eye className="w-4 h-4" />
+                                    <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                   </Button>
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleEditClient(client)}
+                                    className="h-7 sm:h-8"
                                   >
-                                    <Edit className="w-4 h-4" />
+                                    <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                   </Button>
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleDeleteClient(client.id)}
-                                    className="text-red-600 hover:bg-red-50 hover:border-red-300"
+                                    className="text-red-600 hover:bg-red-50 hover:border-red-300 h-7 sm:h-8"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                   </Button>
                                 </div>
                               </div>
@@ -1289,9 +1292,9 @@ export default function SettingsPage() {
           onClose={() => setUserModalOpen(false)}
           title="Add New User"
         >
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Full Name</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Full Name</label>
               <Input
                 value={newUser.name}
                 onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
@@ -1301,7 +1304,7 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Email</label>
               <Input
                 type="email"
                 value={newUser.email}
@@ -1312,7 +1315,7 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Password</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Password</label>
               <Input
                 type="password"
                 value={newUser.password}
@@ -1323,11 +1326,11 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Role</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Role</label>
               <select
                 value={newUser.role}
                 onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value as any }))}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="USER">User</option>
                 {isManager && <option value="MANAGER">Manager</option>}
@@ -1339,11 +1342,11 @@ export default function SettingsPage() {
             
             {isSuperAdmin && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Company</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Company</label>
                 <select
                   value={newUser.clientId}
                   onChange={(e) => setNewUser(prev => ({ ...prev, clientId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select company</option>
                   {clients.map((client) => (
@@ -1355,10 +1358,11 @@ export default function SettingsPage() {
               </div>
             )}
             
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-3 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setUserModalOpen(false)}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -1366,6 +1370,7 @@ export default function SettingsPage() {
                 onClick={handleCreateUser}
                 disabled={saving || !newUser.name || !newUser.email || !newUser.password}
                 loading={saving}
+                className="w-full sm:w-auto"
               >
                 Create User
               </Button>
@@ -1379,9 +1384,9 @@ export default function SettingsPage() {
           onClose={() => setEditUserModalOpen(false)}
           title="Edit User"
         >
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Full Name</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Full Name</label>
               <Input
                 value={newUser.name}
                 onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
@@ -1391,7 +1396,7 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Email</label>
               <Input
                 type="email"
                 value={newUser.email}
@@ -1402,11 +1407,11 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Role</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Role</label>
               <select
                 value={newUser.role}
                 onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value as any }))}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="USER">User</option>
                 {isManager && <option value="MANAGER">Manager</option>}
@@ -1418,11 +1423,11 @@ export default function SettingsPage() {
             
             {isSuperAdmin && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Company</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Company</label>
                 <select
                   value={newUser.clientId}
                   onChange={(e) => setNewUser(prev => ({ ...prev, clientId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select company</option>
                   {clients.map((client) => (
@@ -1434,10 +1439,11 @@ export default function SettingsPage() {
               </div>
             )}
             
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-3 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setEditUserModalOpen(false)}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -1445,6 +1451,7 @@ export default function SettingsPage() {
                 onClick={handleSaveEditUser}
                 disabled={saving || !newUser.name || !newUser.email}
                 loading={saving}
+                className="w-full sm:w-auto"
               >
                 Save Changes
               </Button>
@@ -1459,9 +1466,9 @@ export default function SettingsPage() {
           title="Add New Client"
           className="max-w-3xl max-h-[90vh] overflow-y-auto"
         >
-          <div className="space-y-8 p-1">
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Company Name</label>
+          <div className="space-y-5 sm:space-y-8 p-1">
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Company Name</label>
               <Input
                 value={newClient.name}
                 onChange={(e) => setNewClient(prev => ({ ...prev, name: e.target.value }))}
@@ -1470,8 +1477,8 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Email</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Email</label>
               <Input
                 type="email"
                 value={newClient.email}
@@ -1481,8 +1488,8 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Phone</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Phone</label>
               <Input
                 value={newClient.phone}
                 onChange={(e) => setNewClient(prev => ({ ...prev, phone: e.target.value }))}
@@ -1491,24 +1498,24 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Address</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Address</label>
               <textarea
                 value={newClient.address}
                 onChange={(e) => setNewClient(prev => ({ ...prev, address: e.target.value }))}
                 placeholder="Enter company address"
                 rows={3}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">Country</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Country</label>
                 <select
                   value={newClient.countryId}
                   onChange={(e) => setNewClient(prev => ({ ...prev, countryId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select Country</option>
                   {countries.map((country) => (
@@ -1519,12 +1526,12 @@ export default function SettingsPage() {
                 </select>
               </div>
               
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">Currency</label>
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Currency</label>
                 <select
                   value={newClient.currencyId}
                   onChange={(e) => setNewClient(prev => ({ ...prev, currencyId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select Currency</option>
                   {currencies.map((currency) => (
@@ -1536,8 +1543,8 @@ export default function SettingsPage() {
               </div>
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Password</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Password</label>
               <Input
                 type="password"
                 value={newClient.password}
@@ -1547,12 +1554,12 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Plan</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Plan</label>
               <select
                 value={newClient.plan}
                 onChange={(e) => setNewClient(prev => ({ ...prev, plan: e.target.value as any }))}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="STARTER">Starter</option>
                 <option value="PROFESSIONAL">Professional</option>
@@ -1560,10 +1567,11 @@ export default function SettingsPage() {
               </select>
             </div>
             
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-3 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setClientModalOpen(false)}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -1571,6 +1579,7 @@ export default function SettingsPage() {
                 onClick={handleCreateClient}
                 disabled={saving || !newClient.name || !newClient.email || !newClient.password}
                 loading={saving}
+                className="w-full sm:w-auto"
               >
                 Create Client
               </Button>
@@ -1584,14 +1593,14 @@ export default function SettingsPage() {
           onClose={() => setCategoryModalOpen(false)}
           title={newCategory.parentId ? "Add Subcategory" : "Add New Category"}
         >
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {isSuperAdmin && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Company</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Company</label>
                 <select
                   value={newCategory.clientId}
                   onChange={(e) => setNewCategory(prev => ({ ...prev, clientId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select company</option>
                   {clients.map((client) => (
@@ -1604,15 +1613,15 @@ export default function SettingsPage() {
             )}
 
             {newCategory.parentId && (
-              <div className="p-3 bg-primary-50 border border-primary-200 rounded-lg">
-                <p className="text-sm text-primary-700">
+              <div className="p-2 sm:p-3 bg-primary-50 border border-primary-200 rounded-lg">
+                <p className="text-xs sm:text-sm text-primary-700">
                   <strong>Parent Category:</strong> {getCategoryPath(categories, newCategory.parentId) || 'Unknown'}
                 </p>
               </div>
             )}
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Category Name</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Category Name</label>
               <Input
                 value={newCategory.name}
                 onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
@@ -1622,22 +1631,22 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Description (Optional)</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Description (Optional)</label>
               <textarea
                 value={newCategory.description}
                 onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Enter category description"
                 rows={3}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Parent Category (Optional)</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Parent Category (Optional)</label>
               <select
                 value={newCategory.parentId}
                 onChange={(e) => setNewCategory(prev => ({ ...prev, parentId: e.target.value }))}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">Select parent category (or leave empty for main category)</option>
                 {getAllCategoriesForSelection(categories).map((category) => (
@@ -1649,21 +1658,22 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Sort Order</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Sort Order</label>
               <Input
                 type="number"
                 value={newCategory.sortOrder}
                 onChange={(e) => setNewCategory(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
                 placeholder="0"
-                className="w-32"
+                className="w-24 sm:w-32"
               />
               <p className="text-xs text-slate-500">Lower numbers appear first</p>
             </div>
             
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-3 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setCategoryModalOpen(false)}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -1671,6 +1681,7 @@ export default function SettingsPage() {
                 onClick={handleCreateCategory}
                 disabled={saving || !newCategory.name || (isSuperAdmin && !newCategory.clientId)}
                 loading={saving}
+                className="w-full sm:w-auto"
               >
                 Create Category
               </Button>
@@ -1684,14 +1695,14 @@ export default function SettingsPage() {
           onClose={() => setEditCategoryModalOpen(false)}
           title="Edit Category"
         >
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {isSuperAdmin && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Company</label>
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Company</label>
                 <select
                   value={newCategory.clientId}
                   onChange={(e) => setNewCategory(prev => ({ ...prev, clientId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select company</option>
                   {clients.map((client) => (
@@ -1704,7 +1715,7 @@ export default function SettingsPage() {
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Category Name</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Category Name</label>
               <Input
                 value={newCategory.name}
                 onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
@@ -1714,22 +1725,22 @@ export default function SettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Description (Optional)</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Description (Optional)</label>
               <textarea
                 value={newCategory.description}
                 onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Enter category description"
                 rows={3}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Parent Category</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Parent Category</label>
               <select
                 value={newCategory.parentId || ''}
                 onChange={(e) => setNewCategory(prev => ({ ...prev, parentId: e.target.value || '' }))}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">No parent (main category)</option>
                 {categories.filter(c => !c.parentId && c.id !== editingCategory?.id).map((category) => (
@@ -1741,21 +1752,22 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Sort Order</label>
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Sort Order</label>
               <Input
                 type="number"
                 value={newCategory.sortOrder}
                 onChange={(e) => setNewCategory(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
                 placeholder="0"
-                className="w-32"
+                className="w-24 sm:w-32"
               />
               <p className="text-xs text-slate-500">Lower numbers appear first</p>
             </div>
             
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-3 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setEditCategoryModalOpen(false)}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -1763,6 +1775,7 @@ export default function SettingsPage() {
                 onClick={handleSaveEditCategory}
                 disabled={saving || !newCategory.name}
                 loading={saving}
+                className="w-full sm:w-auto"
               >
                 Save Changes
               </Button>
@@ -1778,73 +1791,73 @@ export default function SettingsPage() {
           className="max-w-4xl max-h-[90vh] overflow-y-auto"
         >
           {viewingClient && (
-            <div className="space-y-8 p-1">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Client ID</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <code className="text-sm text-slate-600 font-mono break-all">{viewingClient.id}</code>
+            <div className="space-y-5 sm:space-y-8 p-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Client ID</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <code className="text-xs sm:text-sm text-slate-600 font-mono break-all">{viewingClient.id}</code>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Slug</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <code className="text-sm text-slate-600 font-mono">@{viewingClient.slug}</code>
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Slug</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <code className="text-xs sm:text-sm text-slate-600 font-mono">@{viewingClient.slug}</code>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">Company Name</label>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                  <span className="text-slate-900 font-medium">{viewingClient.name}</span>
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Company Name</label>
+                <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-xs sm:text-sm text-slate-900 font-medium">{viewingClient.name}</span>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">Email</label>
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                  <span className="text-slate-900">{viewingClient.email}</span>
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Email</label>
+                <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                  <span className="text-xs sm:text-sm text-slate-900">{viewingClient.email}</span>
                 </div>
               </div>
 
               {viewingClient.phone && (
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Phone</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-slate-900">{viewingClient.phone}</span>
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Phone</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs sm:text-sm text-slate-900">{viewingClient.phone}</span>
                   </div>
                 </div>
               )}
 
               {viewingClient.address && (
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Address</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-slate-900">{viewingClient.address}</span>
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Address</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs sm:text-sm text-slate-900">{viewingClient.address}</span>
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Plan</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Plan</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
                     <Badge className={getPlanColor(viewingClient.plan)}>
-                      {viewingClient.plan}
+                      <span className="text-[10px] sm:text-xs">{viewingClient.plan}</span>
                     </Badge>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Status</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Status</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
                     <div className="flex items-center space-x-2">
                       {viewingClient.isActive ? (
-                        <CheckCircle className="w-4 h-4 text-success-600" />
+                        <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-success-600 flex-shrink-0" />
                       ) : (
-                        <XCircle className="w-4 h-4 text-error-600" />
+                        <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-error-600 flex-shrink-0" />
                       )}
-                      <span className={`text-sm font-medium ${viewingClient.isActive ? 'text-success-600' : 'text-error-600'}`}>
+                      <span className={`text-xs sm:text-sm font-medium ${viewingClient.isActive ? 'text-success-600' : 'text-error-600'}`}>
                         {viewingClient.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -1853,60 +1866,61 @@ export default function SettingsPage() {
               </div>
 
               {viewingClient.country && (
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Country</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-slate-900">{viewingClient.country.name} ({viewingClient.country.code})</span>
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Country</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs sm:text-sm text-slate-900">{viewingClient.country.name} ({viewingClient.country.code})</span>
                   </div>
                 </div>
               )}
 
               {viewingClient.currency && (
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Currency</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Currency</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
                     <div className="flex items-center space-x-2">
-                      {React.createElement(getCurrencyIcon(viewingClient.currency.code), { className: "w-4 h-4" })}
-                      <span className="text-slate-900">{viewingClient.currency.symbol} {viewingClient.currency.code} - {viewingClient.currency.name}</span>
+                      {React.createElement(getCurrencyIcon(viewingClient.currency.code), { className: "w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" })}
+                      <span className="text-xs sm:text-sm text-slate-900 truncate">{viewingClient.currency.symbol} {viewingClient.currency.code} - {viewingClient.currency.name}</span>
                     </div>
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Users</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-slate-900 font-medium text-lg">{viewingClient._count?.users || 0}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Users</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900 font-medium text-base sm:text-lg">{viewingClient._count?.users || 0}</span>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Products</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-slate-900 font-medium text-lg">{viewingClient._count?.products || 0}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Created At</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-slate-900">{new Date(viewingClient.createdAt).toLocaleString()}</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-700">Updated At</label>
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-slate-900">{new Date(viewingClient.updatedAt).toLocaleString()}</span>
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Products</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-slate-900 font-medium text-base sm:text-lg">{viewingClient._count?.products || 0}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Created At</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs sm:text-sm text-slate-900">{new Date(viewingClient.createdAt).toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="space-y-2 sm:space-y-3">
+                  <label className="text-xs sm:text-sm font-medium text-slate-700">Updated At</label>
+                  <div className="p-3 sm:p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs sm:text-sm text-slate-900">{new Date(viewingClient.updatedAt).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-3 pt-4">
                 <Button
                   variant="outline"
                   onClick={() => setViewClientModalOpen(false)}
+                  className="w-full sm:w-auto"
                 >
                   Close
                 </Button>
@@ -1915,6 +1929,7 @@ export default function SettingsPage() {
                     setViewClientModalOpen(false)
                     handleEditClient(viewingClient)
                   }}
+                  className="w-full sm:w-auto"
                 >
                   Edit Client
                 </Button>
@@ -1930,9 +1945,9 @@ export default function SettingsPage() {
           title="Edit Client"
           className="max-w-3xl max-h-[90vh] overflow-y-auto"
         >
-          <div className="space-y-8 p-1">
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Company Name</label>
+          <div className="space-y-5 sm:space-y-8 p-1">
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Company Name</label>
               <Input
                 value={newClient.name}
                 onChange={(e) => setNewClient(prev => ({ ...prev, name: e.target.value }))}
@@ -1941,8 +1956,8 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Email</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Email</label>
               <Input
                 type="email"
                 value={newClient.email}
@@ -1952,8 +1967,8 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Phone</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Phone</label>
               <Input
                 value={newClient.phone}
                 onChange={(e) => setNewClient(prev => ({ ...prev, phone: e.target.value }))}
@@ -1962,24 +1977,24 @@ export default function SettingsPage() {
               />
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Address</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Address</label>
               <textarea
                 value={newClient.address}
                 onChange={(e) => setNewClient(prev => ({ ...prev, address: e.target.value }))}
                 placeholder="Enter company address"
                 rows={3}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">Country</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Country</label>
                 <select
                   value={newClient.countryId}
                   onChange={(e) => setNewClient(prev => ({ ...prev, countryId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select Country</option>
                   {countries.map((country) => (
@@ -1990,12 +2005,12 @@ export default function SettingsPage() {
                 </select>
               </div>
               
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-700">Currency</label>
+              <div className="space-y-2 sm:space-y-3">
+                <label className="text-xs sm:text-sm font-medium text-slate-700">Currency</label>
                 <select
                   value={newClient.currencyId}
                   onChange={(e) => setNewClient(prev => ({ ...prev, currencyId: e.target.value }))}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select Currency</option>
                   {currencies.map((currency) => (
@@ -2007,12 +2022,12 @@ export default function SettingsPage() {
               </div>
             </div>
             
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-700">Plan</label>
+            <div className="space-y-2 sm:space-y-3">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Plan</label>
               <select
                 value={newClient.plan}
                 onChange={(e) => setNewClient(prev => ({ ...prev, plan: e.target.value as any }))}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="STARTER">Starter</option>
                 <option value="PROFESSIONAL">Professional</option>
@@ -2020,10 +2035,11 @@ export default function SettingsPage() {
               </select>
             </div>
             
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-3 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setEditClientModalOpen(false)}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -2031,6 +2047,7 @@ export default function SettingsPage() {
                 onClick={handleSaveEditClient}
                 disabled={saving || !newClient.name || !newClient.email}
                 loading={saving}
+                className="w-full sm:w-auto"
               >
                 Save Changes
               </Button>

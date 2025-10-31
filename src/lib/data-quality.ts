@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export interface DataQualityIssue {
   id: string
@@ -27,6 +25,13 @@ export interface DataQualityReport {
 
 export class DataQualityAnalyzer {
   private issues: DataQualityIssue[] = []
+  private clientId: string | undefined
+  private isMasterAdmin: boolean
+
+  constructor(clientId?: string, isMasterAdmin: boolean = false) {
+    this.clientId = clientId
+    this.isMasterAdmin = isMasterAdmin
+  }
 
   private addIssue(issue: Omit<DataQualityIssue, 'id'>) {
     this.issues.push({
@@ -41,7 +46,8 @@ export class DataQualityAnalyzer {
     // Check for missing required fields
     const productsWithoutName = await prisma.product.findMany({
       where: { 
-        name: { equals: '' }
+        name: { equals: '' },
+        ...(this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {})
       },
       select: { id: true, name: true, sku: true }
     })
@@ -63,7 +69,8 @@ export class DataQualityAnalyzer {
     // Check for missing SKUs
     const productsWithoutSku = await prisma.product.findMany({
       where: { 
-        sku: { equals: '' }
+        sku: { equals: '' },
+        ...(this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {})
       },
       select: { id: true, name: true, sku: true }
     })
@@ -85,7 +92,8 @@ export class DataQualityAnalyzer {
     // Check for invalid prices
     const productsWithInvalidPrice = await prisma.product.findMany({
       where: { 
-        price: { lt: 0 }
+        price: { lt: 0 },
+        ...(this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {})
       },
       select: { id: true, name: true, sku: true, price: true }
     })
@@ -107,7 +115,8 @@ export class DataQualityAnalyzer {
     // Check for invalid stock levels
     const productsWithInvalidStock = await prisma.product.findMany({
       where: { 
-        stockLevel: { lt: 0 }
+        stockLevel: { lt: 0 },
+        ...(this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {})
       },
       select: { id: true, name: true, sku: true, stockLevel: true }
     })
@@ -127,14 +136,15 @@ export class DataQualityAnalyzer {
     })
 
     // Check for products without categories
+    const clientFilter = this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {}
     const productsWithoutCategory = await prisma.product.findMany({
       where: { 
-        OR: [
-          { categoryId: null },
-          { categoryId: '' }
-        ]
+        ...clientFilter,
+        categories: {
+          none: {}
+        }
       },
-      select: { id: true, name: true, sku: true, categoryId: true }
+      select: { id: true, name: true, sku: true }
     })
 
     productsWithoutCategory.forEach(product => {
@@ -143,10 +153,10 @@ export class DataQualityAnalyzer {
         severity: 'medium',
         entity: 'Product',
         entityId: product.id,
-        field: 'categoryId',
+        field: 'categories',
         description: 'Product is not assigned to any category',
-        currentValue: product.categoryId,
-        expectedValue: 'Valid category ID',
+        currentValue: 'No categories',
+        expectedValue: 'At least one category',
         suggestion: 'Assign product to an appropriate category'
       })
     })
@@ -158,7 +168,8 @@ export class DataQualityAnalyzer {
     // Check for missing category names
     const categoriesWithoutName = await prisma.category.findMany({
       where: { 
-        name: { equals: '' }
+        name: { equals: '' },
+        ...(this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {})
       },
       select: { id: true, name: true, description: true }
     })
@@ -182,7 +193,8 @@ export class DataQualityAnalyzer {
       where: {
         products: {
           none: {}
-        }
+        },
+        ...(this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {})
       },
       select: { id: true, name: true }
     })
@@ -208,7 +220,8 @@ export class DataQualityAnalyzer {
     // Check for missing emails
     const usersWithoutEmail = await prisma.user.findMany({
       where: { 
-        email: { equals: '' }
+        email: { equals: '' },
+        ...(this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {})
       },
       select: { id: true, email: true, name: true }
     })
@@ -229,6 +242,7 @@ export class DataQualityAnalyzer {
 
     // Check for invalid email formats
     const allUsers = await prisma.user.findMany({
+      where: this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {},
       select: { id: true, email: true, name: true }
     })
 
@@ -256,7 +270,8 @@ export class DataQualityAnalyzer {
     // Check for missing original names
     const mediaWithoutOriginalName = await prisma.media.findMany({
       where: { 
-        originalName: { equals: '' }
+        originalName: { equals: '' },
+        ...(this.clientId && !this.isMasterAdmin ? { s3Key: { startsWith: `clients/${this.clientId}/` } } : {})
       },
       select: { id: true, originalName: true, kind: true, productId: true }
     })
@@ -278,7 +293,8 @@ export class DataQualityAnalyzer {
     // Check for missing MIME types
     const mediaWithoutMimeType = await prisma.media.findMany({
       where: { 
-        mimeType: { equals: '' }
+        mimeType: { equals: '' },
+        ...(this.clientId && !this.isMasterAdmin ? { s3Key: { startsWith: `clients/${this.clientId}/` } } : {})
       },
       select: { id: true, mimeType: true, kind: true, productId: true }
     })
@@ -298,9 +314,11 @@ export class DataQualityAnalyzer {
     })
 
     // Check for images without dimensions
+    const s3KeyFilter = this.clientId && !this.isMasterAdmin ? { s3Key: { startsWith: `clients/${this.clientId}/` } } : {}
     const imagesWithoutDimensions = await prisma.media.findMany({
       where: { 
         kind: 'image',
+        ...s3KeyFilter,
         OR: [
           { width: null },
           { height: null }
@@ -326,7 +344,8 @@ export class DataQualityAnalyzer {
     // Check for orphaned media (media without products)
     const orphanedMedia = await prisma.media.findMany({
       where: {
-        product: null
+        productId: null,
+        ...(this.clientId && !this.isMasterAdmin ? { s3Key: { startsWith: `clients/${this.clientId}/` } } : {})
       },
       select: { id: true, originalName: true, kind: true, productId: true }
     })
@@ -354,7 +373,8 @@ export class DataQualityAnalyzer {
     // Check for inventory records with zero quantity
     const inventoryWithZeroQuantity = await prisma.inventoryHistory.findMany({
       where: { 
-        quantity: 0
+        quantity: 0,
+        ...(this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {})
       },
       select: { id: true, type: true, quantity: true, productId: true }
     })
@@ -412,12 +432,18 @@ export class DataQualityAnalyzer {
   }
 
   private async getTotalRecords(): Promise<number> {
+    const whereProducts = this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {}
+    const whereCategories = this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {}
+    const whereUsers = this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {}
+    const whereMedia = this.clientId && !this.isMasterAdmin ? { s3Key: { startsWith: `clients/${this.clientId}/` } } : {}
+    const whereInventory = this.clientId && !this.isMasterAdmin ? { clientId: this.clientId } : {}
+    
     const [products, categories, users, media, inventory] = await Promise.all([
-      prisma.product.count(),
-      prisma.category.count(),
-      prisma.user.count(),
-      prisma.media.count(),
-      prisma.inventoryHistory.count()
+      prisma.product.count({ where: whereProducts }),
+      prisma.category.count({ where: whereCategories }),
+      prisma.user.count({ where: whereUsers }),
+      prisma.media.count({ where: whereMedia }),
+      prisma.inventoryHistory.count({ where: whereInventory })
     ])
 
     return products + categories + users + media + inventory
@@ -464,19 +490,33 @@ export class DataQualityAnalyzer {
     
     this.issues = [] // Reset issues array
     
-    await Promise.all([
-      this.analyzeProducts(),
-      this.analyzeCategories(),
-      this.analyzeUsers(),
-      this.analyzeMedia(),
-      this.analyzeInventory()
-    ])
+    try {
+      await Promise.all([
+        this.analyzeProducts(),
+        this.analyzeCategories(),
+        this.analyzeUsers(),
+        this.analyzeMedia(),
+        this.analyzeInventory()
+      ])
 
-    return await this.generateReport()
+      return await this.generateReport()
+    } catch (error) {
+      console.error('Error during data quality analysis:', error)
+      // Return a minimal report on error
+      return {
+        overallScore: 0,
+        totalRecords: 0,
+        totalIssues: 0,
+        issuesByType: {},
+        issuesBySeverity: {},
+        issues: [],
+        recommendations: ['Error occurred during data quality analysis']
+      }
+    }
   }
 }
 
-export async function runDataQualityCheck(): Promise<DataQualityReport> {
-  const analyzer = new DataQualityAnalyzer()
+export async function runDataQualityCheck(clientId?: string, isMasterAdmin: boolean = false): Promise<DataQualityReport> {
+  const analyzer = new DataQualityAnalyzer(clientId, isMasterAdmin)
   return await analyzer.runFullAnalysis()
 }

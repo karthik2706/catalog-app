@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
       // Products with media
       prisma.product.count({
         where: {
-          clientId,
+          ...(clientId ? { clientId } : {}),
           productMedia: {
             some: {}
           }
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
       // Products without media
       prisma.product.count({
         where: {
-          clientId,
+          ...(clientId ? { clientId } : {}),
           productMedia: {
             none: {}
           }
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
 
     // Get top products by media count
     const topProductsByMedia = await prisma.product.findMany({
-      where: { clientId },
+      where: clientId ? { clientId } : {},
       include: {
         _count: {
           select: { productMedia: true }

@@ -197,19 +197,20 @@ export default function MediaLibrary({
   }
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div className={`space-y-4 sm:space-y-6 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Media Library</h2>
-          <p className="text-slate-600">Manage your media assets</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Media Library</h2>
+          <p className="text-sm sm:text-base text-slate-600">Manage your media assets</p>
         </div>
         {selectionMode && (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
             <Button
               onClick={handleSelectAll}
               variant="outline"
               size="sm"
+              className="flex-1 sm:flex-initial"
             >
               <Check className="w-4 h-4 mr-1" />
               Select All
@@ -218,6 +219,7 @@ export default function MediaLibrary({
               onClick={handleDeselectAll}
               variant="outline"
               size="sm"
+              className="flex-1 sm:flex-initial"
             >
               <X className="w-4 h-4 mr-1" />
               Deselect All
@@ -228,18 +230,18 @@ export default function MediaLibrary({
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-slate-900">{stats.total}</div>
-              <div className="text-sm text-slate-600">Total Assets</div>
+            <CardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-slate-900">{stats.total ?? 0}</div>
+              <div className="text-xs sm:text-sm text-slate-600">Total Assets</div>
             </CardContent>
           </Card>
-          {Object.entries(stats.byType).map(([type, data]: [string, any]) => (
+          {Object.entries(stats.byType || {}).map(([type, data]: [string, any]) => (
             <Card key={type}>
-              <CardContent className="p-4">
-                <div className="text-2xl font-bold text-slate-900">{data.count}</div>
-                <div className="text-sm text-slate-600 capitalize">{type}s</div>
+              <CardContent className="p-3 sm:p-4">
+                <div className="text-xl sm:text-2xl font-bold text-slate-900">{data?.count ?? 0}</div>
+                <div className="text-xs sm:text-sm text-slate-600 capitalize">{type}s</div>
               </CardContent>
             </Card>
           ))}
@@ -248,10 +250,10 @@ export default function MediaLibrary({
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-4">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
             {/* Search */}
-            <div className="flex-1 min-w-64">
+            <div className="flex-1 min-w-0 sm:min-w-64">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
@@ -259,7 +261,7 @@ export default function MediaLibrary({
                   placeholder="Search media assets..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm"
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-xs sm:text-sm"
                 />
               </div>
             </div>
@@ -268,7 +270,7 @@ export default function MediaLibrary({
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-300 rounded-md text-sm"
+              className="px-3 py-2 border border-slate-300 rounded-md text-xs sm:text-sm w-full sm:w-auto"
             >
               <option value="all">All Types</option>
               <option value="image">Images</option>
@@ -277,14 +279,13 @@ export default function MediaLibrary({
               <option value="document">Documents</option>
             </select>
 
-
             {/* View Mode */}
-            <div className="flex border border-slate-300 rounded-md">
+            <div className="flex border border-slate-300 rounded-md w-full sm:w-auto">
               <Button
                 variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('grid')}
-                className="rounded-r-none"
+                className="rounded-r-none flex-1 sm:flex-initial"
               >
                 <Grid className="w-4 h-4" />
               </Button>
@@ -292,7 +293,7 @@ export default function MediaLibrary({
                 variant={viewMode === 'list' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('list')}
-                className="rounded-l-none"
+                className="rounded-l-none flex-1 sm:flex-initial"
               >
                 <List className="w-4 h-4" />
               </Button>
@@ -310,7 +311,7 @@ export default function MediaLibrary({
 
       {/* Assets Grid/List */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
           {assets.map(asset => (
             <div
               key={asset.id}
@@ -356,39 +357,39 @@ export default function MediaLibrary({
               </div>
 
               {/* Info */}
-              <div className="p-2">
-                <p className="text-xs font-medium text-slate-700 truncate" title={asset.originalName}>
-                  {getUniqueFileName(asset.s3Key)}
+              <div className="p-1.5 sm:p-2">
+                <p className="text-[10px] sm:text-xs font-medium text-slate-700 truncate" title={asset.originalName || ''}>
+                  {getUniqueFileName(asset.s3Key || '')}
                 </p>
-                <p className="text-xs text-slate-500 truncate" title={asset.originalName}>
-                  Original: {asset.originalName}
+                <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden sm:block" title={asset.originalName || ''}>
+                  Original: {asset.originalName || 'N/A'}
                 </p>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-slate-500">
-                    {formatFileSize(asset.fileSize)}
+                <div className="flex items-center justify-between mt-0.5 sm:mt-1">
+                  <span className="text-[10px] sm:text-xs text-slate-500">
+                    {formatFileSize(asset.fileSize ?? 0)}
                   </span>
                 </div>
               </div>
 
               {/* Actions */}
               {!selectionMode && (
-                <div className="absolute top-2 left-2 opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-md p-1 shadow-sm">
-                  <div className="flex space-x-1">
+                <div className="absolute top-1 left-1 sm:top-2 sm:left-2 opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-md p-0.5 sm:p-1 shadow-sm">
+                  <div className="flex space-x-0.5 sm:space-x-1">
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="w-6 h-6 p-0"
+                      className="w-5 h-5 sm:w-6 sm:h-6 p-0"
                       onClick={(e) => {
                         e.stopPropagation()
                         window.open(asset.url, '_blank')
                       }}
                     >
-                      <Eye className="w-3 h-3" />
+                      <Eye className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     </Button>
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="w-6 h-6 p-0"
+                      className="w-5 h-5 sm:w-6 sm:h-6 p-0"
                       onClick={(e) => {
                         e.stopPropagation()
                         const link = document.createElement('a')
@@ -397,18 +398,18 @@ export default function MediaLibrary({
                         link.click()
                       }}
                     >
-                      <Download className="w-3 h-3" />
+                      <Download className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     </Button>
                     <Button
                       size="sm"
                       variant="secondary"
-                      className="w-6 h-6 p-0 text-red-600 hover:text-red-700"
+                      className="w-5 h-5 sm:w-6 sm:h-6 p-0 text-red-600 hover:text-red-700"
                       onClick={(e) => {
                         e.stopPropagation()
                         deleteAsset(asset.id)
                       }}
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     </Button>
                   </div>
                 </div>
@@ -417,11 +418,11 @@ export default function MediaLibrary({
           ))}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 sm:space-y-3">
           {assets.map(asset => (
             <div
               key={asset.id}
-              className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${
+              className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 p-3 sm:p-4 border rounded-lg cursor-pointer transition-all ${
                 selectedIds.includes(asset.id)
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-slate-200 hover:border-slate-300'
@@ -430,21 +431,21 @@ export default function MediaLibrary({
             >
               {/* Selection Indicator */}
               {selectionMode && (
-                <div className="mr-4">
-                  <div className={`w-5 h-5 border-2 rounded ${
+                <div className="mr-2 sm:mr-4 flex-shrink-0">
+                  <div className={`w-4 h-4 sm:w-5 sm:h-5 border-2 rounded ${
                     selectedIds.includes(asset.id)
                       ? 'bg-blue-500 border-blue-500'
                       : 'border-slate-300'
                   }`}>
                     {selectedIds.includes(asset.id) && (
-                      <Check className="w-3 h-3 text-white" />
+                      <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                     )}
                   </div>
                 </div>
               )}
 
               {/* Preview */}
-              <div className="w-12 h-12 bg-slate-100 rounded flex items-center justify-center mr-4 overflow-hidden">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-100 rounded flex items-center justify-center mr-2 sm:mr-4 overflow-hidden flex-shrink-0">
                 {asset.kind === 'image' ? (
                   <img
                     src={asset.thumbnailUrl || asset.url}
@@ -467,27 +468,27 @@ export default function MediaLibrary({
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:space-x-2">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-slate-700 truncate" title={asset.originalName}>
-                      {getUniqueFileName(asset.s3Key)}
+                    <p className="font-medium text-sm sm:text-base text-slate-700 truncate" title={asset.originalName || ''}>
+                      {getUniqueFileName(asset.s3Key || '')}
                     </p>
-                    <p className="text-sm text-slate-500 truncate" title={asset.originalName}>
-                      Original: {asset.originalName}
+                    <p className="text-xs sm:text-sm text-slate-500 truncate hidden sm:block" title={asset.originalName || ''}>
+                      Original: {asset.originalName || 'N/A'}
                     </p>
                   </div>
                   {asset.isPrimary && (
-                    <Badge variant="outline" className="text-xs text-blue-600">
+                    <Badge variant="outline" className="text-xs text-blue-600 flex-shrink-0">
                       Primary
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center space-x-4 mt-1">
-                  <span className="text-sm text-slate-500">
-                    {formatFileSize(asset.fileSize)}
+                <div className="flex flex-wrap items-center gap-2 sm:space-x-4 mt-1">
+                  <span className="text-xs sm:text-sm text-slate-500">
+                    {formatFileSize(asset.fileSize ?? 0)}
                   </span>
-                  <span className="text-sm text-slate-500">
-                    {formatDate(asset.createdAt)}
+                  <span className="text-xs sm:text-sm text-slate-500">
+                    {asset.createdAt ? formatDate(asset.createdAt) : 'Unknown date'}
                   </span>
                   {asset.productName && (
                     <Badge
@@ -496,7 +497,7 @@ export default function MediaLibrary({
                     >
                       <span className="flex items-center">
                         <Package className="w-3 h-3 mr-1" />
-                        {asset.productName}
+                        <span className="truncate max-w-[100px] sm:max-w-none">{asset.productName}</span>
                       </span>
                     </Badge>
                   )}
@@ -505,7 +506,7 @@ export default function MediaLibrary({
 
               {/* Actions */}
               {!selectionMode && (
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2 w-full sm:w-auto">
                   <Button
                     size="sm"
                     variant="outline"
@@ -513,9 +514,10 @@ export default function MediaLibrary({
                       e.stopPropagation()
                       window.open(asset.url, '_blank')
                     }}
+                    className="flex-1 sm:flex-initial"
                   >
-                    <Eye className="w-4 h-4 mr-1" />
-                    View
+                    <Eye className="w-4 h-4 sm:mr-1" />
+                    <span className="hidden sm:inline">View</span>
                   </Button>
                   <Button
                     size="sm"
@@ -524,17 +526,18 @@ export default function MediaLibrary({
                       e.stopPropagation()
                       const link = document.createElement('a')
                       link.href = asset.url
-                      link.download = asset.originalName
+                      link.download = asset.originalName || 'download'
                       link.click()
                     }}
+                    className="flex-1 sm:flex-initial"
                   >
-                    <Download className="w-4 h-4 mr-1" />
-                    Download
+                    <Download className="w-4 h-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Download</span>
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-red-600 hover:text-red-700"
+                    className="text-red-600 hover:text-red-700 flex-1 sm:flex-initial"
                     onClick={(e) => {
                       e.stopPropagation()
                       deleteAsset(asset.id)
@@ -551,16 +554,17 @@ export default function MediaLibrary({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center space-x-2">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:space-x-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setPage(prev => Math.max(1, prev - 1))}
             disabled={page === 1}
+            className="w-full sm:w-auto"
           >
             Previous
           </Button>
-          <span className="text-sm text-slate-600">
+          <span className="text-xs sm:text-sm text-slate-600">
             Page {page} of {totalPages}
           </span>
           <Button
@@ -568,6 +572,7 @@ export default function MediaLibrary({
             size="sm"
             onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
             disabled={page === totalPages}
+            className="w-full sm:w-auto"
           >
             Next
           </Button>

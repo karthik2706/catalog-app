@@ -122,7 +122,12 @@ export default function InventoryManagementModal({
       
       if (response.ok) {
         const data = await response.json()
-        setAnalytics(data)
+        setAnalytics({
+          totalMovements: data.totalMovements || 0,
+          averageMovement: data.averageMovement ?? 0,
+          lastMovement: data.lastMovement || null,
+          stockTrend: data.stockTrend || 'stable'
+        })
       }
     } catch (error) {
       console.error('Error fetching analytics:', error)
@@ -176,7 +181,7 @@ export default function InventoryManagementModal({
     return { status: 'good', color: 'success', icon: CheckCircle }
   }
 
-  const getMovementIcon = (type: string) => {
+  const getMovementIcon = (type: string | undefined) => {
     switch (type) {
       case 'PURCHASE':
       case 'RETURN':
@@ -189,7 +194,7 @@ export default function InventoryManagementModal({
     }
   }
 
-  const getMovementColor = (type: string) => {
+  const getMovementColor = (type: string | undefined) => {
     switch (type) {
       case 'PURCHASE':
       case 'RETURN':
@@ -204,35 +209,37 @@ export default function InventoryManagementModal({
 
   if (!product) return null
 
-  const stockStatus = getStockStatus(product.stockLevel, product.minStock)
-  const newStockLevel = product.stockLevel + quantity
+  const stockLevel = product.stockLevel ?? 0
+  const minStock = product.minStock ?? 0
+  const stockStatus = getStockStatus(stockLevel, minStock)
+  const newStockLevel = stockLevel + (quantity || 0)
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Inventory Management - ${product.name}`}
+      title={`Inventory Management - ${product.name || 'Product'}`}
       size="xl"
     >
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Product Info Header */}
-        <div className="p-4 bg-slate-50 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-slate-900">{product.name}</h3>
-              <p className="text-sm text-slate-600">SKU: {product.sku}</p>
+        <div className="p-3 sm:p-4 bg-slate-50 rounded-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">{product.name || 'Unknown Product'}</h3>
+              <p className="text-xs sm:text-sm text-slate-600">SKU: {product.sku || 'N/A'}</p>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <div className="flex items-center space-x-2">
-                <stockStatus.icon className="w-5 h-5" />
+                <stockStatus.icon className="w-4 h-4 sm:w-5 sm:h-5" />
                 <Badge variant={stockStatus.color as any} size="sm">
                   {stockStatus.status.toUpperCase()} STOCK
                 </Badge>
               </div>
-              <p className="text-2xl font-bold text-slate-900 mt-1">
-                {product.stockLevel}
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">
+                {stockLevel}
               </p>
-              <p className="text-sm text-slate-500">Min: {product.minStock}</p>
+              <p className="text-xs sm:text-sm text-slate-500">Min: {minStock}</p>
             </div>
           </div>
         </div>
@@ -241,44 +248,44 @@ export default function InventoryManagementModal({
         <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg">
           <button
             onClick={() => setActiveTab('update')}
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
               activeTab === 'update'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Package className="w-4 h-4 inline mr-2" />
-            Update Stock
+            <Package className="w-3 h-3 sm:w-4 sm:h-4 inline sm:mr-2" />
+            <span className="hidden sm:inline">Update Stock</span>
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
               activeTab === 'history'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <History className="w-4 h-4 inline mr-2" />
-            History
+            <History className="w-3 h-3 sm:w-4 sm:h-4 inline sm:mr-2" />
+            <span className="hidden sm:inline">History</span>
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
               activeTab === 'analytics'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <BarChart3 className="w-4 h-4 inline mr-2" />
-            Analytics
+            <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 inline sm:mr-2" />
+            <span className="hidden sm:inline">Analytics</span>
           </button>
         </div>
 
         {/* Update Stock Tab */}
         {activeTab === 'update' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="space-y-3 sm:space-y-4">
                 <Input
                   label="Quantity Change"
                   type="number"
@@ -314,13 +321,13 @@ export default function InventoryManagementModal({
                 />
               </div>
 
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-50 rounded-xl">
-                  <h4 className="font-medium text-slate-900 mb-3">Preview</h4>
+              <div className="space-y-3 sm:space-y-4">
+                <div className="p-3 sm:p-4 bg-slate-50 rounded-xl">
+                  <h4 className="text-sm sm:text-base font-medium text-slate-900 mb-2 sm:mb-3">Preview</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-sm text-slate-600">Current Stock:</span>
-                      <span className="font-medium">{product.stockLevel}</span>
+                      <span className="font-medium">{stockLevel}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-slate-600">Change:</span>
@@ -345,11 +352,11 @@ export default function InventoryManagementModal({
                   </div>
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:space-x-3">
                   <Button
                     onClick={handleInventoryUpdate}
                     disabled={loading || quantity === 0}
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
                   >
                     {loading ? <Loading size="sm" /> : 'Update Inventory'}
                   </Button>
@@ -357,6 +364,7 @@ export default function InventoryManagementModal({
                     variant="outline"
                     onClick={resetForm}
                     disabled={loading}
+                    className="w-full sm:w-auto"
                   >
                     Reset
                   </Button>
@@ -368,30 +376,30 @@ export default function InventoryManagementModal({
 
         {/* History Tab */}
         {activeTab === 'history' && (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {historyLoading ? (
-              <div className="flex justify-center py-8">
+              <div className="flex justify-center py-6 sm:py-8">
                 <Loading />
               </div>
             ) : inventoryHistory.length === 0 ? (
-              <div className="text-center py-8">
-                <History className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">No inventory history found</p>
+              <div className="text-center py-6 sm:py-8">
+                <History className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base text-slate-500">No inventory history found</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {inventoryHistory.map((record) => (
                   <div
                     key={record.id}
-                    className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 p-3 sm:p-4 bg-white border border-slate-200 rounded-lg"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-lg ${getMovementColor(record.type)}`}>
-                        {getMovementIcon(record.type)}
+                      <div className={`p-2 rounded-lg ${getMovementColor(record.type || 'ADJUSTMENT')}`}>
+                        {getMovementIcon(record.type || 'ADJUSTMENT')}
                       </div>
                       <div>
                         <p className="font-medium text-slate-900">
-                          {record.type.replace('_', ' ')}
+                          {(record.type || 'UNKNOWN').replace('_', ' ')}
                         </p>
                         <p className="text-sm text-slate-600">
                           {record.reason || 'No reason provided'}
@@ -407,13 +415,13 @@ export default function InventoryManagementModal({
                           </div>
                         )}
                         <p className="text-xs text-slate-500">
-                          {record.user?.name || 'System'} • {new Date(record.createdAt).toLocaleDateString()}
+                          {record.user?.name || 'System'} • {record.createdAt ? new Date(record.createdAt).toLocaleDateString() : 'Unknown date'}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`font-bold ${record.quantity >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {record.quantity >= 0 ? '+' : ''}{record.quantity}
+                    <div className="text-left sm:text-right self-start sm:self-auto">
+                      <p className={`text-lg sm:text-xl font-bold ${(record.quantity ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {(record.quantity ?? 0) >= 0 ? '+' : ''}{(record.quantity ?? 0)}
                       </p>
                     </div>
                   </div>
@@ -425,47 +433,47 @@ export default function InventoryManagementModal({
 
         {/* Analytics Tab */}
         {activeTab === 'analytics' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-blue-50 rounded-xl">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className="p-3 sm:p-4 bg-blue-50 rounded-xl">
                 <div className="flex items-center space-x-2">
-                  <BarChart3 className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">Total Movements</span>
+                  <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                  <span className="text-xs sm:text-sm font-medium text-blue-900">Total Movements</span>
                 </div>
-                <p className="text-2xl font-bold text-blue-900 mt-2">
-                  {analytics.totalMovements}
+                <p className="text-xl sm:text-2xl font-bold text-blue-900 mt-2">
+                  {analytics.totalMovements ?? 0}
                 </p>
               </div>
               
-              <div className="p-4 bg-green-50 rounded-xl">
+              <div className="p-3 sm:p-4 bg-green-50 rounded-xl">
                 <div className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-900">Avg Movement</span>
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                  <span className="text-xs sm:text-sm font-medium text-green-900">Avg Movement</span>
                 </div>
-                <p className="text-2xl font-bold text-green-900 mt-2">
-                  {analytics.averageMovement.toFixed(1)}
+                <p className="text-xl sm:text-2xl font-bold text-green-900 mt-2">
+                  {(analytics.averageMovement ?? 0).toFixed(1)}
                 </p>
               </div>
               
-              <div className="p-4 bg-purple-50 rounded-xl">
+              <div className="p-3 sm:p-4 bg-purple-50 rounded-xl sm:col-span-2 lg:col-span-1">
                 <div className="flex items-center space-x-2">
-                  <Clock className="w-5 h-5 text-purple-600" />
-                  <span className="text-sm font-medium text-purple-900">Last Movement</span>
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                  <span className="text-xs sm:text-sm font-medium text-purple-900">Last Movement</span>
                 </div>
-                <p className="text-sm font-bold text-purple-900 mt-2">
+                <p className="text-xs sm:text-sm font-bold text-purple-900 mt-2">
                   {analytics.lastMovement ? new Date(analytics.lastMovement).toLocaleDateString() : 'Never'}
                 </p>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl">
-              <h4 className="font-medium text-slate-900 mb-3">Stock Trend Analysis</h4>
+            <div className="p-3 sm:p-4 bg-slate-50 rounded-xl">
+              <h4 className="text-sm sm:text-base font-medium text-slate-900 mb-2 sm:mb-3">Stock Trend Analysis</h4>
               <div className="flex items-center space-x-2">
-                {analytics.stockTrend === 'up' && <TrendingUp className="w-5 h-5 text-green-600" />}
-                {analytics.stockTrend === 'down' && <TrendingDown className="w-5 h-5 text-red-600" />}
-                {analytics.stockTrend === 'stable' && <Package className="w-5 h-5 text-blue-600" />}
-                <span className="text-sm text-slate-600">
-                  Stock trend is {analytics.stockTrend}
+                {analytics.stockTrend === 'up' && <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />}
+                {analytics.stockTrend === 'down' && <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />}
+                {analytics.stockTrend === 'stable' && <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />}
+                <span className="text-xs sm:text-sm text-slate-600">
+                  Stock trend is {analytics.stockTrend || 'stable'}
                 </span>
               </div>
             </div>

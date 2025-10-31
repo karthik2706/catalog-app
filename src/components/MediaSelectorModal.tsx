@@ -189,23 +189,24 @@ export default function MediaSelectorModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Select Media Assets</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900">Select Media Assets</h2>
             {productName && (
-              <p className="text-sm text-slate-600">Assigning to: {productName}</p>
+              <p className="text-xs sm:text-sm text-slate-600 truncate">Assigning to: {productName}</p>
             )}
           </div>
-          <div className="flex items-center space-x-2">
-            <Badge variant="outline">
+          <div className="flex items-center justify-between sm:justify-end space-x-2">
+            <Badge variant="outline" className="flex-shrink-0">
               {selectedAssets.length} selected
             </Badge>
             <Button
               onClick={onClose}
               variant="ghost"
               size="sm"
+              className="flex-shrink-0 sm:hidden"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -213,9 +214,9 @@ export default function MediaSelectorModal({
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
           {/* Search */}
-          <div className="flex-1 min-w-64">
+          <div className="flex-1 min-w-0 sm:min-w-64">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
@@ -232,7 +233,7 @@ export default function MediaSelectorModal({
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-md text-sm"
+            className="px-3 py-2 border border-slate-300 rounded-md text-sm w-full sm:w-auto"
           >
             <option value="all">All Types</option>
             <option value="image">Images</option>
@@ -241,14 +242,13 @@ export default function MediaSelectorModal({
             <option value="document">Documents</option>
           </select>
 
-
           {/* View Mode */}
-          <div className="flex border border-slate-300 rounded-md">
+          <div className="flex border border-slate-300 rounded-md w-full sm:w-auto">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('grid')}
-              className="rounded-r-none"
+              className="rounded-r-none flex-1 sm:flex-initial"
             >
               <Grid className="w-4 h-4" />
             </Button>
@@ -256,7 +256,7 @@ export default function MediaSelectorModal({
               variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('list')}
-              className="rounded-l-none"
+              className="rounded-l-none flex-1 sm:flex-initial"
             >
               <List className="w-4 h-4" />
             </Button>
@@ -281,7 +281,7 @@ export default function MediaSelectorModal({
         {!loading && (
           <>
             {viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 max-h-96 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 max-h-[50vh] sm:max-h-96 overflow-y-auto">
                 {assets.map(asset => (
                   <div
                     key={asset.id}
@@ -294,9 +294,9 @@ export default function MediaSelectorModal({
                   >
                     {/* Selection Indicator */}
                     {isAssetSelected(asset) && (
-                      <div className="absolute top-2 right-2 z-10">
-                        <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                          <Check className="w-4 h-4 text-white" />
+                      <div className="absolute top-1 right-1 sm:top-2 sm:right-2 z-10">
+                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                          <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                         </div>
                       </div>
                     )}
@@ -327,20 +327,21 @@ export default function MediaSelectorModal({
                     </div>
 
                     {/* Info */}
-                    <div className="p-2">
+                    <div className="p-1.5 sm:p-2">
                       <p className="text-xs font-medium text-slate-700 truncate">
                         {asset.originalName}
                       </p>
-                      <div className="flex items-center justify-between mt-1">
+                      <div className="flex items-center justify-between mt-1 gap-1">
                         <Badge
                           variant="outline"
-                          className={`text-xs ${
+                          className={`text-xs flex-shrink-0 ${
                             asset.assigned ? 'text-green-600' : 'text-slate-500'
                           }`}
                         >
-                          {asset.assigned ? 'Assigned' : 'Unassigned'}
+                          <span className="hidden sm:inline">{asset.assigned ? 'Assigned' : 'Unassigned'}</span>
+                          <span className="sm:hidden">{asset.assigned ? '✓' : '-'}</span>
                         </Badge>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-slate-500 truncate text-right">
                           {formatFileSize(asset.fileSize)}
                         </span>
                       </div>
@@ -349,11 +350,11 @@ export default function MediaSelectorModal({
                 ))}
               </div>
             ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-2 max-h-[50vh] sm:max-h-96 overflow-y-auto">
                 {assets.map(asset => (
                   <div
                     key={asset.id}
-                    className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${
+                    className={`flex items-center p-3 sm:p-4 border rounded-lg cursor-pointer transition-all ${
                       isAssetSelected(asset)
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-slate-200 hover:border-slate-300'
@@ -361,20 +362,20 @@ export default function MediaSelectorModal({
                     onClick={() => handleSelectAsset(asset)}
                   >
                     {/* Selection Indicator */}
-                    <div className="mr-4">
-                      <div className={`w-5 h-5 border-2 rounded ${
+                    <div className="mr-2 sm:mr-4 flex-shrink-0">
+                      <div className={`w-4 h-4 sm:w-5 sm:h-5 border-2 rounded ${
                         isAssetSelected(asset)
                           ? 'bg-blue-500 border-blue-500'
                           : 'border-slate-300'
                       }`}>
                         {isAssetSelected(asset) && (
-                          <Check className="w-3 h-3 text-white" />
+                          <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                         )}
                       </div>
                     </div>
 
                     {/* Preview */}
-                    <div className="w-12 h-12 bg-slate-100 rounded flex items-center justify-center mr-4 overflow-hidden">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-100 rounded flex items-center justify-center mr-2 sm:mr-4 overflow-hidden flex-shrink-0">
                       {asset.kind === 'image' ? (
                         <img
                           src={asset.thumbnailUrl || asset.url}
@@ -450,31 +451,38 @@ export default function MediaSelectorModal({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="text-sm text-slate-600">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 pt-4 border-t">
+          <div className="text-sm text-slate-600 text-center sm:text-left">
             {selectedAssets.length} asset{selectedAssets.length !== 1 ? 's' : ''} selected
           </div>
-          <div className="flex space-x-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
             <Button
               onClick={onClose}
               variant="outline"
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               onClick={productId ? handleAssignMedia : handleSelectMedia}
               disabled={selectedAssets.length === 0 || assigning}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
             >
               {assigning ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {productId ? 'Assigning...' : 'Selecting...'}
+                  <span className="hidden sm:inline">{productId ? 'Assigning...' : 'Selecting...'}</span>
+                  <span className="sm:hidden">{productId ? 'Assigning' : 'Selecting'}</span>
                 </>
               ) : (
                 <>
                   <Plus className="w-4 h-4 mr-2" />
-                  {productId ? 'Assign' : 'Select'} {selectedAssets.length} Asset{selectedAssets.length !== 1 ? 's' : ''}
+                  <span className="hidden sm:inline">
+                    {productId ? 'Assign' : 'Select'} {selectedAssets.length} Asset{selectedAssets.length !== 1 ? 's' : ''}
+                  </span>
+                  <span className="sm:hidden">
+                    {productId ? 'Assign' : 'Select'} ({selectedAssets.length})
+                  </span>
                 </>
               )}
             </Button>

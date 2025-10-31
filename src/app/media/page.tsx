@@ -26,30 +26,30 @@ export default function MediaPage() {
   return (
     <DashboardLayout>
       <div className="page-container">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Media Management</h1>
-          <p className="text-slate-600">
+        <div className="mb-4 sm:mb-6 lg:mb-8">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 mb-1 sm:mb-2">Media Management</h1>
+          <p className="text-sm sm:text-base text-slate-600">
             Upload, organize, and manage your media assets
           </p>
         </div>
 
         {/* Tab Navigation */}
-        <Card className="mb-6">
+        <Card className="mb-4 sm:mb-6">
           <CardContent className="p-0">
-            <div className="flex border-b border-slate-200">
+            <div className="flex border-b border-slate-200 overflow-x-auto">
               {tabs.map(tab => {
                 const Icon = tab.icon
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600 bg-blue-50'
                         : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span>{tab.label}</span>
                   </button>
                 )

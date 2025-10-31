@@ -28,7 +28,7 @@
 @layer components {
   /* Mobile-first responsive container */
   .mobile-container {
-    @apply w-full min-w-[320px] max-w-full px-4 sm:px-6 lg:px-8;
+    @apply w-full min-w-[320px] max-w-full px-[10px];
   }
   
   /* Mobile-friendly grid */
@@ -162,5 +162,15 @@
       font-size: 1rem;
       line-height: 1.5rem;
     }
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

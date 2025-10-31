@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const report = await runDataQualityCheck()
+    const report = await runDataQualityCheck(user.clientId, user.role === 'MASTER_ADMIN')
     
     return NextResponse.json({
       success: true,

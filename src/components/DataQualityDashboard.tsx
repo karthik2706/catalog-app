@@ -181,15 +181,15 @@ export default function DataQualityDashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-900">Data Quality Dashboard</h2>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Data Quality Dashboard</h2>
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="h-4 bg-slate-200 rounded w-3/4 mb-2"></div>
                 <div className="h-8 bg-slate-200 rounded w-1/2"></div>
               </CardContent>
@@ -215,14 +215,14 @@ export default function DataQualityDashboard() {
   if (!report) return null
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Data Quality Dashboard</h2>
-          <p className="text-slate-600">Monitor and improve your data quality</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+        <div className="min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Data Quality Dashboard</h2>
+          <p className="text-sm sm:text-base text-slate-600">Monitor and improve your data quality</p>
         </div>
-        <div className="flex space-x-2">
-          <Button onClick={fetchDataQualityReport} variant="outline" size="sm">
+        <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2 w-full sm:w-auto">
+          <Button onClick={fetchDataQualityReport} variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -232,6 +232,7 @@ export default function DataQualityDashboard() {
               variant="default" 
               size="sm"
               disabled={fixing}
+              className="w-full sm:w-auto flex-shrink-0"
             >
               <Wrench className="w-4 h-4 mr-2" />
               {fixing ? 'Fixing...' : 'Auto Fix'}
@@ -242,25 +243,25 @@ export default function DataQualityDashboard() {
 
       {/* Overall Score */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-x-2">
             {getScoreIcon(report.overallScore)}
-            <span>Overall Data Quality Score</span>
+            <span className="text-base sm:text-lg">Overall Data Quality Score</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
             <div>
-              <div className={`text-4xl font-bold ${getScoreColor(report.overallScore)}`}>
+              <div className={`text-3xl sm:text-4xl font-bold ${getScoreColor(report.overallScore)}`}>
                 {report.overallScore}/100
               </div>
-              <div className="text-sm text-slate-600 mt-1">
+              <div className="text-xs sm:text-sm text-slate-600 mt-1">
                 {report.totalRecords} total records • {report.totalIssues} issues found
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-sm text-slate-600">Data Health</div>
-              <div className={`text-lg font-semibold ${getScoreColor(report.overallScore)}`}>
+            <div className="text-left sm:text-right">
+              <div className="text-xs sm:text-sm text-slate-600">Data Health</div>
+              <div className={`text-base sm:text-lg font-semibold ${getScoreColor(report.overallScore)}`}>
                 {report.overallScore >= 90 ? 'Excellent' : 
                  report.overallScore >= 70 ? 'Good' : 
                  report.overallScore >= 50 ? 'Fair' : 'Poor'}
@@ -271,62 +272,62 @@ export default function DataQualityDashboard() {
       </Card>
 
       {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical Issues</CardTitle>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Critical Issues</CardTitle>
             <XCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="p-3 sm:p-6">
+            <div className="text-xl sm:text-2xl font-bold text-red-600">
               {report.issuesBySeverity.critical || 0}
             </div>
-            <p className="text-xs text-slate-600">
+            <p className="text-[10px] sm:text-xs text-slate-600">
               Require immediate attention
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">High Priority</CardTitle>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">High Priority</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+          <CardContent className="p-3 sm:p-6">
+            <div className="text-xl sm:text-2xl font-bold text-orange-600">
               {report.issuesBySeverity.high || 0}
             </div>
-            <p className="text-xs text-slate-600">
+            <p className="text-[10px] sm:text-xs text-slate-600">
               Should be addressed soon
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Medium Priority</CardTitle>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Medium Priority</CardTitle>
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
+          <CardContent className="p-3 sm:p-6">
+            <div className="text-xl sm:text-2xl font-bold text-yellow-600">
               {report.issuesBySeverity.medium || 0}
             </div>
-            <p className="text-xs text-slate-600">
+            <p className="text-[10px] sm:text-xs text-slate-600">
               Can be addressed later
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Priority</CardTitle>
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Low Priority</CardTitle>
             <CheckCircle className="h-4 w-4 text-blue-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+          <CardContent className="p-3 sm:p-6">
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">
               {report.issuesBySeverity.low || 0}
             </div>
-            <p className="text-xs text-slate-600">
+            <p className="text-[10px] sm:text-xs text-slate-600">
               Minor improvements
             </p>
           </CardContent>
@@ -335,15 +336,15 @@ export default function DataQualityDashboard() {
 
       {/* Issue Types */}
       <Card>
-        <CardHeader>
-          <CardTitle>Issue Types</CardTitle>
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-base sm:text-lg">Issue Types</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
             {Object.entries(report.issuesByType).map(([type, count]) => (
               <div key={type} className="text-center">
-                <div className="text-2xl font-bold text-slate-900">{count}</div>
-                <div className="text-sm text-slate-600 capitalize">
+                <div className="text-xl sm:text-2xl font-bold text-slate-900">{count || 0}</div>
+                <div className="text-xs sm:text-sm text-slate-600 capitalize">
                   {type.replace('_', ' ')}
                 </div>
               </div>
@@ -354,20 +355,20 @@ export default function DataQualityDashboard() {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle className="flex items-center space-x-2">
-            <Filter className="w-5 h-5" />
-            <span>Issues ({filteredIssues.length})</span>
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-base sm:text-lg">Issues ({filteredIssues.length})</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4 mb-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700">Severity:</label>
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mb-4">
+            <div className="flex-1 min-w-0">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Severity:</label>
               <select 
                 value={selectedSeverity} 
                 onChange={(e) => setSelectedSeverity(e.target.value)}
-                className="ml-2 px-3 py-1 border border-slate-300 rounded-md text-sm"
+                className="mt-1 w-full px-3 py-1 border border-slate-300 rounded-md text-xs sm:text-sm"
               >
                 <option value="all">All</option>
                 <option value="critical">Critical</option>
@@ -376,12 +377,12 @@ export default function DataQualityDashboard() {
                 <option value="low">Low</option>
               </select>
             </div>
-            <div>
-              <label className="text-sm font-medium text-slate-700">Type:</label>
+            <div className="flex-1 min-w-0">
+              <label className="text-xs sm:text-sm font-medium text-slate-700">Type:</label>
               <select 
                 value={selectedType} 
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="ml-2 px-3 py-1 border border-slate-300 rounded-md text-sm"
+                className="mt-1 w-full px-3 py-1 border border-slate-300 rounded-md text-xs sm:text-sm"
               >
                 <option value="all">All</option>
                 <option value="missing_field">Missing Field</option>
@@ -393,27 +394,28 @@ export default function DataQualityDashboard() {
             </div>
           </div>
 
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-2 sm:space-y-3 max-h-96 overflow-y-auto">
             {filteredIssues.map((issue) => (
-              <div key={issue.id} className="p-4 border border-slate-200 rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3">
+              <div key={issue.id} className="p-3 sm:p-4 border border-slate-200 rounded-lg">
+                <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-0">
+                  <div className="flex items-start space-x-3 flex-1 min-w-0">
                     {getEntityIcon(issue.entity)}
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="font-medium text-slate-900">{issue.entity}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                        <span className="text-xs sm:text-sm font-medium text-slate-900">{issue.entity}</span>
                         <Badge className={getSeverityColor(issue.severity)}>
-                          {issue.severity}
+                          <span className="text-[10px] sm:text-xs">{issue.severity}</span>
                         </Badge>
                         <Badge variant="outline" className="flex items-center space-x-1">
                           {getTypeIcon(issue.type)}
-                          <span className="capitalize">{issue.type.replace('_', ' ')}</span>
+                          <span className="capitalize text-[10px] sm:text-xs hidden sm:inline">{issue.type.replace('_', ' ')}</span>
+                          <span className="capitalize text-[10px] sm:hidden">{issue.type.split('_')[0]}</span>
                         </Badge>
                       </div>
-                      <div className="text-sm text-slate-600 mb-2">
+                      <div className="text-xs sm:text-sm text-slate-600 mb-2">
                         {issue.description}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-[10px] sm:text-xs text-slate-500">
                         <strong>Field:</strong> {issue.field}
                         {issue.currentValue && (
                           <span> • <strong>Current:</strong> {String(issue.currentValue)}</span>
@@ -423,14 +425,15 @@ export default function DataQualityDashboard() {
                         )}
                       </div>
                       {issue.suggestion && (
-                        <div className="text-xs text-blue-600 mt-1">
+                        <div className="text-[10px] sm:text-xs text-blue-600 mt-1">
                           💡 {issue.suggestion}
                         </div>
                       )}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    <Eye className="w-4 h-4" />
+                  <Button variant="outline" size="sm" className="flex-shrink-0 w-full sm:w-auto">
+                    <Eye className="w-4 h-4 sm:mr-1" />
+                    <span className="hidden sm:inline">View</span>
                   </Button>
                 </div>
               </div>
@@ -442,15 +445,15 @@ export default function DataQualityDashboard() {
       {/* Recommendations */}
       {report.recommendations.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Recommendations</CardTitle>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-base sm:text-lg">Recommendations</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             <div className="space-y-2">
               {report.recommendations.map((recommendation, index) => (
                 <div key={index} className="flex items-start space-x-2">
                   <div className="text-blue-600 mt-0.5">•</div>
-                  <div className="text-sm text-slate-700">{recommendation}</div>
+                  <div className="text-xs sm:text-sm text-slate-700">{recommendation}</div>
                 </div>
               ))}
             </div>

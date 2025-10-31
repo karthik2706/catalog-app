@@ -33,7 +33,8 @@ import {
   Ruler,
   Image as ImageIcon,
   Video,
-  Star
+  Star,
+  Camera
 } from 'lucide-react'
 
 export default function NewProductPage() {
@@ -66,6 +67,10 @@ export default function NewProductPage() {
   // Media selector modal state
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
   const [selectedMedia, setSelectedMedia] = useState<any[]>([])
+
+  // Barcode scanner state
+  const [isScanning, setIsScanning] = useState(false)
+  const [barcodeReader, setBarcodeReader] = useState<any>(null)
 
   // Load categories and currency on component mount
   useEffect(() => {
@@ -112,12 +117,82 @@ export default function NewProductPage() {
     fetchClientCurrency()
   }, [])
 
+  // Cleanup barcode reader on unmount
+  useEffect(() => {
+    return () => {
+      if (barcodeReader) {
+        barcodeReader.reset()
+        setBarcodeReader(null)
+      }
+    }
+  }, [barcodeReader])
+
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }))
+  }
+
+  const handleBarcodeScan = async (fieldName: 'name' | 'sku' = 'name') => {
+    try {
+      if (isScanning) {
+        // Stop scanning if already scanning
+        if (barcodeReader) {
+          barcodeReader.reset()
+          setBarcodeReader(null)
+        }
+        setIsScanning(false)
+        return
+      }
+
+      setIsScanning(true)
+      
+      // Import ZXing dynamically
+      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      const reader = new BrowserMultiFormatReader()
+      setBarcodeReader(reader)
+      
+      // List available video devices
+      const videoInputDevices = await reader.listVideoInputDevices()
+      
+      // Try to use back camera (preferred for barcode scanning on mobile)
+      let deviceId = undefined
+      const backCamera = videoInputDevices.find((device: any) => 
+        device.label.toLowerCase().includes('back') || 
+        device.label.toLowerCase().includes('environment')
+      )
+      if (backCamera) {
+        deviceId = backCamera.deviceId
+      }
+      
+      // Read barcode from video stream
+      reader.decodeFromVideoDevice(deviceId, 'video-barcode-preview', (result: any) => {
+        if (result) {
+          handleInputChange(fieldName, result.getText())
+          reader.reset()
+          setBarcodeReader(null)
+          setIsScanning(false)
+        }
+      }).catch((error: any) => {
+        console.error('Barcode scan error:', error)
+        if (error.name === 'NotAllowedError' || error.message?.includes('permission')) {
+          alert('Please allow camera access to scan barcodes')
+        } else if (error.name === 'NotFoundError') {
+          alert('No camera found on your device')
+        } else {
+          alert('Barcode scan failed. Please try again.')
+        }
+        setIsScanning(false)
+        setBarcodeReader(null)
+      })
+    } catch (error: any) {
+      console.error('Barcode scanner initialization error:', error)
+      alert('Failed to initialize barcode scanner. Please try again.')
+      setIsScanning(false)
+      setBarcodeReader(null)
+    }
   }
 
 
@@ -247,7 +322,7 @@ export default function NewProductPage() {
         }
       }
 
-      setSuccess('Product created successfully!')
+      setSuccess('Product saved successfully!')
       setTimeout(() => {
         router.push('/products')
       }, 1500)
@@ -292,11 +367,11 @@ export default function NewProductPage() {
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-[10px] py-4 sm:py-6 lg:py-8">
           <FadeIn>
             {/* Header */}
             <div className="mb-8">
-              <div className="flex items-center space-x-4 mb-6">
+              <div className="flex items-center space-x-4 mb-4 sm:mb-6">
                 <Button
                   variant="outline"
                   size="sm"
@@ -304,45 +379,48 @@ export default function NewProductPage() {
                   className="flex items-center space-x-2 hover:bg-slate-100"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span>Back to Products</span>
+                  <span className="hidden sm:inline">Back to Products</span>
+                  <span className="sm:hidden">Back</span>
                 </Button>
               </div>
               
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-                    <Package className="w-6 h-6 text-white" />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
+                <div className="flex items-center space-x-3 sm:space-x-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Create New Product</h1>
-                    <p className="text-slate-600 mt-1">Add a new product to your inventory</p>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Create New Product</h1>
+                    <p className="text-sm sm:text-base text-slate-600 mt-1">Add a new product to your inventory</p>
                   </div>
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center gap-2 sm:space-x-3 sm:flex-shrink-0">
                   <Button
                     variant="outline"
                     onClick={() => router.push('/products')}
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-2 flex-1 sm:flex-initial"
                   >
-                    <ArrowLeft className="w-4 h-4" />
-                    <span>Cancel</span>
+                    <ArrowLeft className="w-4 h-4 sm:hidden" />
+                    <span className="sm:inline">Cancel</span>
                   </Button>
                   <Button
                     onClick={handleSave}
                     disabled={saving}
-                    className="flex items-center space-x-2"
+                    className="flex items-center justify-center space-x-2 flex-1 sm:flex-initial"
                   >
                     {saving ? (
                       <>
                         <Loading className="w-4 h-4" />
-                        <span>Creating...</span>
+                        <span className="hidden sm:inline">Saving...</span>
+                        <span className="sm:hidden">Save</span>
                       </>
                     ) : (
                       <>
                         <Save className="w-4 h-4" />
-                        <span>Create Product</span>
+                        <span className="hidden sm:inline">Save Product</span>
+                        <span className="sm:hidden">Save</span>
                       </>
                     )}
                   </Button>
@@ -365,13 +443,13 @@ export default function NewProductPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
               {/* Main Form */}
               <div className="lg:col-span-2">
                 <StaggerWrapper>
                   {/* Basic Information */}
-                  <Card className="mb-8">
-                    <div className="p-6 border-b border-slate-200">
+                  <Card className="mb-4 sm:mb-6 lg:mb-8">
+                    <div className="p-4 sm:p-6 border-b border-slate-200">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                           <FileText className="w-4 h-4 text-blue-600" />
@@ -379,20 +457,35 @@ export default function NewProductPage() {
                         <h2 className="text-xl font-semibold text-slate-900">Basic Information</h2>
                       </div>
                     </div>
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         <FadeIn delay={0.1}>
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700 flex items-center space-x-1">
                               <span>Product Name</span>
                               <span className="text-red-500">*</span>
                             </label>
-                            <Input
-                              placeholder="Enter the product name"
-                              value={formData.name}
-                              onChange={(e) => handleInputChange('name', e.target.value)}
-                              className="w-full"
-                            />
+                            <div className="relative">
+                              <Input
+                                placeholder="Enter the product name"
+                                value={formData.name}
+                                onChange={(e) => handleInputChange('name', e.target.value)}
+                                className="w-full pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleBarcodeScan('name')}
+                                disabled={isScanning}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-primary-600 transition-colors disabled:opacity-50"
+                                title="Scan barcode"
+                              >
+                                {isScanning ? (
+                                  <Loading className="w-5 h-5" />
+                                ) : (
+                                  <Camera className="w-5 h-5" />
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </FadeIn>
 
@@ -403,12 +496,27 @@ export default function NewProductPage() {
                               <span>SKU</span>
                               <span className="text-red-500">*</span>
                             </label>
-                            <Input
-                              placeholder="Enter unique product identifier"
-                              value={formData.sku}
-                              onChange={(e) => handleInputChange('sku', e.target.value)}
-                              className="w-full"
-                            />
+                            <div className="relative">
+                              <Input
+                                placeholder="Enter unique product identifier"
+                                value={formData.sku}
+                                onChange={(e) => handleInputChange('sku', e.target.value)}
+                                className="w-full pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleBarcodeScan('sku')}
+                                disabled={isScanning}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-primary-600 transition-colors disabled:opacity-50"
+                                title="Scan barcode"
+                              >
+                                {isScanning ? (
+                                  <Loading className="w-5 h-5" />
+                                ) : (
+                                  <Camera className="w-5 h-5" />
+                                )}
+                              </button>
+                            </div>
                             <p className="text-xs text-slate-500">Enter a unique SKU for this product</p>
                           </div>
                         </FadeIn>
@@ -430,8 +538,8 @@ export default function NewProductPage() {
                   </Card>
 
                   {/* Pricing & Inventory */}
-                  <Card className="mb-8">
-                    <div className="p-6 border-b border-slate-200">
+                  <Card className="mb-4 sm:mb-6 lg:mb-8">
+                    <div className="p-4 sm:p-6 border-b border-slate-200">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                           {React.createElement(getCurrencyIcon(clientCurrency), { className: "w-4 h-4 text-green-600" })}
@@ -439,8 +547,8 @@ export default function NewProductPage() {
                         <h2 className="text-xl font-semibold text-slate-900">Pricing & Inventory</h2>
                       </div>
                     </div>
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="p-4 sm:p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                         <FadeIn delay={0.1}>
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700 flex items-center space-x-1">
@@ -486,7 +594,7 @@ export default function NewProductPage() {
                         </FadeIn>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                         <FadeIn delay={0.4}>
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700 flex items-center space-x-1">
@@ -524,7 +632,7 @@ export default function NewProductPage() {
                         </FadeIn>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                         <FadeIn delay={0.5}>
                           <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700 flex items-center space-x-1">
@@ -546,9 +654,9 @@ export default function NewProductPage() {
                   </Card>
 
                   {/* Product Variations */}
-                  <Card className="mb-8">
-                    <div className="p-6 border-b border-slate-200">
-                      <div className="flex items-center justify-between">
+                  <Card className="mb-4 sm:mb-6 lg:mb-8">
+                    <div className="p-4 sm:p-6 border-b border-slate-200">
+                      <div className="flex items-center justify-between flex-col sm:flex-row gap-3 sm:gap-0">
                         <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                             <Palette className="w-4 h-4 text-purple-600" />
@@ -558,14 +666,14 @@ export default function NewProductPage() {
                         <Button
                           variant="outline"
                           onClick={() => setVariationModalOpen(true)}
-                          className="flex items-center space-x-2"
+                          className="flex items-center space-x-2 w-full sm:w-auto"
                         >
                           <Plus className="w-4 h-4" />
                           <span>Add Variation</span>
                         </Button>
                       </div>
                     </div>
-                    <div className="p-6">
+                    <div className="p-4 sm:p-6">
                       {variations.length > 0 ? (
                         <div className="flex flex-wrap gap-3">
                           {variations.map((variation) => (
@@ -607,8 +715,8 @@ export default function NewProductPage() {
               <div className="lg:col-span-1">
                 <div className="sticky top-8">
                   {/* Categories Section */}
-                  <Card className="mb-6">
-                    <div className="p-6">
+                  <Card className="mb-4 sm:mb-6">
+                    <div className="p-4 sm:p-6">
                       <div className="flex items-center space-x-3 mb-4">
                         <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                           <Tag className="w-4 h-4 text-purple-600" />
@@ -642,8 +750,8 @@ export default function NewProductPage() {
 
 
                   {/* Media Selection */}
-                  <Card className="mb-8">
-                    <div className="p-6 border-b border-slate-200">
+                  <Card className="mb-4 sm:mb-6 lg:mb-8">
+                    <div className="p-4 sm:p-6 border-b border-slate-200">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                           <ImageIcon className="w-4 h-4 text-green-600" />
@@ -651,7 +759,7 @@ export default function NewProductPage() {
                         <h2 className="text-xl font-semibold text-slate-900">Product Media</h2>
                       </div>
                     </div>
-                    <div className="p-6">
+                    <div className="p-4 sm:p-6">
                       <div className="space-y-4">
                         <div>
                           <p className="text-sm text-slate-600 mb-4">
@@ -660,7 +768,7 @@ export default function NewProductPage() {
                         </div>
 
                         {/* Media Selection Button */}
-                        <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-slate-400 transition-colors">
+                        <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 sm:p-8 text-center hover:border-slate-400 transition-colors">
                           <div className="flex flex-col items-center space-y-4">
                             <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
                               <ImageIcon className="w-6 h-6 text-slate-600" />
@@ -748,9 +856,9 @@ export default function NewProductPage() {
                   </Card>
 
                   <Card>
-                    <div className="p-6">
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Form Progress</h3>
-                      <div className="space-y-3">
+                    <div className="p-4 sm:p-6">
+                      <h3 className="text-lg font-semibold text-slate-900 mb-3 sm:mb-4">Form Progress</h3>
+                      <div className="space-y-2 sm:space-y-3">
                         <div className="flex items-center space-x-3">
                           <div className={`w-2 h-2 rounded-full ${formData.name ? 'bg-green-500' : 'bg-slate-300'}`} />
                           <span className="text-sm text-slate-600">Product Name</span>
@@ -846,6 +954,15 @@ export default function NewProductPage() {
           productName={formData.name || 'New Product'}
           currentMedia={selectedMedia}
         />
+
+        {/* Hidden video element for barcode scanner */}
+        {isScanning && (
+          <video 
+            id="video-barcode-preview" 
+            style={{ position: 'fixed', top: '-9999px', width: '1px', height: '1px' }}
+            playsInline
+          />
+        )}
       </div>
     </DashboardLayout>
   )

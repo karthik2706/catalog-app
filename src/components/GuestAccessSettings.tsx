@@ -105,7 +105,7 @@ export default function GuestAccessSettings() {
   if (loading) {
     return (
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 p-4 sm:p-6">
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
@@ -116,18 +116,18 @@ export default function GuestAccessSettings() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Guest Access</CardTitle>
-        <CardDescription>
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="text-base sm:text-lg">Guest Access</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
           Allow guests to view your catalog with a simple password
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Enable/Disable Toggle */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
           <div className="space-y-0.5">
-            <Label htmlFor="guest-access">Enable Guest Access</Label>
-            <p className="text-sm text-gray-500">
+            <Label htmlFor="guest-access" className="text-xs sm:text-sm">Enable Guest Access</Label>
+            <p className="text-xs sm:text-sm text-gray-500">
               Allow anyone with the password to view your catalog
             </p>
           </div>
@@ -142,22 +142,23 @@ export default function GuestAccessSettings() {
         {guestAccessEnabled && (
           <div className="space-y-4 border-t pt-4">
             <div className="space-y-2">
-              <Label htmlFor="guest-password">
+              <Label htmlFor="guest-password" className="text-xs sm:text-sm">
                 {hasPassword ? 'Change Password (leave blank to keep current)' : 'Set Password'}
               </Label>
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
                 <Input
                   id="guest-password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Enter a password"
                   value={guestPassword}
                   onChange={(e) => setGuestPassword(e.target.value)}
-                  className="flex-1"
+                  className="flex-1 text-xs sm:text-sm"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setShowPassword(!showPassword)}
+                  className="text-xs sm:text-sm w-full sm:w-auto"
                 >
                   {showPassword ? 'Hide' : 'Show'}
                 </Button>
@@ -165,6 +166,7 @@ export default function GuestAccessSettings() {
                   type="button"
                   variant="outline"
                   onClick={generateRandomPassword}
+                  className="text-xs sm:text-sm w-full sm:w-auto"
                 >
                   Generate
                 </Button>
@@ -174,22 +176,23 @@ export default function GuestAccessSettings() {
             {/* Guest URL */}
             {guestUrl && (
               <div className="space-y-2">
-                <Label>Guest Access URL</Label>
-                <div className="flex space-x-2">
+                <Label className="text-xs sm:text-sm">Guest Access URL</Label>
+                <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
                   <Input
                     readOnly
                     value={guestUrl}
-                    className="flex-1 bg-gray-50"
+                    className="flex-1 bg-gray-50 text-xs sm:text-sm"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     onClick={copyToClipboard}
+                    className="text-xs sm:text-sm w-full sm:w-auto"
                   >
                     {copied ? 'Copied!' : 'Copy'}
                   </Button>
                 </div>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs sm:text-sm text-gray-500">
                   Share this URL with guests along with the password
                 </p>
               </div>
@@ -199,7 +202,7 @@ export default function GuestAccessSettings() {
 
         {/* Messages */}
         {message && (
-          <div className={`p-3 rounded text-sm ${
+          <div className={`p-3 rounded text-xs sm:text-sm ${
             message.type === 'success'
               ? 'bg-green-50 text-green-800 border border-green-200'
               : 'bg-red-50 text-red-800 border border-red-200'
@@ -212,7 +215,7 @@ export default function GuestAccessSettings() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="w-full"
+          className="w-full text-xs sm:text-sm"
         >
           {saving ? 'Saving...' : 'Save Settings'}
         </Button>

@@ -31,10 +31,29 @@ export async function GET(request: NextRequest) {
   try {
     const user = getUserFromRequest(request)
     
-    if (!user || !user.clientId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      )
+    }
+
+    // For super admin, return default/empty settings
+    if (user.role === 'MASTER_ADMIN') {
+      return NextResponse.json({
+        guestAccessEnabled: false,
+        hasPassword: false,
+        slug: null,
+        name: null,
+        guestUrl: null
+      })
+    }
+
+    // For regular users, clientId is required
+    if (!user.clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
       )
     }
 
@@ -76,10 +95,26 @@ export async function PUT(request: NextRequest) {
   try {
     const user = getUserFromRequest(request)
     
-    if (!user || !user.clientId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      )
+    }
+
+    // For super admin, guest access is not applicable
+    if (user.role === 'MASTER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Guest access is not available for super admin' },
+        { status: 403 }
+      )
+    }
+
+    // For regular users, clientId is required
+    if (!user.clientId) {
+      return NextResponse.json(
+        { error: 'Client context required' },
+        { status: 400 }
       )
     }
 
@@ -89,13 +124,6 @@ export async function PUT(request: NextRequest) {
     if (typeof guestAccessEnabled !== 'boolean') {
       return NextResponse.json(
         { error: 'Invalid guestAccessEnabled value' },
-        { status: 400 }
-      )
-    }
-
-    if (guestAccessEnabled && !guestPassword) {
-      return NextResponse.json(
-        { error: 'Password is required when enabling guest access' },
         { status: 400 }
       )
     }

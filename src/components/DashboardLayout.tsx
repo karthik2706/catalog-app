@@ -377,12 +377,77 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="min-h-screen min-w-mobile">
+        <main className="min-h-screen min-w-mobile pb-20 sm:pb-0">
           <div className="page-container">
             {children}
           </div>
         </main>
       </div>
+
+      {/* Mobile Footer Navigation */}
+      <footer className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg sm:hidden">
+        <nav className="flex items-center justify-around h-16 px-2">
+          {/* Home */}
+          <button
+            onClick={() => handleNavigation('/')}
+            className={cn(
+              'flex flex-col items-center justify-center space-y-0.5 px-3 py-1.5 rounded-lg transition-all min-w-[60px] active:scale-95',
+              isActive('/')
+                ? 'text-primary-600 bg-primary-50'
+                : 'text-slate-500 active:bg-slate-50'
+            )}
+          >
+            <Home className={cn(
+              'w-5 h-5 transition-colors',
+              isActive('/') ? 'text-primary-600' : 'text-slate-400'
+            )} />
+            <span className="text-[10px] sm:text-xs font-medium leading-tight">Home</span>
+            {isActive('/') && (
+              <div className="w-1 h-1 bg-primary-600 rounded-full mt-0.5" />
+            )}
+          </button>
+
+          {/* Products */}
+          <button
+            onClick={() => handleNavigation('/products')}
+            className={cn(
+              'flex flex-col items-center justify-center space-y-0.5 px-3 py-1.5 rounded-lg transition-all min-w-[60px] active:scale-95',
+              isActive('/products')
+                ? 'text-primary-600 bg-primary-50'
+                : 'text-slate-500 active:bg-slate-50'
+            )}
+          >
+            <Package className={cn(
+              'w-5 h-5 transition-colors',
+              isActive('/products') ? 'text-primary-600' : 'text-slate-400'
+            )} />
+            <span className="text-[10px] sm:text-xs font-medium leading-tight">Products</span>
+            {isActive('/products') && (
+              <div className="w-1 h-1 bg-primary-600 rounded-full mt-0.5" />
+            )}
+          </button>
+
+          {/* Inventory */}
+          <button
+            onClick={() => handleNavigation('/inventory')}
+            className={cn(
+              'flex flex-col items-center justify-center space-y-0.5 px-3 py-1.5 rounded-lg transition-all min-w-[60px] active:scale-95',
+              isActive('/inventory')
+                ? 'text-primary-600 bg-primary-50'
+                : 'text-slate-500 active:bg-slate-50'
+            )}
+          >
+            <Warehouse className={cn(
+              'w-5 h-5 transition-colors',
+              isActive('/inventory') ? 'text-primary-600' : 'text-slate-400'
+            )} />
+            <span className="text-[10px] sm:text-xs font-medium leading-tight">Inventory</span>
+            {isActive('/inventory') && (
+              <div className="w-1 h-1 bg-primary-600 rounded-full mt-0.5" />
+            )}
+          </button>
+        </nav>
+      </footer>
 
       {/* Click outside to close user menu */}
       {userMenuOpen && (
