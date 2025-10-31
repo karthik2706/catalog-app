@@ -149,13 +149,17 @@ export default function NewProductPage() {
 
       setIsScanning(true)
       
-      // Wait for modal to render video element
-      await new Promise(resolve => setTimeout(resolve, 200))
+      // Wait for modal to render video element with retries
+      let videoElement = null
+      let attempts = 0
+      while (!videoElement && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 50))
+        videoElement = document.getElementById('video-barcode-preview')
+        attempts++
+      }
       
-      // Wait for video element to be available
-      const videoElement = document.getElementById('video-barcode-preview')
       if (!videoElement) {
-        throw new Error('Video element not found')
+        throw new Error('Video element not found after multiple attempts')
       }
       
       // Import ZXing dynamically
@@ -163,25 +167,32 @@ export default function NewProductPage() {
       const reader = new BrowserMultiFormatReader()
       setBarcodeReader(reader)
       
-      // List available video devices
-      const videoInputDevices = await reader.listVideoInputDevices()
-      
-      // Try to use back camera (preferred for barcode scanning on mobile)
-      let deviceId = undefined
-      if (videoInputDevices.length > 0) {
-        const backCamera = videoInputDevices.find((device: any) => 
-          device.label.toLowerCase().includes('back') || 
-          device.label.toLowerCase().includes('environment')
-        )
-        if (backCamera) {
-          deviceId = backCamera.deviceId
-        } else if (videoInputDevices.length > 1) {
-          // If multiple cameras and no "back" found, try the last one (usually back on mobile)
-          deviceId = videoInputDevices[videoInputDevices.length - 1].deviceId
-        } else {
-          // Fallback to first camera
-          deviceId = videoInputDevices[0].deviceId
+      // On iOS, listVideoInputDevices requires camera permission first
+      // Try to get devices, but if it fails, proceed with undefined deviceId
+      let deviceId: string | undefined = undefined
+      try {
+        const videoInputDevices = await reader.listVideoInputDevices()
+        
+        if (videoInputDevices.length > 0) {
+          // Try to find back camera (preferred for barcode scanning on mobile)
+          const backCamera = videoInputDevices.find((device: any) => 
+            device.label.toLowerCase().includes('back') || 
+            device.label.toLowerCase().includes('environment')
+          )
+          if (backCamera) {
+            deviceId = backCamera.deviceId
+          } else if (videoInputDevices.length > 1) {
+            // If multiple cameras and no "back" found, try the last one (usually back on mobile)
+            deviceId = videoInputDevices[videoInputDevices.length - 1].deviceId
+          } else {
+            // Fallback to first camera
+            deviceId = videoInputDevices[0].deviceId
+          }
         }
+      } catch (listDevicesError) {
+        // On iOS, listVideoInputDevices might fail without permission
+        // We'll proceed with undefined deviceId and let decodeFromVideoDevice handle it
+        console.log('Could not list video devices, using default camera')
       }
       
       // Read barcode from video stream
