@@ -167,9 +167,13 @@ export default function NewProductPage() {
       const reader = new BrowserMultiFormatReader()
       setBarcodeReader(reader)
       
-      // On iOS, listVideoInputDevices requires camera permission first
-      // Try to get devices, but if it fails, proceed with undefined deviceId
+      // On iOS, skip listVideoInputDevices as it requires permission that may fail
+      // Instead, directly use decodeFromVideoDevice with undefined deviceId
+      // This will prompt for camera permission and use the default camera
       let deviceId: string | undefined = undefined
+      
+      // Try to enumerate devices to find the best camera
+      // But don't fail if it doesn't work on iOS
       try {
         const videoInputDevices = await reader.listVideoInputDevices()
         
@@ -189,13 +193,13 @@ export default function NewProductPage() {
             deviceId = videoInputDevices[0].deviceId
           }
         }
-      } catch (listDevicesError) {
-        // On iOS, listVideoInputDevices might fail without permission
-        // We'll proceed with undefined deviceId and let decodeFromVideoDevice handle it
-        console.log('Could not list video devices, using default camera')
+      } catch (listDevicesError: any) {
+        // On iOS, listVideoInputDevices might fail - that's okay, use default camera
+        console.log('Could not list video devices, using default camera:', listDevicesError?.message)
       }
       
       // Read barcode from video stream
+      // If deviceId is undefined, this will request permission and use default camera
       reader.decodeFromVideoDevice(deviceId, 'video-barcode-preview', (result: any) => {
         if (result) {
           handleInputChange(fieldName, result.getText())
@@ -205,15 +209,16 @@ export default function NewProductPage() {
         }
       }).catch((error: any) => {
         console.error('Barcode scan error:', error)
+        setIsScanning(false)
+        setBarcodeReader(null)
+        
         if (error.name === 'NotAllowedError' || error.message?.includes('permission')) {
-          alert('Please allow camera access to scan barcodes')
+          alert('Please allow camera access to scan barcodes. You may need to grant permission in your browser settings.')
         } else if (error.name === 'NotFoundError') {
           alert('No camera found on your device')
         } else {
-          alert('Barcode scan failed. Please try again.')
+          alert(`Barcode scan failed: ${error.message || 'Unknown error'}. Please try again.`)
         }
-        setIsScanning(false)
-        setBarcodeReader(null)
       })
     } catch (error: any) {
       console.error('Barcode scanner initialization error:', error)
