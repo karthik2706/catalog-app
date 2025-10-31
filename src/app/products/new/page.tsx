@@ -149,6 +149,15 @@ export default function NewProductPage() {
 
       setIsScanning(true)
       
+      // Wait for modal to render video element
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Wait for video element to be available
+      const videoElement = document.getElementById('video-barcode-preview')
+      if (!videoElement) {
+        throw new Error('Video element not found')
+      }
+      
       // Import ZXing dynamically
       const { BrowserMultiFormatReader } = await import('@zxing/browser')
       const reader = new BrowserMultiFormatReader()
@@ -159,12 +168,20 @@ export default function NewProductPage() {
       
       // Try to use back camera (preferred for barcode scanning on mobile)
       let deviceId = undefined
-      const backCamera = videoInputDevices.find((device: any) => 
-        device.label.toLowerCase().includes('back') || 
-        device.label.toLowerCase().includes('environment')
-      )
-      if (backCamera) {
-        deviceId = backCamera.deviceId
+      if (videoInputDevices.length > 0) {
+        const backCamera = videoInputDevices.find((device: any) => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('environment')
+        )
+        if (backCamera) {
+          deviceId = backCamera.deviceId
+        } else if (videoInputDevices.length > 1) {
+          // If multiple cameras and no "back" found, try the last one (usually back on mobile)
+          deviceId = videoInputDevices[videoInputDevices.length - 1].deviceId
+        } else {
+          // Fallback to first camera
+          deviceId = videoInputDevices[0].deviceId
+        }
       }
       
       // Read barcode from video stream
@@ -955,14 +972,52 @@ export default function NewProductPage() {
           currentMedia={selectedMedia}
         />
 
-        {/* Hidden video element for barcode scanner */}
-        {isScanning && (
-          <video 
-            id="video-barcode-preview" 
-            style={{ position: 'fixed', top: '-9999px', width: '1px', height: '1px' }}
-            playsInline
-          />
-        )}
+        {/* Barcode Scanner Modal */}
+        <Modal
+          isOpen={isScanning}
+          onClose={() => {
+            if (barcodeReader) {
+              barcodeReader.reset()
+              setBarcodeReader(null)
+            }
+            setIsScanning(false)
+          }}
+          title="Scan Barcode"
+          description="Point your camera at the barcode"
+          size="full"
+          className="!max-w-none !mx-0 !p-0"
+          showCloseButton={false}
+          closeOnOverlayClick={false}
+        >
+          <div className="relative w-full h-[80vh] bg-black rounded-lg overflow-hidden">
+            <video 
+              id="video-barcode-preview"
+              className="w-full h-full object-cover"
+              playsInline
+              autoPlay
+              muted
+            />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="border-2 border-white/50 rounded-lg w-[80%] h-[40%] flex items-center justify-center">
+                <span className="text-white/70 text-xs sm:text-sm">Position barcode here</span>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (barcodeReader) {
+                  barcodeReader.reset()
+                  setBarcodeReader(null)
+                }
+                setIsScanning(false)
+              }}
+              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white z-10"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </Modal>
       </div>
     </DashboardLayout>
   )
