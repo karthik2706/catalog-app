@@ -26,6 +26,41 @@ function getUserFromRequest(request: NextRequest): { userId: string; role: strin
   return null
 }
 
+function getBaseUrl(request: NextRequest): string {
+  // Try NEXTAUTH_URL first (set in production)
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL
+  }
+  
+  // Try NEXT_PUBLIC_APP_URL
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL
+  }
+  
+  // Derive from request headers
+  const host = request.headers.get('host')
+  
+  if (host) {
+    // Determine protocol from headers (Vercel sets x-forwarded-proto)
+    let protocol = 'https' // Default to https for production
+    const forwardedProto = request.headers.get('x-forwarded-proto')
+    const forwardedSsl = request.headers.get('x-forwarded-ssl')
+    
+    if (forwardedProto) {
+      protocol = forwardedProto.split(',')[0].trim()
+    } else if (forwardedSsl === 'on') {
+      protocol = 'https'
+    } else if (host.includes('localhost') || host.includes('127.0.0.1')) {
+      protocol = 'http' // Use http for localhost
+    }
+    
+    return `${protocol}://${host}`
+  }
+  
+  // Fallback for development
+  return 'http://localhost:3000'
+}
+
 // GET /api/settings/guest-access - Get guest access settings
 export async function GET(request: NextRequest) {
   try {
@@ -74,12 +109,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const baseUrl = getBaseUrl(request)
+    
     return NextResponse.json({
       guestAccessEnabled: client.guestAccessEnabled,
       hasPassword: !!client.guestPassword,
       slug: client.slug,
       name: client.name,
-      guestUrl: client.slug ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/guest/${client.slug}` : null
+      guestUrl: client.slug ? `${baseUrl}/guest/${client.slug}` : null
     })
   } catch (error) {
     console.error('Error fetching guest access settings:', error)
@@ -142,11 +179,13 @@ export async function PUT(request: NextRequest) {
       }
     })
 
+    const baseUrl = getBaseUrl(request)
+    
     return NextResponse.json({
       success: true,
       guestAccessEnabled: updatedClient.guestAccessEnabled,
       slug: updatedClient.slug,
-      guestUrl: updatedClient.slug ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/guest/${updatedClient.slug}` : null
+      guestUrl: updatedClient.slug ? `${baseUrl}/guest/${updatedClient.slug}` : null
     })
   } catch (error) {
     console.error('Error updating guest access settings:', error)
