@@ -338,9 +338,9 @@ export default function NewProductPage() {
           }
         }
         
-        // Final check that element still exists
+        // Final check that element still exists and is connected
         const finalCheckElement = document.getElementById('video-barcode-preview')
-        if (!finalCheckElement) {
+        if (!finalCheckElement || !finalCheckElement.isConnected) {
           // Only try to reset if method exists
           if (typeof reader.reset === 'function') {
             try {
@@ -356,8 +356,28 @@ export default function NewProductPage() {
           return
         }
         
-        // Start scanning
-        reader.decodeFromVideoDevice(deviceId, 'video-barcode-preview', (result: any) => {
+        // Wait one more frame to ensure element is fully ready
+        await new Promise(resolve => requestAnimationFrame(resolve))
+        
+        // Double-check element is still there right before starting
+        const preScanCheck = document.getElementById('video-barcode-preview')
+        if (!preScanCheck || !preScanCheck.isConnected) {
+          if (typeof reader.reset === 'function') {
+            try {
+              reader.reset()
+            } catch (e) {
+              console.warn('Error resetting reader:', e)
+            }
+          }
+          readerRef.current = null
+          setBarcodeReader(null)
+          cleanup()
+          alert("Barcode scan failed: video element disappeared. Please try again.")
+          return
+        }
+        
+        // Start scanning - pass the actual element to ensure it's stable
+        reader.decodeFromVideoDevice(deviceId, preScanCheck, (result: any) => {
           if (result) {
             try {
               const barcodeText = result.getText()
