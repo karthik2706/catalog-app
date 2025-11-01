@@ -71,6 +71,7 @@ export default function NewProductPage() {
   // Barcode scanner state
   const [isScanning, setIsScanning] = useState(false)
   const [barcodeReader, setBarcodeReader] = useState<any>(null)
+  const [scanFieldName, setScanFieldName] = useState<'name' | 'sku' | null>(null)
 
   // Function to properly stop the camera
   const stopCamera = useCallback(() => {
@@ -86,6 +87,7 @@ export default function NewProductPage() {
       videoElement.srcObject = null
     }
     setIsScanning(false)
+    setScanFieldName(null)
   }, [barcodeReader])
 
   // Load categories and currency on component mount
@@ -133,12 +135,157 @@ export default function NewProductPage() {
     fetchClientCurrency()
   }, [])
 
+  // Initialize barcode scanner when modal opens and video element is ready
+  useEffect(() => {
+    if (!isScanning || !scanFieldName || barcodeReader) {
+      return
+    }
+
+    const initializeScanner = async () => {
+      try {
+        // Wait for video element to be rendered
+        let videoElement = null
+        let attempts = 0
+        const maxAttempts = 30
+        
+        while (!videoElement && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          videoElement = document.getElementById('video-barcode-preview')
+          attempts++
+        }
+        
+        if (!videoElement) {
+          setIsScanning(false)
+          setScanFieldName(null)
+          alert("Barcode scan failed: element with id 'video-barcode-preview' not found. Please try again.")
+          return
+        }
+        
+        // Import ZXing dynamically
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        const reader = new BrowserMultiFormatReader()
+        setBarcodeReader(reader)
+        
+        // On iOS, skip listVideoInputDevices as it requires permission that may fail
+        // Instead, directly use decodeFromVideoDevice with undefined deviceId
+        // This will prompt for camera permission and use the default camera
+        let deviceId: string | undefined = undefined
+        
+        // Try to enumerate devices to find the best camera
+        // But don't fail if it doesn't work on iOS
+        try {
+          const videoInputDevices = await reader.listVideoInputDevices()
+          
+          if (videoInputDevices.length > 0) {
+            // Try to find back camera (preferred for barcode scanning on mobile)
+            const backCamera = videoInputDevices.find((device: any) => 
+              device.label.toLowerCase().includes('back') || 
+              device.label.toLowerCase().includes('environment')
+            )
+            if (backCamera) {
+              deviceId = backCamera.deviceId
+            } else if (videoInputDevices.length > 1) {
+              // If multiple cameras and no "back" found, try the last one (usually back on mobile)
+              deviceId = videoInputDevices[videoInputDevices.length - 1].deviceId
+            } else {
+              // Fallback to first camera
+              deviceId = videoInputDevices[0].deviceId
+            }
+          }
+        } catch (listDevicesError: any) {
+          // On iOS, listVideoInputDevices might fail - that's okay, use default camera
+          console.log('Could not list video devices, using default camera:', listDevicesError?.message)
+        }
+        
+        // Double-check that video element still exists before starting scan
+        const finalCheckElement = document.getElementById('video-barcode-preview')
+        if (!finalCheckElement) {
+          reader.reset()
+          setBarcodeReader(null)
+          setIsScanning(false)
+          setScanFieldName(null)
+          alert("Barcode scan failed: element with id 'video-barcode-preview' not found. Please try again.")
+          return
+        }
+        
+        // Read barcode from video stream
+        // If deviceId is undefined, this will request permission and use default camera
+        reader.decodeFromVideoDevice(deviceId, 'video-barcode-preview', (result: any) => {
+          if (result) {
+            try {
+              // Extract the barcode text first
+              const barcodeText = result.getText()
+              
+              // Stop the camera before updating the input to avoid race conditions
+              if (reader) {
+                try {
+                  reader.reset()
+                } catch (resetError) {
+                  console.warn('Error resetting reader:', resetError)
+                }
+              }
+              
+              // Stop video tracks manually
+              const videoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
+              if (videoElement && videoElement.srcObject) {
+                const stream = videoElement.srcObject as MediaStream
+                stream.getTracks().forEach(track => track.stop())
+                videoElement.srcObject = null
+              }
+              
+              // Update state
+              const fieldNameToUpdate = scanFieldName
+              setBarcodeReader(null)
+              setIsScanning(false)
+              setScanFieldName(null)
+              
+              // Update the input field after stopping the camera
+              handleInputChange(fieldNameToUpdate, barcodeText)
+            } catch (callbackError: any) {
+              console.error('Error in barcode scan callback:', callbackError)
+              // Ensure camera is stopped even if there's an error
+              stopCamera()
+              setScanFieldName(null)
+              alert(`Error processing barcode: ${callbackError.message || 'Unknown error'}`)
+            }
+          }
+        }).catch((scanError: any) => {
+          console.error('Barcode scan error:', scanError)
+          stopCamera()
+          setScanFieldName(null)
+          
+          if (scanError.name === 'NotAllowedError' || scanError.message?.includes('permission')) {
+            alert('Please allow camera access to scan barcodes. You may need to grant permission in your browser settings.')
+          } else if (scanError.name === 'NotFoundError') {
+            alert('No camera found on your device')
+          } else {
+            alert(`Barcode scan failed: ${scanError.message || 'Unknown error'}. Please try again.`)
+          }
+        })
+      } catch (error: any) {
+        console.error('Barcode scanner initialization error:', error)
+        stopCamera()
+        setScanFieldName(null)
+        
+        const errorMessage = error.message || 'Unknown error'
+        if (errorMessage.includes("element with id 'video-barcode-preview' not found")) {
+          alert(`Barcode scan failed: ${errorMessage}. Please try again.`)
+        } else {
+          alert(`Failed to initialize barcode scanner: ${errorMessage}. Please try again.`)
+        }
+      }
+    }
+
+    initializeScanner()
+  }, [isScanning, scanFieldName, barcodeReader, stopCamera])
+
   // Cleanup barcode reader on unmount
   useEffect(() => {
     return () => {
       stopCamera()
+      setScanFieldName(null)
     }
-  }, [])
+  }, [stopCamera])
 
 
   const handleInputChange = (field: string, value: any) => {
@@ -148,120 +295,16 @@ export default function NewProductPage() {
     }))
   }
 
-  const handleBarcodeScan = async (fieldName: 'name' | 'sku' = 'name') => {
-    try {
-      if (isScanning) {
-        // Stop scanning if already scanning
-        stopCamera()
-        return
-      }
-
-      setIsScanning(true)
-      
-      // Wait for modal to render video element with retries
-      let videoElement = null
-      let attempts = 0
-      while (!videoElement && attempts < 10) {
-        await new Promise(resolve => setTimeout(resolve, 50))
-        videoElement = document.getElementById('video-barcode-preview')
-        attempts++
-      }
-      
-      if (!videoElement) {
-        throw new Error('Video element not found after multiple attempts')
-      }
-      
-      // Import ZXing dynamically
-      const { BrowserMultiFormatReader } = await import('@zxing/browser')
-      const reader = new BrowserMultiFormatReader()
-      setBarcodeReader(reader)
-      
-      // On iOS, skip listVideoInputDevices as it requires permission that may fail
-      // Instead, directly use decodeFromVideoDevice with undefined deviceId
-      // This will prompt for camera permission and use the default camera
-      let deviceId: string | undefined = undefined
-      
-      // Try to enumerate devices to find the best camera
-      // But don't fail if it doesn't work on iOS
-      try {
-        const videoInputDevices = await reader.listVideoInputDevices()
-        
-        if (videoInputDevices.length > 0) {
-          // Try to find back camera (preferred for barcode scanning on mobile)
-          const backCamera = videoInputDevices.find((device: any) => 
-            device.label.toLowerCase().includes('back') || 
-            device.label.toLowerCase().includes('environment')
-          )
-          if (backCamera) {
-            deviceId = backCamera.deviceId
-          } else if (videoInputDevices.length > 1) {
-            // If multiple cameras and no "back" found, try the last one (usually back on mobile)
-            deviceId = videoInputDevices[videoInputDevices.length - 1].deviceId
-          } else {
-            // Fallback to first camera
-            deviceId = videoInputDevices[0].deviceId
-          }
-        }
-      } catch (listDevicesError: any) {
-        // On iOS, listVideoInputDevices might fail - that's okay, use default camera
-        console.log('Could not list video devices, using default camera:', listDevicesError?.message)
-      }
-      
-      // Read barcode from video stream
-      // If deviceId is undefined, this will request permission and use default camera
-      reader.decodeFromVideoDevice(deviceId, 'video-barcode-preview', (result: any) => {
-        if (result) {
-          try {
-            // Extract the barcode text first
-            const barcodeText = result.getText()
-            
-            // Stop the camera before updating the input to avoid race conditions
-            if (reader) {
-              try {
-                reader.reset()
-              } catch (resetError) {
-                console.warn('Error resetting reader:', resetError)
-              }
-            }
-            
-            // Stop video tracks manually
-            const videoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
-            if (videoElement && videoElement.srcObject) {
-              const stream = videoElement.srcObject as MediaStream
-              stream.getTracks().forEach(track => track.stop())
-              videoElement.srcObject = null
-            }
-            
-            // Update state
-            setBarcodeReader(null)
-            setIsScanning(false)
-            
-            // Update the input field after stopping the camera
-            handleInputChange(fieldName, barcodeText)
-          } catch (callbackError: any) {
-            console.error('Error in barcode scan callback:', callbackError)
-            // Ensure camera is stopped even if there's an error
-            stopCamera()
-            alert(`Error processing barcode: ${callbackError.message || 'Unknown error'}`)
-          }
-        }
-      }).catch((scanError: any) => {
-        console.error('Barcode scan error:', scanError)
-        stopCamera()
-        
-        if (scanError.name === 'NotAllowedError' || scanError.message?.includes('permission')) {
-          alert('Please allow camera access to scan barcodes. You may need to grant permission in your browser settings.')
-        } else if (scanError.name === 'NotFoundError') {
-          alert('No camera found on your device')
-        } else {
-          alert(`Barcode scan failed: ${scanError.message || 'Unknown error'}. Please try again.`)
-        }
-      })
-    } catch (error: any) {
-      console.error('Barcode scanner initialization error:', error)
-      alert('Failed to initialize barcode scanner. Please try again.')
+  const handleBarcodeScan = (fieldName: 'name' | 'sku' = 'name') => {
+    if (isScanning) {
+      // Stop scanning if already scanning
       stopCamera()
+      return
     }
+
+    // Set state to trigger modal rendering and useEffect initialization
+    setScanFieldName(fieldName)
+    setIsScanning(true)
   }
 
 
