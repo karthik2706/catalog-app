@@ -171,6 +171,38 @@ export default function NewProductPage() {
     fieldNameRef.current = scanFieldName
 
     const initializeScanner = async () => {
+      const cleanup = () => {
+        // Stop ZXing reader
+        if (readerRef.current) {
+          try {
+            readerRef.current.reset()
+          } catch (e) {
+            console.warn('Error resetting reader:', e)
+          }
+          readerRef.current = null
+          setBarcodeReader(null)
+        }
+        
+        // Manually stop all video tracks
+        const videoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
+        if (videoElement && videoElement.srcObject) {
+          try {
+            const stream = videoElement.srcObject as MediaStream
+            stream.getTracks().forEach(track => {
+              track.stop()
+            })
+            videoElement.srcObject = null
+          } catch (e) {
+            console.warn('Error stopping video tracks:', e)
+          }
+        }
+        
+        setIsScanning(false)
+        setScanFieldName(null)
+        fieldNameRef.current = null
+        isInitializingRef.current = false
+      }
+
       try {
         // Wait for React to render the Modal - give it time to mount
         await new Promise(resolve => requestAnimationFrame(resolve))
@@ -190,8 +222,7 @@ export default function NewProductPage() {
         
         if (!videoElement) {
           console.error('Video element not found after attempts')
-          isInitializingRef.current = false
-          stopCamera()
+          cleanup()
           alert("Barcode scan failed: element with id 'video-barcode-preview' not found. Please try again.")
           return
         }
@@ -243,8 +274,7 @@ export default function NewProductPage() {
           reader.reset()
           readerRef.current = null
           setBarcodeReader(null)
-          isInitializingRef.current = false
-          stopCamera()
+          cleanup()
           alert("Barcode scan failed: element with id 'video-barcode-preview' not found. Please try again.")
           return
         }
@@ -284,18 +314,20 @@ export default function NewProductPage() {
               
               // Update the input field
               if (fieldName) {
-                handleInputChange(fieldName, barcodeText)
+                setFormData(prev => ({
+                  ...prev,
+                  [fieldName]: barcodeText
+                }))
               }
             } catch (callbackError: any) {
               console.error('Error in barcode scan callback:', callbackError)
-              stopCamera()
+              cleanup()
               alert(`Error processing barcode: ${callbackError.message || 'Unknown error'}`)
             }
           }
         }).catch((scanError: any) => {
           console.error('Barcode scan error:', scanError)
-          isInitializingRef.current = false
-          stopCamera()
+          cleanup()
           
           if (scanError.name === 'NotAllowedError' || scanError.message?.includes('permission')) {
             alert('Please allow camera access to scan barcodes. You may need to grant permission in your browser settings.')
@@ -307,8 +339,7 @@ export default function NewProductPage() {
         })
       } catch (error: any) {
         console.error('Barcode scanner initialization error:', error)
-        isInitializingRef.current = false
-        stopCamera()
+        cleanup()
         
         const errorMessage = error.message || 'Unknown error'
         if (errorMessage.includes("element with id 'video-barcode-preview' not found")) {
@@ -331,8 +362,9 @@ export default function NewProductPage() {
         }
         readerRef.current = null
       }
+      isInitializingRef.current = false
     }
-    }, [isScanning, scanFieldName, stopCamera, handleInputChange])
+  }, [isScanning, scanFieldName])
 
   // Cleanup barcode reader on unmount
   useEffect(() => {
