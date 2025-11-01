@@ -211,8 +211,39 @@ export default function NewProductPage() {
       // If deviceId is undefined, this will request permission and use default camera
       reader.decodeFromVideoDevice(deviceId, 'video-barcode-preview', (result: any) => {
         if (result) {
-          handleInputChange(fieldName, result.getText())
-          stopCamera()
+          try {
+            // Extract the barcode text first
+            const barcodeText = result.getText()
+            
+            // Stop the camera before updating the input to avoid race conditions
+            if (reader) {
+              try {
+                reader.reset()
+              } catch (resetError) {
+                console.warn('Error resetting reader:', resetError)
+              }
+            }
+            
+            // Stop video tracks manually
+            const videoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
+            if (videoElement && videoElement.srcObject) {
+              const stream = videoElement.srcObject as MediaStream
+              stream.getTracks().forEach(track => track.stop())
+              videoElement.srcObject = null
+            }
+            
+            // Update state
+            setBarcodeReader(null)
+            setIsScanning(false)
+            
+            // Update the input field after stopping the camera
+            handleInputChange(fieldName, barcodeText)
+          } catch (callbackError: any) {
+            console.error('Error in barcode scan callback:', callbackError)
+            // Ensure camera is stopped even if there's an error
+            stopCamera()
+            alert(`Error processing barcode: ${callbackError.message || 'Unknown error'}`)
+          }
         }
       }).catch((scanError: any) => {
         console.error('Barcode scan error:', scanError)
