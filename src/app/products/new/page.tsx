@@ -207,17 +207,18 @@ export default function NewProductPage() {
           setBarcodeReader(null)
           setIsScanning(false)
         }
-      }).catch((error: any) => {
-        console.error('Barcode scan error:', error)
-        setIsScanning(false)
+      }).catch((scanError: any) => {
+        console.error('Barcode scan error:', scanError)
+        reader.reset()
         setBarcodeReader(null)
+        setIsScanning(false)
         
-        if (error.name === 'NotAllowedError' || error.message?.includes('permission')) {
+        if (scanError.name === 'NotAllowedError' || scanError.message?.includes('permission')) {
           alert('Please allow camera access to scan barcodes. You may need to grant permission in your browser settings.')
-        } else if (error.name === 'NotFoundError') {
+        } else if (scanError.name === 'NotFoundError') {
           alert('No camera found on your device')
         } else {
-          alert(`Barcode scan failed: ${error.message || 'Unknown error'}. Please try again.`)
+          alert(`Barcode scan failed: ${scanError.message || 'Unknown error'}. Please try again.`)
         }
       })
     } catch (error: any) {
