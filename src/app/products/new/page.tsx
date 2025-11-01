@@ -82,10 +82,12 @@ export default function NewProductPage() {
   const stopCamera = useCallback(() => {
     // Stop ZXing reader
     if (readerRef.current) {
-      try {
-        readerRef.current.reset()
-      } catch (e) {
-        console.warn('Error resetting reader:', e)
+      if (typeof readerRef.current.reset === 'function') {
+        try {
+          readerRef.current.reset()
+        } catch (e) {
+          console.warn('Error resetting reader:', e)
+        }
       }
       readerRef.current = null
       setBarcodeReader(null)
@@ -174,10 +176,12 @@ export default function NewProductPage() {
       const cleanup = () => {
         // Stop ZXing reader
         if (readerRef.current) {
-          try {
-            readerRef.current.reset()
-          } catch (e) {
-            console.warn('Error resetting reader:', e)
+          if (typeof readerRef.current.reset === 'function') {
+            try {
+              readerRef.current.reset()
+            } catch (e) {
+              console.warn('Error resetting reader:', e)
+            }
           }
           readerRef.current = null
           setBarcodeReader(null)
@@ -237,41 +241,68 @@ export default function NewProductPage() {
         
         // Import ZXing dynamically
         const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        
+        if (!BrowserMultiFormatReader) {
+          cleanup()
+          alert('Failed to load barcode scanner library. Please refresh the page and try again.')
+          return
+        }
+        
         const reader = new BrowserMultiFormatReader()
+        
+        // Verify reader instance has required methods
+        if (typeof reader.decodeFromVideoDevice !== 'function') {
+          cleanup()
+          alert('Barcode scanner is not properly initialized. Please refresh the page and try again.')
+          return
+        }
+        
         readerRef.current = reader
         setBarcodeReader(reader)
         
         // Find the best camera device
         let deviceId: string | undefined = undefined
         
-        try {
-          const videoInputDevices = await reader.listVideoInputDevices()
-          
-          if (videoInputDevices.length > 0) {
-            // Try to find back camera (preferred for barcode scanning on mobile)
-            const backCamera = videoInputDevices.find((device: any) => 
-              device.label.toLowerCase().includes('back') || 
-              device.label.toLowerCase().includes('environment')
-            )
-            if (backCamera) {
-              deviceId = backCamera.deviceId
-            } else if (videoInputDevices.length > 1) {
-              // If multiple cameras and no "back" found, try the last one (usually back on mobile)
-              deviceId = videoInputDevices[videoInputDevices.length - 1].deviceId
-            } else {
-              // Fallback to first camera
-              deviceId = videoInputDevices[0].deviceId
+        // Only try to list devices if the method exists
+        if (typeof reader.listVideoInputDevices === 'function') {
+          try {
+            const videoInputDevices = await reader.listVideoInputDevices()
+            
+            if (videoInputDevices && videoInputDevices.length > 0) {
+              // Try to find back camera (preferred for barcode scanning on mobile)
+              const backCamera = videoInputDevices.find((device: any) => 
+                device.label && (
+                  device.label.toLowerCase().includes('back') || 
+                  device.label.toLowerCase().includes('environment')
+                )
+              )
+              if (backCamera) {
+                deviceId = backCamera.deviceId
+              } else if (videoInputDevices.length > 1) {
+                // If multiple cameras and no "back" found, try the last one (usually back on mobile)
+                deviceId = videoInputDevices[videoInputDevices.length - 1].deviceId
+              } else {
+                // Fallback to first camera
+                deviceId = videoInputDevices[0].deviceId
+              }
             }
+          } catch (listDevicesError: any) {
+            // On iOS, listVideoInputDevices might fail - that's okay, use default camera
+            console.log('Could not list video devices, using default camera:', listDevicesError?.message)
           }
-        } catch (listDevicesError: any) {
-          // On iOS, listVideoInputDevices might fail - that's okay, use default camera
-          console.log('Could not list video devices, using default camera:', listDevicesError?.message)
         }
         
         // Final check that element still exists
         const finalCheckElement = document.getElementById('video-barcode-preview')
         if (!finalCheckElement) {
-          reader.reset()
+          // Only try to reset if method exists
+          if (typeof reader.reset === 'function') {
+            try {
+              reader.reset()
+            } catch (e) {
+              console.warn('Error resetting reader:', e)
+            }
+          }
           readerRef.current = null
           setBarcodeReader(null)
           cleanup()
@@ -287,7 +318,7 @@ export default function NewProductPage() {
               const fieldName = fieldNameRef.current
               
               // Stop everything first
-              if (readerRef.current) {
+              if (readerRef.current && typeof readerRef.current.reset === 'function') {
                 try {
                   readerRef.current.reset()
                 } catch (e) {
@@ -355,10 +386,12 @@ export default function NewProductPage() {
     // Cleanup function
     return () => {
       if (readerRef.current) {
-        try {
-          readerRef.current.reset()
-        } catch (e) {
-          // Ignore errors during cleanup
+        if (typeof readerRef.current.reset === 'function') {
+          try {
+            readerRef.current.reset()
+          } catch (e) {
+            // Ignore errors during cleanup
+          }
         }
         readerRef.current = null
       }
