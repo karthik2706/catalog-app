@@ -209,18 +209,38 @@ export default function NewProductPage() {
 
       try {
         // Wait for React to render the Modal - give it time to mount
+        // Use multiple requestAnimationFrame calls to ensure DOM is fully updated
         await new Promise(resolve => requestAnimationFrame(resolve))
         await new Promise(resolve => requestAnimationFrame(resolve))
-        await new Promise(resolve => setTimeout(resolve, 300))
+        await new Promise(resolve => requestAnimationFrame(resolve))
         
-        // Wait for video element to be rendered
+        // Wait a bit longer for Modal to be fully rendered
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Wait for video element to be rendered with increased attempts
         let videoElement = null
         let attempts = 0
-        const maxAttempts = 20
+        const maxAttempts = 40 // Increased from 20
         
         while (!videoElement && attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 100))
+          await new Promise(resolve => setTimeout(resolve, 150)) // Increased from 100ms
+          
+          // Check if Modal container exists first (as a sanity check)
+          const modalContainer = document.querySelector('[role="dialog"], .modal, [class*="modal"]')
+          if (!modalContainer) {
+            // Modal not rendered yet, continue waiting
+            attempts++
+            continue
+          }
+          
           videoElement = document.getElementById('video-barcode-preview')
+          
+          // Verify the element is actually connected to the DOM
+          if (videoElement && !videoElement.isConnected) {
+            // Element exists but not connected to DOM yet, wait a bit more
+            videoElement = null
+          }
+          
           attempts++
         }
         
@@ -419,11 +439,18 @@ export default function NewProductPage() {
     // If already scanning, stop first and wait a moment before starting new scan
     if (isScanning || isInitializingRef.current) {
       stopCamera()
-      // Wait for cleanup to complete before starting new scan
+      // Wait for cleanup to complete before starting new scan - increased wait time
       setTimeout(() => {
+        // Clean up any remaining video element
+        const existingVideoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
+        if (existingVideoElement && existingVideoElement.srcObject) {
+          const stream = existingVideoElement.srcObject as MediaStream
+          stream.getTracks().forEach(track => track.stop())
+          existingVideoElement.srcObject = null
+        }
         setScanFieldName(fieldName)
         setIsScanning(true)
-      }, 300)
+      }, 600) // Increased from 300ms to 600ms
       return
     }
 
