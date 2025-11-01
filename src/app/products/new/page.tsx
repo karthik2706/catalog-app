@@ -208,44 +208,70 @@ export default function NewProductPage() {
       }
 
       try {
-        // Wait for React to render the Modal - give it time to mount
-        // Use multiple requestAnimationFrame calls to ensure DOM is fully updated
+        // Wait for React to render the Modal
+        // Give React time to process the state change and start rendering
         await new Promise(resolve => requestAnimationFrame(resolve))
-        await new Promise(resolve => requestAnimationFrame(resolve))
-        await new Promise(resolve => requestAnimationFrame(resolve))
+        await new Promise(resolve => setTimeout(resolve, 100))
         
-        // Wait a bit longer for Modal to be fully rendered
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Wait for Modal container to appear first
+        // The Modal uses fixed positioning, check for any fixed element with z-50
+        let modalFound = false
+        let modalAttempts = 0
+        const maxModalAttempts = 30
         
-        // Wait for video element to be rendered with increased attempts
+        while (!modalFound && modalAttempts < maxModalAttempts) {
+          // Check for Modal - look for fixed positioned divs
+          const fixedDivs = document.querySelectorAll('div[class*="fixed"]')
+          for (let div of Array.from(fixedDivs)) {
+            const classList = div.className || ''
+            if (classList.includes('inset-0') && classList.includes('z-50')) {
+              modalFound = true
+              break
+            }
+          }
+          if (modalFound) break
+          await new Promise(resolve => setTimeout(resolve, 50))
+          modalAttempts++
+        }
+        
+        if (!modalFound) {
+          console.error('Modal container not found after attempts', { modalAttempts })
+          cleanup()
+          alert("Barcode scan failed: Modal not rendered. Please try again.")
+          return
+        }
+        
+        // Give Modal a moment to fully render its children
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Now wait for video element inside the Modal
         let videoElement = null
         let attempts = 0
-        const maxAttempts = 40 // Increased from 20
+        const maxAttempts = 50
         
+        // Poll for the video element
         while (!videoElement && attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 150)) // Increased from 100ms
-          
-          // Check if Modal container exists first (as a sanity check)
-          const modalContainer = document.querySelector('[role="dialog"], .modal, [class*="modal"]')
-          if (!modalContainer) {
-            // Modal not rendered yet, continue waiting
-            attempts++
-            continue
-          }
-          
           videoElement = document.getElementById('video-barcode-preview')
           
-          // Verify the element is actually connected to the DOM
-          if (videoElement && !videoElement.isConnected) {
-            // Element exists but not connected to DOM yet, wait a bit more
-            videoElement = null
+          // If found, verify it's connected to DOM
+          if (videoElement && videoElement.isConnected) {
+            break
           }
           
+          // Not found yet, wait and try again
+          videoElement = null
+          await new Promise(resolve => setTimeout(resolve, 100))
           attempts++
         }
         
-        if (!videoElement) {
-          console.error('Video element not found after attempts')
+        if (!videoElement || !videoElement.isConnected) {
+          const debugInfo = {
+            attempts,
+            hasModal: document.querySelector('div[class*="fixed"]') !== null,
+            modalElements: document.querySelectorAll('div[class*="fixed"]').length,
+            videoElements: document.querySelectorAll('#video-barcode-preview').length
+          }
+          console.error('Video element not found or not connected after attempts', debugInfo)
           cleanup()
           alert("Barcode scan failed: element with id 'video-barcode-preview' not found. Please try again.")
           return
