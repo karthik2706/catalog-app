@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/DashboardLayout'
@@ -72,23 +72,44 @@ export default function NewProductPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [barcodeReader, setBarcodeReader] = useState<any>(null)
   const [scanFieldName, setScanFieldName] = useState<'name' | 'sku' | null>(null)
+  
+  // Use refs to track scanner state to avoid stale closures
+  const readerRef = useRef<any>(null)
+  const fieldNameRef = useRef<'name' | 'sku' | null>(null)
+  const isInitializingRef = useRef(false)
 
   // Function to properly stop the camera
   const stopCamera = useCallback(() => {
-    if (barcodeReader) {
-      barcodeReader.reset()
+    // Stop ZXing reader
+    if (readerRef.current) {
+      try {
+        readerRef.current.reset()
+      } catch (e) {
+        console.warn('Error resetting reader:', e)
+      }
+      readerRef.current = null
       setBarcodeReader(null)
     }
+    
     // Manually stop all video tracks
     const videoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
     if (videoElement && videoElement.srcObject) {
-      const stream = videoElement.srcObject as MediaStream
-      stream.getTracks().forEach(track => track.stop())
-      videoElement.srcObject = null
+      try {
+        const stream = videoElement.srcObject as MediaStream
+        stream.getTracks().forEach(track => {
+          track.stop()
+        })
+        videoElement.srcObject = null
+      } catch (e) {
+        console.warn('Error stopping video tracks:', e)
+      }
     }
+    
     setIsScanning(false)
     setScanFieldName(null)
-  }, [barcodeReader])
+    fieldNameRef.current = null
+    isInitializingRef.current = false
+  }, [])
 
   // Load categories and currency on component mount
   useEffect(() => {
@@ -137,48 +158,45 @@ export default function NewProductPage() {
 
   // Initialize barcode scanner when modal opens and video element is ready
   useEffect(() => {
-    if (!isScanning || !scanFieldName || barcodeReader) {
+    if (!isScanning || !scanFieldName) {
       return
     }
+    
+    // Prevent multiple initializations
+    if (isInitializingRef.current || readerRef.current) {
+      return
+    }
+    
+    isInitializingRef.current = true
+    fieldNameRef.current = scanFieldName
 
     const initializeScanner = async () => {
       try {
-        // Wait for React to render the Modal and create fresh video element
-        // Use requestAnimationFrame to ensure DOM is updated
+        // Wait for React to render the Modal - give it time to mount
         await new Promise(resolve => requestAnimationFrame(resolve))
         await new Promise(resolve => requestAnimationFrame(resolve))
-        await new Promise(resolve => setTimeout(resolve, 200))
+        await new Promise(resolve => setTimeout(resolve, 300))
         
-        // Wait for video element to be rendered (with fresh key)
+        // Wait for video element to be rendered
         let videoElement = null
         let attempts = 0
-        const maxAttempts = 30
+        const maxAttempts = 20
         
         while (!videoElement && attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 100))
           videoElement = document.getElementById('video-barcode-preview')
-          
-          // Ensure the element is fresh (has no existing srcObject)
-          if (videoElement && videoElement.srcObject) {
-            // If element exists but has old stream, stop it
-            const stream = videoElement.srcObject as MediaStream
-            stream.getTracks().forEach(track => track.stop())
-            videoElement.srcObject = null
-            // Wait a bit more for cleanup
-            await new Promise(resolve => setTimeout(resolve, 50))
-          }
-          
           attempts++
         }
         
         if (!videoElement) {
-          setIsScanning(false)
-          setScanFieldName(null)
+          console.error('Video element not found after attempts')
+          isInitializingRef.current = false
+          stopCamera()
           alert("Barcode scan failed: element with id 'video-barcode-preview' not found. Please try again.")
           return
         }
         
-        // Ensure video element is completely clean before use
+        // Ensure video element is clean
         if (videoElement.srcObject) {
           const stream = videoElement.srcObject as MediaStream
           stream.getTracks().forEach(track => track.stop())
@@ -189,15 +207,12 @@ export default function NewProductPage() {
         // Import ZXing dynamically
         const { BrowserMultiFormatReader } = await import('@zxing/browser')
         const reader = new BrowserMultiFormatReader()
+        readerRef.current = reader
         setBarcodeReader(reader)
         
-        // On iOS, skip listVideoInputDevices as it requires permission that may fail
-        // Instead, directly use decodeFromVideoDevice with undefined deviceId
-        // This will prompt for camera permission and use the default camera
+        // Find the best camera device
         let deviceId: string | undefined = undefined
         
-        // Try to enumerate devices to find the best camera
-        // But don't fail if it doesn't work on iOS
         try {
           const videoInputDevices = await reader.listVideoInputDevices()
           
@@ -222,62 +237,65 @@ export default function NewProductPage() {
           console.log('Could not list video devices, using default camera:', listDevicesError?.message)
         }
         
-        // Double-check that video element still exists before starting scan
+        // Final check that element still exists
         const finalCheckElement = document.getElementById('video-barcode-preview')
         if (!finalCheckElement) {
           reader.reset()
+          readerRef.current = null
           setBarcodeReader(null)
-          setIsScanning(false)
-          setScanFieldName(null)
+          isInitializingRef.current = false
+          stopCamera()
           alert("Barcode scan failed: element with id 'video-barcode-preview' not found. Please try again.")
           return
         }
         
-        // Read barcode from video stream
-        // If deviceId is undefined, this will request permission and use default camera
+        // Start scanning
         reader.decodeFromVideoDevice(deviceId, 'video-barcode-preview', (result: any) => {
           if (result) {
             try {
-              // Extract the barcode text first
               const barcodeText = result.getText()
+              const fieldName = fieldNameRef.current
               
-              // Stop the camera before updating the input to avoid race conditions
-              if (reader) {
+              // Stop everything first
+              if (readerRef.current) {
                 try {
-                  reader.reset()
-                } catch (resetError) {
-                  console.warn('Error resetting reader:', resetError)
+                  readerRef.current.reset()
+                } catch (e) {
+                  console.warn('Error resetting reader:', e)
                 }
               }
               
-              // Stop video tracks manually
-              const videoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
-              if (videoElement && videoElement.srcObject) {
-                const stream = videoElement.srcObject as MediaStream
+              // Stop video tracks
+              const videoEl = document.getElementById('video-barcode-preview') as HTMLVideoElement
+              if (videoEl && videoEl.srcObject) {
+                const stream = videoEl.srcObject as MediaStream
                 stream.getTracks().forEach(track => track.stop())
-                videoElement.srcObject = null
+                videoEl.srcObject = null
               }
               
-              // Update state
-              const fieldNameToUpdate = scanFieldName
+              // Clear refs and state
+              readerRef.current = null
               setBarcodeReader(null)
+              isInitializingRef.current = false
+              
+              // Update UI state
               setIsScanning(false)
               setScanFieldName(null)
               
-              // Update the input field after stopping the camera
-              handleInputChange(fieldNameToUpdate, barcodeText)
+              // Update the input field
+              if (fieldName) {
+                handleInputChange(fieldName, barcodeText)
+              }
             } catch (callbackError: any) {
               console.error('Error in barcode scan callback:', callbackError)
-              // Ensure camera is stopped even if there's an error
               stopCamera()
-              setScanFieldName(null)
               alert(`Error processing barcode: ${callbackError.message || 'Unknown error'}`)
             }
           }
         }).catch((scanError: any) => {
           console.error('Barcode scan error:', scanError)
+          isInitializingRef.current = false
           stopCamera()
-          setScanFieldName(null)
           
           if (scanError.name === 'NotAllowedError' || scanError.message?.includes('permission')) {
             alert('Please allow camera access to scan barcodes. You may need to grant permission in your browser settings.')
@@ -289,8 +307,8 @@ export default function NewProductPage() {
         })
       } catch (error: any) {
         console.error('Barcode scanner initialization error:', error)
+        isInitializingRef.current = false
         stopCamera()
-        setScanFieldName(null)
         
         const errorMessage = error.message || 'Unknown error'
         if (errorMessage.includes("element with id 'video-barcode-preview' not found")) {
@@ -302,7 +320,19 @@ export default function NewProductPage() {
     }
 
     initializeScanner()
-  }, [isScanning, scanFieldName, barcodeReader, stopCamera])
+    
+    // Cleanup function
+    return () => {
+      if (readerRef.current) {
+        try {
+          readerRef.current.reset()
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+        readerRef.current = null
+      }
+    }
+    }, [isScanning, scanFieldName, stopCamera, handleInputChange])
 
   // Cleanup barcode reader on unmount
   useEffect(() => {
@@ -313,26 +343,26 @@ export default function NewProductPage() {
   }, [stopCamera])
 
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = useCallback((field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }))
-  }
+  }, [])
 
   const handleBarcodeScan = (fieldName: 'name' | 'sku' = 'name') => {
-    if (isScanning) {
-      // Stop scanning if already scanning
+    // If already scanning, stop first and wait a moment before starting new scan
+    if (isScanning || isInitializingRef.current) {
       stopCamera()
-      // Wait a bit before starting new scan to ensure cleanup is complete
+      // Wait for cleanup to complete before starting new scan
       setTimeout(() => {
         setScanFieldName(fieldName)
         setIsScanning(true)
-      }, 200)
+      }, 300)
       return
     }
 
-    // Ensure any existing video element is cleaned up before starting new scan
+    // Clean up any existing video element before starting
     const existingVideoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
     if (existingVideoElement && existingVideoElement.srcObject) {
       const stream = existingVideoElement.srcObject as MediaStream
@@ -1118,7 +1148,6 @@ export default function NewProductPage() {
         >
           <div className="relative w-full h-[80vh] bg-black rounded-lg overflow-hidden">
             <video 
-              key={`barcode-video-${isScanning}-${scanFieldName}`}
               id="video-barcode-preview"
               className="w-full h-full object-cover"
               playsInline
