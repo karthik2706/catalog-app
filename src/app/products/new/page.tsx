@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/DashboardLayout'
@@ -72,6 +72,22 @@ export default function NewProductPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [barcodeReader, setBarcodeReader] = useState<any>(null)
 
+  // Function to properly stop the camera
+  const stopCamera = useCallback(() => {
+    if (barcodeReader) {
+      barcodeReader.reset()
+      setBarcodeReader(null)
+    }
+    // Manually stop all video tracks
+    const videoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
+    if (videoElement && videoElement.srcObject) {
+      const stream = videoElement.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+      videoElement.srcObject = null
+    }
+    setIsScanning(false)
+  }, [barcodeReader])
+
   // Load categories and currency on component mount
   useEffect(() => {
     const loadCategories = async () => {
@@ -120,12 +136,9 @@ export default function NewProductPage() {
   // Cleanup barcode reader on unmount
   useEffect(() => {
     return () => {
-      if (barcodeReader) {
-        barcodeReader.reset()
-        setBarcodeReader(null)
-      }
+      stopCamera()
     }
-  }, [barcodeReader])
+  }, [])
 
 
   const handleInputChange = (field: string, value: any) => {
@@ -139,11 +152,7 @@ export default function NewProductPage() {
     try {
       if (isScanning) {
         // Stop scanning if already scanning
-        if (barcodeReader) {
-          barcodeReader.reset()
-          setBarcodeReader(null)
-        }
-        setIsScanning(false)
+        stopCamera()
         return
       }
 
@@ -203,15 +212,11 @@ export default function NewProductPage() {
       reader.decodeFromVideoDevice(deviceId, 'video-barcode-preview', (result: any) => {
         if (result) {
           handleInputChange(fieldName, result.getText())
-          reader.reset()
-          setBarcodeReader(null)
-          setIsScanning(false)
+          stopCamera()
         }
       }).catch((scanError: any) => {
         console.error('Barcode scan error:', scanError)
-        reader.reset()
-        setBarcodeReader(null)
-        setIsScanning(false)
+        stopCamera()
         
         if (scanError.name === 'NotAllowedError' || scanError.message?.includes('permission')) {
           alert('Please allow camera access to scan barcodes. You may need to grant permission in your browser settings.')
@@ -224,8 +229,7 @@ export default function NewProductPage() {
     } catch (error: any) {
       console.error('Barcode scanner initialization error:', error)
       alert('Failed to initialize barcode scanner. Please try again.')
-      setIsScanning(false)
-      setBarcodeReader(null)
+      stopCamera()
     }
   }
 
@@ -992,13 +996,7 @@ export default function NewProductPage() {
         {/* Barcode Scanner Modal */}
         <Modal
           isOpen={isScanning}
-          onClose={() => {
-            if (barcodeReader) {
-              barcodeReader.reset()
-              setBarcodeReader(null)
-            }
-            setIsScanning(false)
-          }}
+          onClose={stopCamera}
           title="Scan Barcode"
           description="Point your camera at the barcode"
           size="full"
@@ -1022,13 +1020,7 @@ export default function NewProductPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                if (barcodeReader) {
-                  barcodeReader.reset()
-                  setBarcodeReader(null)
-                }
-                setIsScanning(false)
-              }}
+              onClick={stopCamera}
               className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white z-10"
             >
               <X className="w-4 h-4" />
