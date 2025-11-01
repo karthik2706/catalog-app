@@ -376,17 +376,8 @@ export async function DELETE(
       )
     }
 
-    // Check if user has admin or higher permissions
-    const allowedRoles = ['MASTER_ADMIN', 'ADMIN']
-    if (!allowedRoles.includes(user.role)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions. Admin or higher role required to delete products.' },
-        { status: 403 }
-      )
-    }
-
     try {
-      // Check if product exists and belongs to user's client
+      // Check if product exists
       const product = await prisma.product.findUnique({
         where: { id }
       })
@@ -398,10 +389,30 @@ export async function DELETE(
         )
       }
 
-      // For non-super-admin users, ensure they can only delete products from their own client
-      if (user.role !== 'MASTER_ADMIN' && product.clientId !== user.clientId) {
+      // Permission check based on role:
+      // - MASTER_ADMIN: can delete any product
+      // - ADMIN, USER: can delete products from their own client
+      if (user.role === 'MASTER_ADMIN') {
+        // MASTER_ADMIN can delete any product
+      } else if (user.role === 'ADMIN' || user.role === 'USER') {
+        // ADMIN and USER can delete products from their own client
+        if (!user.clientId) {
+          return NextResponse.json(
+            { error: 'Client context required' },
+            { status: 403 }
+          )
+        }
+        
+        if (product.clientId !== user.clientId) {
+          return NextResponse.json(
+            { error: 'You can only delete products from your own organization.' },
+            { status: 403 }
+          )
+        }
+      } else {
+        // Other roles (MANAGER, etc.) don't have delete permissions
         return NextResponse.json(
-          { error: 'You can only delete products from your own organization.' },
+          { error: 'Insufficient permissions to delete products.' },
           { status: 403 }
         )
       }
