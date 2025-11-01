@@ -143,7 +143,13 @@ export default function NewProductPage() {
 
     const initializeScanner = async () => {
       try {
-        // Wait for video element to be rendered
+        // Wait for React to render the Modal and create fresh video element
+        // Use requestAnimationFrame to ensure DOM is updated
+        await new Promise(resolve => requestAnimationFrame(resolve))
+        await new Promise(resolve => requestAnimationFrame(resolve))
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        // Wait for video element to be rendered (with fresh key)
         let videoElement = null
         let attempts = 0
         const maxAttempts = 30
@@ -151,6 +157,17 @@ export default function NewProductPage() {
         while (!videoElement && attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 100))
           videoElement = document.getElementById('video-barcode-preview')
+          
+          // Ensure the element is fresh (has no existing srcObject)
+          if (videoElement && videoElement.srcObject) {
+            // If element exists but has old stream, stop it
+            const stream = videoElement.srcObject as MediaStream
+            stream.getTracks().forEach(track => track.stop())
+            videoElement.srcObject = null
+            // Wait a bit more for cleanup
+            await new Promise(resolve => setTimeout(resolve, 50))
+          }
+          
           attempts++
         }
         
@@ -159,6 +176,14 @@ export default function NewProductPage() {
           setScanFieldName(null)
           alert("Barcode scan failed: element with id 'video-barcode-preview' not found. Please try again.")
           return
+        }
+        
+        // Ensure video element is completely clean before use
+        if (videoElement.srcObject) {
+          const stream = videoElement.srcObject as MediaStream
+          stream.getTracks().forEach(track => track.stop())
+          videoElement.srcObject = null
+          await new Promise(resolve => setTimeout(resolve, 100))
         }
         
         // Import ZXing dynamically
@@ -299,7 +324,20 @@ export default function NewProductPage() {
     if (isScanning) {
       // Stop scanning if already scanning
       stopCamera()
+      // Wait a bit before starting new scan to ensure cleanup is complete
+      setTimeout(() => {
+        setScanFieldName(fieldName)
+        setIsScanning(true)
+      }, 200)
       return
+    }
+
+    // Ensure any existing video element is cleaned up before starting new scan
+    const existingVideoElement = document.getElementById('video-barcode-preview') as HTMLVideoElement
+    if (existingVideoElement && existingVideoElement.srcObject) {
+      const stream = existingVideoElement.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+      existingVideoElement.srcObject = null
     }
 
     // Set state to trigger modal rendering and useEffect initialization
@@ -1080,6 +1118,7 @@ export default function NewProductPage() {
         >
           <div className="relative w-full h-[80vh] bg-black rounded-lg overflow-hidden">
             <video 
+              key={`barcode-video-${isScanning}-${scanFieldName}`}
               id="video-barcode-preview"
               className="w-full h-full object-cover"
               playsInline
