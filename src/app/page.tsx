@@ -34,11 +34,24 @@ interface Stats {
   totalUsers: number
 }
 
+interface ActivityItem {
+  id: string
+  type: 'inventory' | 'product' | 'user'
+  action: string
+  item: string
+  itemSku?: string | null
+  itemId?: string | null
+  user: string
+  time: string
+  timeAgo: string
+}
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<Stats | null>(null)
+  const [activities, setActivities] = useState<ActivityItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [clientCurrency, setClientCurrency] = useState<string>('USD')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -52,6 +65,7 @@ export default function DashboardPage() {
     if (user) {
       fetchStats()
       fetchClientCurrency()
+      fetchActivities()
     }
   }, [user, authLoading, router])
 
@@ -93,6 +107,23 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error('Error fetching client currency:', err)
+    }
+  }
+
+  const fetchActivities = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/activity?limit=10', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setActivities(data)
+      }
+    } catch (err) {
+      console.error('Error fetching activities:', err)
     }
   }
 
@@ -212,7 +243,10 @@ export default function DashboardPage() {
               <Button 
                 variant="outline"
                 className="w-full sm:w-auto"
-                onClick={fetchStats}
+                onClick={() => {
+                  fetchStats()
+                  fetchActivities()
+                }}
                 disabled={loading}
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -327,33 +361,63 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="card-content-spacing">
-                {[
-                  { action: 'Product added', item: 'MacBook Pro 16"', time: '2 minutes ago', type: 'add' },
-                  { action: 'Stock updated', item: 'iPhone 15 Pro', time: '15 minutes ago', type: 'update' },
-                  { action: 'Low stock alert', item: 'AirPods Pro', time: '1 hour ago', type: 'alert' },
-                  { action: 'User registered', item: 'john.doe@example.com', time: '2 hours ago', type: 'user' },
-                ].map((activity, index) => (
-                  <div key={index} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
-                    <div className={cn(
-                      'w-2 h-2 rounded-full',
-                      activity.type === 'add' && 'bg-success-500',
-                      activity.type === 'update' && 'bg-primary-500',
-                      activity.type === 'alert' && 'bg-warning-500',
-                      activity.type === 'user' && 'bg-slate-500'
-                    )} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900">
-                        {activity.action}
-                      </p>
-                      <p className="text-sm text-slate-500 truncate">
-                        {activity.item}
-                      </p>
-                    </div>
-                    <span className="text-xs text-slate-400">
-                      {activity.time}
-                    </span>
+                {activities.length > 0 ? (
+                  activities.map((activity) => {
+                    const getActivityType = () => {
+                      if (activity.type === 'inventory') return 'update'
+                      if (activity.type === 'product') return 'add'
+                      if (activity.type === 'user') return 'user'
+                      return 'update'
+                    }
+                    const activityType = getActivityType()
+                    
+                    return (
+                      <div 
+                        key={activity.id} 
+                        className="flex items-center space-x-3 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          if (activity.itemId && activity.type !== 'user') {
+                            router.push(`/products/${activity.itemId}`)
+                          }
+                        }}
+                      >
+                        <div className={cn(
+                          'w-2 h-2 rounded-full',
+                          activityType === 'add' && 'bg-success-500',
+                          activityType === 'update' && 'bg-primary-500',
+                          activityType === 'alert' && 'bg-warning-500',
+                          activityType === 'user' && 'bg-slate-500'
+                        )} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900">
+                            {activity.action}
+                          </p>
+                          <p className="text-sm text-slate-500 truncate">
+                            {activity.item}
+                            {activity.itemSku && (
+                              <span className="text-xs text-slate-400 ml-1">
+                                ({activity.itemSku})
+                              </span>
+                            )}
+                          </p>
+                          {activity.user !== 'System' && (
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              by {activity.user}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-400 whitespace-nowrap">
+                          {activity.timeAgo}
+                        </span>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="text-center py-8 text-slate-500">
+                    <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No recent activity</p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
