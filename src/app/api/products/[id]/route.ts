@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { mockStore } from '@/lib/mockStore'
 import { UpdateProductRequest } from '@/types'
 import { processMediaForEmbedding } from '@/lib/embeddings'
+import { generateSignedUrl } from '@/lib/aws'
 import jwt from 'jsonwebtoken'
 
 interface JWTPayload {
@@ -92,12 +93,68 @@ export async function GET(
         )
       }
 
+      // Generate signed URLs for media files
+      const images: any[] = []
+      const videos: any[] = []
+      const mediaItems: any[] = []
+      let thumbnailUrl: string | null = null
+
+      if (product.productMedia && product.productMedia.length > 0) {
+        for (const pm of product.productMedia) {
+          const media = pm.media
+          if (!media || !media.s3Key) continue
+
+          try {
+            // Generate signed URL for the media file
+            const signedUrl = await generateSignedUrl(media.s3Key, 7 * 24 * 60 * 60) // 7 days
+            
+            const mediaItem = {
+              id: media.id,
+              kind: media.kind,
+              url: signedUrl,
+              s3Key: media.s3Key,
+              key: media.s3Key, // For compatibility with refresh-urls API
+              width: media.width,
+              height: media.height,
+              durationMs: media.durationMs,
+              status: media.status,
+              createdAt: media.createdAt,
+              updatedAt: media.updatedAt
+            }
+
+            if (media.kind === 'image') {
+              images.push(mediaItem)
+              // Set thumbnailUrl from first primary image
+              if (pm.isPrimary && !thumbnailUrl) {
+                thumbnailUrl = signedUrl
+              }
+            } else if (media.kind === 'video') {
+              videos.push({
+                ...mediaItem,
+                thumbnailUrl: null // Could generate thumbnail URL if needed
+              })
+            } else {
+              mediaItems.push(mediaItem)
+            }
+          } catch (error) {
+            console.error(`Error generating signed URL for media ${media.id}:`, error)
+          }
+        }
+      }
+
       // Convert BigInt fields to strings for JSON serialization
       const serializedProduct = JSON.parse(JSON.stringify(product, (key, value) =>
         typeof value === 'bigint' ? value.toString() : value
       ))
       
-      return NextResponse.json(serializedProduct)
+      // Add images, videos, and thumbnailUrl to the response
+      return NextResponse.json({
+        ...serializedProduct,
+        images,
+        videos,
+        mediaItems,
+        thumbnailUrl: thumbnailUrl || serializedProduct.thumbnailUrl
+      })
     } catch (dbError) {
       console.error('Database error:', dbError)
       return NextResponse.json(
