@@ -5,45 +5,45 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 // Ensure DATABASE_URL is available
-if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL environment variable is not set')
-  throw new Error('DATABASE_URL environment variable is not set')
+const databaseUrl = process.env.DATABASE_URL
+if (!databaseUrl) {
+  console.error('⚠️ DATABASE_URL environment variable is not set')
+  // Don't throw here - let Prisma handle it, but log the warning
 }
 
 // Create Prisma client with better error handling
-let prisma: PrismaClient
-
-try {
-  prisma = globalForPrisma.prisma ?? new PrismaClient({
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
-      },
+// Use singleton pattern for both dev and production (Next.js serverless functions)
+const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  datasources: {
+    db: {
+      url: databaseUrl,
     },
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  })
+  },
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+})
 
-  // Verify Prisma client is properly initialized
-  if (!prisma) {
-    throw new Error('Failed to initialize Prisma client')
-  }
-
-  // Test the connection
-  prisma.$connect().catch((error) => {
-    console.error('Failed to connect to database:', error)
-  })
-
-} catch (error) {
-  console.error('Error initializing Prisma client:', error)
-  throw new Error(`Failed to initialize Prisma client: ${error.message}`)
+// Verify Prisma client is properly initialized
+if (!prisma) {
+  console.error('❌ Failed to initialize Prisma client')
+  throw new Error('Failed to initialize Prisma client')
 }
+
+// Store in global to prevent multiple instances
+// This works in both development and production (Next.js serverless functions cache the module)
+// In production, this helps prevent connection pool exhaustion by reusing the same client instance
+globalForPrisma.prisma = prisma
+
+// Test the connection asynchronously (don't block initialization)
+// This ensures we can catch connection errors early
+prisma.$connect().catch((error) => {
+  console.error('❌ Failed to connect to database:', error)
+  console.error('Database URL:', databaseUrl ? `${databaseUrl.substring(0, 20)}...` : 'NOT SET')
+})
 
 export { prisma }
 
 // Handle graceful shutdown
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
-} else {
+if (process.env.NODE_ENV === 'production') {
   // In production, ensure proper cleanup
   process.on('beforeExit', async () => {
     await prisma.$disconnect()
