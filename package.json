@@ -22,6 +22,12 @@
     "backfill:media": "tsx scripts/backfill_media_from_products.ts",
     "reembed": "tsx scripts/reembed_all.ts",
     "create:users": "tsx scripts/create-test-users.ts",
+    "db:copy-prod": "tsx scripts/copy-prod-to-local.ts",
+    "db:copy-prod-improved": "tsx scripts/copy-prod-to-local-improved.ts",
+    "db:backup-prod": "tsx scripts/backup-prod-db.ts",
+    "db:deep-clean": "tsx scripts/deep-clean-local.ts",
+    "db:deep-copy": "tsx scripts/deep-copy-prod-to-local.ts",
+    "db:check-migrations": "tsx scripts/check-migrations-prod.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -33,9 +33,9 @@ try {
     console.error('Failed to connect to database:', error)
   })
 
-} catch (error) {
+} catch (error: any) {
   console.error('Error initializing Prisma client:', error)
-  throw new Error(`Failed to initialize Prisma client: ${error.message}`)
+  throw new Error(`Failed to initialize Prisma client: ${error?.message || 'Unknown error'}`)
 }
 
 export { prisma }
