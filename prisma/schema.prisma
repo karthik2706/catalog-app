@@ -8,44 +8,66 @@ datasource db {
   directUrl = env("DATABASE_URL")
 }
 
-model api_keys {
-  id          String    @id
-  name        String
-  key         String    @unique
-  secret      String?
-  clientId    String
-  isActive    Boolean   @default(true)
-  permissions String[]  @default([])
-  lastUsedAt  DateTime?
-  expiresAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime
-  clients     clients   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+model Country {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  code       String   @unique
+  currencyId String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  clients    Client[] @relation("ClientCountry")
+  currency   Currency @relation("CountryCurrency", fields: [currencyId], references: [id])
 
-  @@index([clientId])
-  @@index([key])
+  @@map("countries")
 }
 
-model categories {
-  id                 String               @id
-  name               String
-  description        String?
-  isActive           Boolean              @default(true)
-  clientId           String
-  parentId           String?
-  sortOrder          Int                  @default(0)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime
-  clients            clients              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  categories         categories?          @relation("categoriesTocategories", fields: [parentId], references: [id], onDelete: Cascade)
-  other_categories   categories[]         @relation("categoriesTocategories")
-  product_categories product_categories[]
+model Currency {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  code          String    @unique
+  symbol        String
+  decimalPlaces Int       @default(2)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  clients       Client[]  @relation("ClientCurrency")
+  countries     Country[] @relation("CountryCurrency")
 
-  @@unique([name, clientId, parentId])
+  @@map("currencies")
 }
 
-model client_settings {
-  id                 String   @id
+model Client {
+  id               String             @id @default(cuid())
+  name             String
+  slug             String             @unique
+  domain           String?
+  email            String
+  phone            String?
+  address          String?
+  logo             String?
+  countryId        String?
+  currencyId       String?
+  isActive         Boolean            @default(true)
+  plan             Plan               @default(STARTER)
+  guestPassword    String?
+  guestAccessEnabled Boolean          @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  apiKeys          ApiKey[]           @relation("ClientApiKeys")
+  categories       Category[]         @relation("ClientCategories")
+  settings         ClientSettings?    @relation("ClientSettings")
+  country          Country?           @relation("ClientCountry", fields: [countryId], references: [id])
+  currency         Currency?          @relation("ClientCurrency", fields: [currencyId], references: [id])
+  inventoryHistory InventoryHistory[] @relation("ClientInventoryHistory")
+  products         Product[]          @relation("ClientProducts")
+  users            User[]             @relation("ClientUsers")
+
+  @@map("clients")
+}
+
+model ClientSettings {
+  id                 String   @id @default(cuid())
   clientId           String   @unique
   companyName        String
   email              String
@@ -57,82 +79,60 @@ model client_settings {
   emailNotifications Boolean  @default(true)
   smsNotifications   Boolean  @default(false)
   createdAt          DateTime @default(now())
-  updatedAt          DateTime
-  clients            clients  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  updatedAt          DateTime @updatedAt
+  client             Client   @relation("ClientSettings", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_settings")
 }
 
-model clients {
-  id                 String              @id
-  name               String
-  slug               String              @unique
-  domain             String?
-  email              String
-  phone              String?
-  address            String?
-  logo               String?
-  countryId          String?
-  currencyId         String?
-  isActive           Boolean             @default(true)
-  plan               Plan                @default(STARTER)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime
-  guestAccessEnabled Boolean             @default(false)
-  guestPassword      String?
-  api_keys           api_keys[]
-  categories         categories[]
-  client_settings    client_settings?
-  countries          countries?          @relation(fields: [countryId], references: [id])
-  currencies         currencies?         @relation(fields: [currencyId], references: [id])
-  inventory_history  inventory_history[]
-  products           products[]
-  users              users[]
+model User {
+  id               String             @id @default(cuid())
+  email            String
+  password         String
+  name             String?
+  role             Role               @default(ADMIN)
+  clientId         String?
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  inventoryHistory InventoryHistory[] @relation("UserInventoryHistory")
+  client           Client?            @relation("ClientUsers", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([email, clientId])
+  @@map("users")
 }
 
-model countries {
-  id         String     @id
-  name       String     @unique
-  code       String     @unique
-  currencyId String
-  isActive   Boolean    @default(true)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime
-  clients    clients[]
-  currencies currencies @relation(fields: [currencyId], references: [id])
+model Product {
+  id               String             @id @default(cuid())
+  name             String
+  sku              String
+  description      String?
+  price            Decimal            @db.Decimal(10, 2)
+  category         String
+  categoryId       String?
+  variations       Json?
+  stockLevel       Int                @default(0)
+  minStock         Int                @default(0)
+  isActive         Boolean            @default(true)
+  clientId         String
+  images           Json?
+  videos           Json?
+  thumbnailUrl     String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  allowPreorder    Boolean            @default(false)
+  inventoryHistory InventoryHistory[] @relation("ProductInventoryHistory")
+  media            Media[]            @relation("DirectProductMedia")
+  productMedia     ProductMedia[]     @relation("ProductMediaRelations")
+  categories       ProductCategory[]  @relation("ProductCategories")
+  client           Client             @relation("ClientProducts", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([sku, clientId])
+  @@map("products")
 }
 
-model currencies {
-  id            String      @id
-  name          String      @unique
-  code          String      @unique
-  symbol        String
-  decimalPlaces Int         @default(2)
-  isActive      Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime
-  clients       clients[]
-  countries     countries[]
-}
-
-model frame_embeddings {
-  id           String                @id
-  frameId      String                @unique
-  embedding    Unsupported("vector")
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime
-  video_frames video_frames          @relation(fields: [frameId], references: [id], onDelete: Cascade)
-}
-
-model image_embeddings {
-  id        String                @id
-  mediaId   String                @unique
-  embedding Unsupported("vector")
-  createdAt DateTime              @default(now())
-  updatedAt DateTime
-  media     media                 @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-}
-
-model inventory_history {
-  id        String        @id
+model InventoryHistory {
+  id        String        @id @default(cuid())
   productId String
   quantity  Int
   type      InventoryType
@@ -140,38 +140,88 @@ model inventory_history {
   userId    String?
   clientId  String
   createdAt DateTime      @default(now())
-  clients   clients       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  products  products      @relation(fields: [productId], references: [id])
-  users     users?        @relation(fields: [userId], references: [id])
+  client    Client        @relation("ClientInventoryHistory", fields: [clientId], references: [id], onDelete: Cascade)
+  product   Product       @relation("ProductInventoryHistory", fields: [productId], references: [id])
+  user      User?         @relation("UserInventoryHistory", fields: [userId], references: [id])
+
+  @@map("inventory_history")
 }
 
-model media {
-  id               String            @id
-  productId        String?
-  kind             String
-  s3Key            String
-  originalName     String
-  mimeType         String
-  fileSize         Int
-  width            Int?
-  height           Int?
-  durationMs       Int?
-  altText          String?
-  caption          String?
-  sortOrder        Int               @default(0)
-  isPrimary        Boolean           @default(false)
-  status           String            @default("pending")
-  error            String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime
-  image_embeddings image_embeddings?
-  products         products?         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  product_media    product_media[]
-  video_frames     video_frames[]
+model Category {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean           @default(true)
+  clientId    String
+  parentId    String?
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  client      Client            @relation("ClientCategories", fields: [clientId], references: [id], onDelete: Cascade)
+  parent      Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Category[]        @relation("CategoryHierarchy")
+  products    ProductCategory[] @relation("CategoryProducts")
+
+  @@unique([name, clientId, parentId])
+  @@map("categories")
 }
 
-model performance_metrics {
-  id                  String   @id
+model ProductCategory {
+  id         String   @id @default(cuid())
+  productId  String
+  categoryId String
+  createdAt  DateTime @default(now())
+  category   Category @relation("CategoryProducts", fields: [categoryId], references: [id], onDelete: Cascade)
+  product    Product  @relation("ProductCategories", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, categoryId])
+  @@map("product_categories")
+}
+
+model ProductMedia {
+  id        String   @id @default(cuid())
+  productId String
+  mediaId   String
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  media     Media    @relation("MediaProductRelations", fields: [mediaId], references: [id], onDelete: Cascade)
+  product   Product  @relation("ProductMediaRelations", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, mediaId])
+  @@map("product_media")
+}
+
+model Media {
+  id             String          @id @default(cuid())
+  productId      String?
+  kind           String
+  s3Key          String
+  originalName   String
+  mimeType       String
+  fileSize       Int
+  width          Int?
+  height         Int?
+  durationMs     Int?
+  altText        String?
+  caption        String?
+  sortOrder      Int             @default(0)
+  isPrimary      Boolean         @default(false)
+  status         String          @default("pending")
+  error          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  imageEmbedding ImageEmbedding? @relation("ImageEmbedding")
+  products       Product?        @relation("DirectProductMedia", fields: [productId], references: [id], onDelete: Cascade)
+  productMedia   ProductMedia[]  @relation("MediaProductRelations")
+  videoFrames    VideoFrame[]    @relation("VideoFrames")
+
+  @@map("media")
+}
+
+model PerformanceMetrics {
+  id                  String   @id @default(cuid())
   url                 String
   timestamp           DateTime
   fcp                 Float?
@@ -186,88 +236,77 @@ model performance_metrics {
   deviceMemory        Int?
   hardwareConcurrency Int?
   createdAt           DateTime @default(now())
+
+  @@map("performance_metrics")
 }
 
-model product_categories {
-  id         String     @id
-  productId  String
-  categoryId String
-  createdAt  DateTime   @default(now())
-  categories categories @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  products   products   @relation(fields: [productId], references: [id], onDelete: Cascade)
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  key         String    @unique
+  secret      String?
+  clientId    String
+  isActive    Boolean   @default(true)
+  permissions String[]  @default([])
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  client      Client    @relation("ClientApiKeys", fields: [clientId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, categoryId])
+  @@index([clientId])
+  @@index([key])
+  @@map("api_keys")
 }
 
-model product_media {
-  id        String   @id
-  productId String
-  mediaId   String
-  isPrimary Boolean  @default(false)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-  media     media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
-  products  products @relation(fields: [productId], references: [id], onDelete: Cascade)
+model ImageEmbedding {
+  id        String                @id @default(cuid())
+  mediaId   String                @unique
+  embedding Unsupported("vector")
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  media     Media                 @relation("ImageEmbedding", fields: [mediaId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, mediaId])
+  @@map("image_embeddings")
 }
 
-model products {
-  id                 String               @id
-  name               String
-  sku                String
-  description        String?
-  price              Decimal              @db.Decimal(10, 2)
-  category           String
-  categoryId         String?
-  variations         Json?
-  stockLevel         Int                  @default(0)
-  minStock           Int                  @default(0)
-  isActive           Boolean              @default(true)
-  clientId           String
-  images             Json?
-  videos             Json?
-  thumbnailUrl       String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime
-  allowPreorder      Boolean              @default(false)
-  inventory_history  inventory_history[]
-  media              media[]
-  product_categories product_categories[]
-  product_media      product_media[]
-  clients            clients              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+model VideoFrame {
+  id         String          @id @default(cuid())
+  mediaId    String
+  frameS3Key String
+  tsMs       Int
+  width      Int?
+  height     Int?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  embeddings FrameEmbedding?
+  media      Media           @relation("VideoFrames", fields: [mediaId], references: [id], onDelete: Cascade)
 
-  @@unique([sku, clientId])
+  @@map("video_frames")
 }
 
-model users {
-  id                String              @id
-  email             String
-  password          String
-  name              String?
-  role              Role                @default(ADMIN)
-  clientId          String?
-  isActive          Boolean             @default(true)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime
-  inventory_history inventory_history[]
-  clients           clients?            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+model FrameEmbedding {
+  id        String                @id @default(cuid())
+  frameId   String                @unique
+  embedding Unsupported("vector")
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  frame     VideoFrame            @relation(fields: [frameId], references: [id], onDelete: Cascade)
 
-  @@unique([email, clientId])
+  @@map("frame_embeddings")
 }
 
-model video_frames {
-  id               String            @id
-  mediaId          String
-  frameS3Key       String
-  tsMs             Int
-  width            Int?
-  height           Int?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime
-  frame_embeddings frame_embeddings?
-  media            media             @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+enum Role {
+  MASTER_ADMIN
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum Plan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
 }
 
 enum InventoryType {
@@ -277,17 +316,4 @@ enum InventoryType {
   RETURN
   DAMAGE
   TRANSFER
-}
-
-enum Plan {
-  STARTER
-  PROFESSIONAL
-  ENTERPRISE
-}
-
-enum Role {
-  MASTER_ADMIN
-  ADMIN
-  MANAGER
-  USER
 }
