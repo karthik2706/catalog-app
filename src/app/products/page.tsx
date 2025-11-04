@@ -480,12 +480,15 @@ export default function ProductsPage() {
               <div className="w-full lg:w-64">
                 <select
                   value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value)
+                    setPage(0) // Reset to first page when filter changes
+                  }}
                   className="input w-full"
                 >
                   <option value="">All Categories</option>
                   {categories.map((category) => (
-                    <option key={category.id} value={category.name}>
+                    <option key={category.id} value={category.id}>
                       {category.name}
                     </option>
                   ))}
