@@ -147,6 +147,7 @@ function GuestCatalogPageContent() {
     currentIndex: 0,
     productName: ''
   })
+  const [carouselIndices, setCarouselIndices] = useState<Record<string, number>>({})
   const searchParams = useSearchParams()
   const router = useRouter()
   const slug = searchParams.get('slug') || ''
@@ -409,6 +410,44 @@ function GuestCatalogPageContent() {
     }
   }
 
+  useEffect(() => {
+    setCarouselIndices((prev) => {
+      if (products.length === 0) {
+        return Object.keys(prev).length ? {} : prev
+      }
+
+      const next: Record<string, number> = {}
+      let changed = Object.keys(prev).length !== products.length
+
+      products.forEach((product) => {
+        const imageCount = getProductImages(product).length
+        const maxIndex = Math.max(0, imageCount - 1)
+        const previousStored = prev[product.id] ?? 0
+        const clampedIndex = Math.min(previousStored, maxIndex)
+        next[product.id] = clampedIndex
+
+        if (!changed && clampedIndex !== previousStored) {
+          changed = true
+        }
+
+        if (!changed && !(product.id in prev)) {
+          changed = true
+        }
+      })
+
+      if (!changed) {
+        for (const key of Object.keys(prev)) {
+          if (!(key in next)) {
+            changed = true
+            break
+          }
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [products])
+
   const handleLogout = () => {
     if (!slug) return
     localStorage.removeItem(`guest_token_${slug}`)
@@ -483,6 +522,27 @@ function GuestCatalogPageContent() {
         productName: product.name
       })
     }
+  }
+
+  const handleCarouselNav = (productId: string, direction: 'next' | 'prev', imagesLength: number) => {
+    if (imagesLength <= 1) return
+
+    setCarouselIndices((prev) => {
+      const currentIndex = prev[productId] ?? 0
+      const nextIndex =
+        direction === 'next'
+          ? (currentIndex + 1) % imagesLength
+          : (currentIndex - 1 + imagesLength) % imagesLength
+
+      if (nextIndex === currentIndex) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        [productId]: nextIndex
+      }
+    })
   }
 
   // Navigate images in modal
@@ -796,13 +856,16 @@ function GuestCatalogPageContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {products.map((product) => {
                 const images = getProductImages(product)
-                const displayImage = images[0] || null
-                
+                const imageCount = images.length
+                const rawIndex = carouselIndices[product.id] ?? 0
+                const currentIndex = imageCount > 0 ? Math.min(rawIndex, imageCount - 1) : 0
+                const displayImage = imageCount > 0 ? images[currentIndex] : null
+
                 return (
                   <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                     <div 
                       className={`aspect-square relative bg-gray-100 ${displayImage ? 'cursor-pointer' : ''}`}
-                      onClick={() => displayImage && openImageModal(product, 0)}
+                      onClick={() => displayImage && openImageModal(product, currentIndex)}
                     >
                       {displayImage ? (
                         <img
@@ -828,27 +891,56 @@ function GuestCatalogPageContent() {
                           </div>
                         </div>
                       )}
+                      {imageCount > 1 && displayImage && (
+                        <>
+                          <button
+                            type="button"
+                            aria-label="Previous image"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleCarouselNav(product.id, 'prev', imageCount)
+                            }}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white shadow-sm rounded-full p-2 transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Next image"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleCarouselNav(product.id, 'next', imageCount)
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white shadow-sm rounded-full p-2 transition-colors"
+                          >
+                            <ChevronRight className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                            {currentIndex + 1} / {imageCount}
+                          </div>
+                        </>
+                      )}
                     </div>
-                  <CardContent className="p-3 sm:p-4">
-                    <h3 className="font-semibold text-base sm:text-lg mb-1 line-clamp-2">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-2">{product.sku}</p>
-                    {product.description && (
-                      <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
-                        {product.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-base sm:text-lg font-bold text-blue-600">
-                        {formatPrice(Number(product.price))}
-                      </span>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
-                        {product.category}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
+                    <CardContent className="p-3 sm:p-4">
+                      <h3 className="font-semibold text-base sm:text-lg mb-1 line-clamp-2">
+                        {product.name}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-500 mb-2">{product.sku}</p>
+                      {product.description && (
+                        <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
+                          {product.description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-base sm:text-lg font-bold text-blue-600">
+                          {formatPrice(Number(product.price))}
+                        </span>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
+                          {product.category}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )
               })}
             </div>
