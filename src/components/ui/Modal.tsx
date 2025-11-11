@@ -98,7 +98,7 @@ const Modal: React.FC<ModalProps> = ({
         )}
         
         {/* Content */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+        <div className="p-4 sm:p-6 pb-0 overflow-y-auto flex-1">
           {children}
         </div>
       </div>

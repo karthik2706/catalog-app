@@ -824,7 +824,7 @@ export default function NewProductPage() {
               <p className="text-xs text-slate-500">Additional cost for this variation (can be negative for discounts)</p>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4">
+            <div className="flex justify-end space-x-3 pt-4 pb-4">
               <Button
                 variant="outline"
                 onClick={() => setVariationModalOpen(false)}
