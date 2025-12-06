@@ -148,7 +148,6 @@ function GuestCatalogPageContent() {
     productName: ''
   })
   const [carouselIndices, setCarouselIndices] = useState<Record<string, number>>({})
-  const [failedImages, setFailedImages] = useState<Record<string, Set<string>>>({})
   const searchParams = useSearchParams()
   const router = useRouter()
   const slug = searchParams.get('slug') || ''
@@ -400,8 +399,6 @@ function GuestCatalogPageContent() {
       })
       setProducts(data.products)
       setTotalPages(data.pagination.pages)
-      // Reset failed images when products change
-      setFailedImages({})
       if (data.client) {
         setClientInfo(data.client)
       }
@@ -477,14 +474,9 @@ function GuestCatalogPageContent() {
     })
     
     // Add images from media array first (these are processed with signed URLs)
-    // Exclude media with failed/error status
     if (product.media && Array.isArray(product.media)) {
       product.media.forEach((mediaItem) => {
         if (mediaItem.kind === 'image' || !mediaItem.kind) {
-          // Skip media with failed/error status
-          if (mediaItem.status === 'failed' || mediaItem.status === 'error' || mediaItem.error) {
-            return
-          }
           const url = mediaItem.url || mediaItem.URL || mediaItem.src
           if (url && typeof url === 'string' && url.startsWith('http') && !images.includes(url)) {
             images.push(url)
@@ -517,47 +509,6 @@ function GuestCatalogPageContent() {
     console.log('Extracted images:', images)
     
     return images
-  }
-
-  // Check if a product has valid images (not failed)
-  const hasValidImages = (product: Product): boolean => {
-    const images = getProductImages(product)
-    if (images.length === 0) {
-      return false
-    }
-    
-    // Check media status - filter out products where all media have failed/error status
-    if (product.media && Array.isArray(product.media)) {
-      const imageMedia = product.media.filter((m: any) => m.kind === 'image' || !m.kind)
-      if (imageMedia.length > 0) {
-        const allFailed = imageMedia.every((m: any) => 
-          m.status === 'failed' || m.status === 'error' || m.error
-        )
-        if (allFailed) {
-          return false
-        }
-      }
-    }
-    
-    // Check if all images for this product have failed to load at runtime
-    const productFailedImages = failedImages[product.id]
-    if (productFailedImages && productFailedImages.size >= images.length) {
-      return false
-    }
-    
-    return true
-  }
-
-  // Track failed image
-  const handleImageError = (productId: string, imageUrl: string) => {
-    setFailedImages((prev) => {
-      const productFailed = prev[productId] || new Set<string>()
-      productFailed.add(imageUrl)
-      return {
-        ...prev,
-        [productId]: productFailed
-      }
-    })
   }
 
   // Open image modal
@@ -903,100 +854,95 @@ function GuestCatalogPageContent() {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {products
-                .filter((product) => hasValidImages(product))
-                .map((product) => {
-                  const images = getProductImages(product)
-                  // Filter out failed images
-                  const validImages = images.filter((img) => {
-                    const productFailedImages = failedImages[product.id]
-                    return !productFailedImages || !productFailedImages.has(img)
-                  })
-                  
-                  const imageCount = validImages.length
-                  const rawIndex = carouselIndices[product.id] ?? 0
-                  const currentIndex = imageCount > 0 ? Math.min(rawIndex, imageCount - 1) : 0
-                  const displayImage = imageCount > 0 ? validImages[currentIndex] : null
+              {products.map((product) => {
+                const images = getProductImages(product)
+                const imageCount = images.length
+                const rawIndex = carouselIndices[product.id] ?? 0
+                const currentIndex = imageCount > 0 ? Math.min(rawIndex, imageCount - 1) : 0
+                const displayImage = imageCount > 0 ? images[currentIndex] : null
 
-                  // If no valid images after filtering, don't render this product
-                  if (!displayImage) {
-                    return null
-                  }
-
-                  return (
-                    <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                      <div 
-                        className={`aspect-square relative bg-gray-100 ${displayImage ? 'cursor-pointer' : ''}`}
-                        onClick={() => displayImage && openImageModal(product, currentIndex)}
-                      >
-                        {displayImage ? (
-                          <img
-                            src={displayImage}
-                            alt={product.name}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                            onError={(e) => {
-                              console.error('Image failed to load:', displayImage, product.sku)
-                              handleImageError(product.id, displayImage)
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                            }}
-                            onLoad={() => {
-                              console.log('Image loaded successfully:', displayImage, product.sku)
-                            }}
-                          />
-                        ) : null}
-                        {imageCount > 1 && displayImage && (
-                          <>
-                            <button
-                              type="button"
-                              aria-label="Previous image"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                handleCarouselNav(product.id, 'prev', imageCount)
-                              }}
-                              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white shadow-sm rounded-full p-2 transition-colors"
-                            >
-                              <ChevronLeft className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label="Next image"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                handleCarouselNav(product.id, 'next', imageCount)
-                              }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white shadow-sm rounded-full p-2 transition-colors"
-                            >
-                              <ChevronRight className="w-4 h-4 text-gray-700" />
-                            </button>
-                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-                              {currentIndex + 1} / {imageCount}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      <CardContent className="p-3 sm:p-4">
-                        <h3 className="font-semibold text-base sm:text-lg mb-1 line-clamp-2">
-                          {product.name}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-500 mb-2">{product.sku}</p>
-                        {product.description && (
-                          <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
-                            {product.description}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-base sm:text-lg font-bold text-blue-600">
-                            {formatPrice(Number(product.price))}
-                          </span>
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
-                            {product.category}
-                          </span>
+                return (
+                  <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                    <div 
+                      className={`aspect-square relative bg-gray-100 ${displayImage ? 'cursor-pointer' : ''}`}
+                      onClick={() => displayImage && openImageModal(product, currentIndex)}
+                    >
+                      {displayImage ? (
+                        <img
+                          src={displayImage}
+                          alt={product.name}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            console.error('Image failed to load:', displayImage, product.sku)
+                            const target = e.target as HTMLImageElement
+                            target.style.display = 'none'
+                          }}
+                          onLoad={() => {
+                            console.log('Image loaded successfully:', displayImage, product.sku)
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <div className="text-center">
+                            <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-xs">No Image</p>
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                      )}
+                      {imageCount > 1 && displayImage && (
+                        <>
+                          <button
+                            type="button"
+                            aria-label="Previous image"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleCarouselNav(product.id, 'prev', imageCount)
+                            }}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white shadow-sm rounded-full p-2 transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Next image"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleCarouselNav(product.id, 'next', imageCount)
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white shadow-sm rounded-full p-2 transition-colors"
+                          >
+                            <ChevronRight className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                            {currentIndex + 1} / {imageCount}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <CardContent className="p-3 sm:p-4">
+                      <h3 className="font-semibold text-base sm:text-lg mb-1 line-clamp-2">
+                        {product.name}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-500 mb-2">{product.sku}</p>
+                      {product.description && (
+                        <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
+                          {product.description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-base sm:text-lg font-bold text-blue-600">
+                          {formatPrice(Number(product.price))}
+                        </span>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
+                          {product.category}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
 
             {/* Pagination */}
