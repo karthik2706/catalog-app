@@ -20,9 +20,11 @@ import {
   Trash2,
   Edit,
   Check,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react'
 import VideoPreview from './VideoPreview'
+import { Modal } from './ui/Modal'
 
 interface MediaAsset {
   id: string
@@ -71,6 +73,11 @@ export default function MediaLibrary({
   const [totalPages, setTotalPages] = useState(1)
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedAssets)
   const [stats, setStats] = useState<any>(null)
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false)
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false)
+  
+  // Enable selection mode by default if not explicitly disabled
+  const isSelectionMode = selectionMode !== false
 
   const fetchAssets = async () => {
     try {
@@ -108,8 +115,10 @@ export default function MediaLibrary({
   }
 
   useEffect(() => {
-    fetchAssets()
-  }, [page, search, typeFilter])
+    if (token) {
+      fetchAssets()
+    }
+  }, [page, search, typeFilter, token])
 
   const getFileIcon = (asset: MediaAsset) => {
     switch (asset.kind) {
@@ -137,7 +146,7 @@ export default function MediaLibrary({
   }
 
   const handleSelectAsset = (assetId: string) => {
-    if (!selectionMode) return
+    if (!isSelectionMode) return
 
     setSelectedIds(prev => {
       const newSelection = prev.includes(assetId)
@@ -152,7 +161,7 @@ export default function MediaLibrary({
   }
 
   const handleSelectAll = () => {
-    if (!selectionMode) return
+    if (!isSelectionMode) return
 
     const allIds = assets.map(asset => asset.id)
     setSelectedIds(allIds)
@@ -160,10 +169,43 @@ export default function MediaLibrary({
   }
 
   const handleDeselectAll = () => {
-    if (!selectionMode) return
+    if (!isSelectionMode) return
 
     setSelectedIds([])
     onSelectMedia?.([])
+  }
+
+  const isAllSelected = selectedIds.length === assets.length && assets.length > 0
+  const isPartiallySelected = selectedIds.length > 0 && selectedIds.length < assets.length
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+
+    setBulkDeleteLoading(true)
+    try {
+      const response = await fetch('/api/media/bulk', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ mediaIds: selectedIds }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete media files')
+      }
+
+      setSelectedIds([])
+      setBulkDeleteModalOpen(false)
+      await fetchAssets()
+    } catch (err: any) {
+      setError(err.message)
+      console.error('Bulk delete error:', err)
+    } finally {
+      setBulkDeleteLoading(false)
+    }
   }
 
   const deleteAsset = async (assetId: string) => {
@@ -204,7 +246,7 @@ export default function MediaLibrary({
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Media Library</h2>
           <p className="text-sm sm:text-base text-slate-600">Manage your media assets</p>
         </div>
-        {selectionMode && (
+        {isSelectionMode && (
           <div className="flex items-center space-x-2 w-full sm:w-auto">
             <Button
               onClick={handleSelectAll}
@@ -227,6 +269,67 @@ export default function MediaLibrary({
           </div>
         )}
       </div>
+
+      {/* Selection Controls */}
+      {isSelectionMode && (
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={isAllSelected}
+                ref={(input) => {
+                  if (input) {
+                    input.indeterminate = isPartiallySelected
+                  }
+                }}
+                onChange={handleSelectAll}
+                className="w-4 h-4 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+              />
+              <label className="text-sm font-medium text-slate-700 cursor-pointer" onClick={handleSelectAll}>
+                Select All ({assets.length} files)
+              </label>
+            </div>
+            {selectedIds.length > 0 && (
+              <span className="text-sm text-slate-500">
+                {selectedIds.length} selected
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Actions Bar */}
+      {isSelectionMode && selectedIds.length > 0 && (
+        <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 mb-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className="text-sm font-medium text-primary-900">
+                {selectedIds.length} file{selectedIds.length !== 1 ? 's' : ''} selected
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedIds([])}
+                className="text-slate-600 hover:text-slate-700"
+              >
+                Clear selection
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBulkDeleteModalOpen(true)}
+                className="text-error-600 border-error-200 hover:bg-error-50"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Selected
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       {stats && (
@@ -315,15 +418,29 @@ export default function MediaLibrary({
           {assets.map(asset => (
             <div
               key={asset.id}
-              className={`relative border rounded-lg overflow-hidden cursor-pointer transition-all ${
+              className={`relative border rounded-lg overflow-hidden transition-all ${
+                isSelectionMode ? 'cursor-pointer' : ''
+              } ${
                 selectedIds.includes(asset.id)
                   ? 'border-blue-500 ring-2 ring-blue-200'
                   : 'border-slate-200 hover:border-slate-300'
               }`}
-              onClick={() => handleSelectAsset(asset.id)}
+              onClick={() => isSelectionMode && handleSelectAsset(asset.id)}
             >
+              {/* Selection Checkbox */}
+              {isSelectionMode && (
+                <div className="absolute top-2 left-2 z-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(asset.id)}
+                    onChange={() => handleSelectAsset(asset.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-5 h-5 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                  />
+                </div>
+              )}
               {/* Selection Indicator */}
-              {selectionMode && selectedIds.includes(asset.id) && (
+              {isSelectionMode && selectedIds.includes(asset.id) && (
                 <div className="absolute top-2 right-2 z-10">
                   <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
                     <Check className="w-4 h-4 text-white" />
@@ -372,7 +489,7 @@ export default function MediaLibrary({
               </div>
 
               {/* Actions */}
-              {!selectionMode && (
+              {!isSelectionMode && (
                 <div className="absolute top-1 left-1 sm:top-2 sm:left-2 opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-md p-0.5 sm:p-1 shadow-sm">
                   <div className="flex space-x-0.5 sm:space-x-1">
                     <Button
@@ -422,25 +539,25 @@ export default function MediaLibrary({
           {assets.map(asset => (
             <div
               key={asset.id}
-              className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 p-3 sm:p-4 border rounded-lg cursor-pointer transition-all ${
+              className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-0 p-3 sm:p-4 border rounded-lg transition-all ${
+                isSelectionMode ? 'cursor-pointer' : ''
+              } ${
                 selectedIds.includes(asset.id)
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-slate-200 hover:border-slate-300'
               }`}
-              onClick={() => handleSelectAsset(asset.id)}
+              onClick={() => isSelectionMode && handleSelectAsset(asset.id)}
             >
-              {/* Selection Indicator */}
-              {selectionMode && (
+              {/* Selection Checkbox */}
+              {isSelectionMode && (
                 <div className="mr-2 sm:mr-4 flex-shrink-0">
-                  <div className={`w-4 h-4 sm:w-5 sm:h-5 border-2 rounded ${
-                    selectedIds.includes(asset.id)
-                      ? 'bg-blue-500 border-blue-500'
-                      : 'border-slate-300'
-                  }`}>
-                    {selectedIds.includes(asset.id) && (
-                      <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
-                    )}
-                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(asset.id)}
+                    onChange={() => handleSelectAsset(asset.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600 bg-white border-gray-300 rounded focus:ring-primary-500 focus:ring-2"
+                  />
                 </div>
               )}
 
@@ -505,7 +622,7 @@ export default function MediaLibrary({
               </div>
 
               {/* Actions */}
-              {!selectionMode && (
+              {!isSelectionMode && (
                 <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2 w-full sm:w-auto">
                   <Button
                     size="sm"
@@ -592,6 +709,79 @@ export default function MediaLibrary({
           </p>
         </div>
       )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Modal
+        isOpen={bulkDeleteModalOpen}
+        onClose={() => setBulkDeleteModalOpen(false)}
+        title="Delete Media Files"
+        size="md"
+      >
+        <div className="space-y-6">
+          <div className="p-4 bg-error-50 border border-error-200 rounded-xl">
+            <div className="flex items-center">
+              <AlertTriangle className="w-5 h-5 text-error-600 mr-2" />
+              <div>
+                <h3 className="font-semibold text-error-900">Confirm Permanent Deletion</h3>
+                <p className="text-sm text-error-700 mt-1">
+                  Are you sure you want to <strong>permanently delete</strong> {selectedIds.length} media file{selectedIds.length !== 1 ? 's' : ''}? 
+                  This will remove all files from S3 and the database. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="font-medium text-slate-900">Files to be deleted:</h4>
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {assets
+                .filter(asset => selectedIds.includes(asset.id))
+                .slice(0, 10)
+                .map(asset => (
+                  <div key={asset.id} className="text-sm text-slate-600 flex items-center space-x-2">
+                    {asset.kind === 'image' ? <Image className="w-3 h-3" /> : 
+                     asset.kind === 'video' ? <Video className="w-3 h-3" /> : 
+                     <File className="w-3 h-3" />}
+                    <span className="truncate">{asset.originalName || getUniqueFileName(asset.s3Key || '')}</span>
+                  </div>
+                ))
+              }
+              {selectedIds.length > 10 && (
+                <div className="text-sm text-slate-500 italic">
+                  ... and {selectedIds.length - 10} more file{selectedIds.length - 10 !== 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setBulkDeleteModalOpen(false)}
+              disabled={bulkDeleteLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="error"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteLoading}
+            >
+              {bulkDeleteLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Permanently Delete
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

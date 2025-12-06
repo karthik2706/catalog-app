@@ -360,8 +360,9 @@ export default function ProductsPage() {
   const isAllSelected = selectedProducts.size === products.length && products.length > 0
   const isPartiallySelected = selectedProducts.size > 0 && selectedProducts.size < products.length
   
-  // Check if user has admin permissions for delete operations
-  const canDeleteProducts = user && ['MASTER_ADMIN', 'ADMIN'].includes(user.role)
+  // Check if user has permissions for delete operations
+  // Allow all authenticated users to delete products
+  const canDeleteProducts = !!user
 
   const handleBulkDelete = async () => {
     if (selectedProducts.size === 0) return

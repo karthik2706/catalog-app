@@ -384,22 +384,22 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Check if user has admin or higher permissions
-    const allowedRoles = ['MASTER_ADMIN', 'ADMIN']
-    if (!allowedRoles.includes(user.role)) {
+    // Check if user is authenticated (allow all authenticated users to delete)
+    // Note: Users can only delete products from their own client (enforced below)
+    if (!user) {
       return NextResponse.json(
-        { error: 'Insufficient permissions. Admin or higher role required to delete products.' },
-        { status: 403 }
+        { error: 'Authentication required' },
+        { status: 401 }
       )
     }
 
     const clientId = user.clientId
     
     // For MASTER_ADMIN, clientId can be null (they can access all clients)
-    // For other roles, clientId is required
+    // For other roles, clientId is required - they can only delete their own client's products
     if (!clientId && user.role !== 'MASTER_ADMIN') {
       return NextResponse.json(
-        { error: 'Client context required' },
+        { error: 'Client context required. You can only delete products from your own organization.' },
         { status: 400 }
       )
     }
