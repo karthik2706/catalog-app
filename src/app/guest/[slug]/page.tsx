@@ -1,27 +1,85 @@
-'use client'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { prisma } from '@/lib/prisma'
+import GuestLoginForm from './GuestLoginForm'
 
-import { useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+interface PageProps {
+  params: Promise<{ slug: string }>
+}
 
-export default function GuestLoginRedirect() {
-  const params = useParams()
-  const router = useRouter()
-  const slug = params.slug as string
+async function getClientBySlug(slug: string) {
+  try {
+    const client = await prisma.client.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logo: true,
+        guestAccessEnabled: true,
+      }
+    })
+    return client
+  } catch (error) {
+    console.error('Error fetching client:', error)
+    return null
+  }
+}
 
-  useEffect(() => {
-    if (slug) {
-      router.replace(`/guest?slug=${encodeURIComponent(slug)}`)
-    } else {
-      router.replace('/guest')
+export async function generateMetadata({ params }: PageProps) {
+  const { slug } = await params
+  const client = await getClientBySlug(slug)
+  
+  return {
+    title: client ? `Guest Access - ${client.name}` : 'Guest Access',
+    description: client ? `Access the ${client.name} catalog` : 'Guest catalog access',
+  }
+}
+
+export default async function GuestLoginPage({ params }: PageProps) {
+  const { slug } = await params
+  
+  // Check if already authenticated via cookie
+  const cookieStore = await cookies()
+  const guestToken = cookieStore.get(`guest_token_${slug}`)?.value
+  
+  if (guestToken) {
+    // Verify token is still valid
+    try {
+      const jwt = require('jsonwebtoken')
+      const decoded = jwt.verify(guestToken, process.env.JWT_SECRET || 'your-secret-key')
+      if (decoded.type === 'guest' && decoded.clientSlug === slug) {
+        redirect(`/guest/${slug}/catalog`)
+      }
+    } catch (error) {
+      // Token invalid, continue to login
     }
-  }, [slug, router])
+  }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Redirecting...</p>
+  // Fetch client info for SSR
+  const client = await getClientBySlug(slug)
+
+  if (!client) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Catalog Not Found</h1>
+          <p className="text-gray-600">The catalog &quot;{slug}&quot; does not exist.</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (!client.guestAccessEnabled) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Restricted</h1>
+          <p className="text-gray-600">Guest access is not enabled for this catalog.</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <GuestLoginForm slug={slug} clientName={client.name} clientLogo={client.logo} />
 }

@@ -4,6 +4,7 @@ import { CreateProductRequest, ProductFilters } from '@/types'
 import jwt from 'jsonwebtoken'
 import { generateSignedUrl } from '@/lib/aws'
 import { processMediaForEmbedding } from '@/lib/embeddings'
+import { rejectGuestTokens } from '@/lib/guest-auth-guard'
 
 interface JWTPayload {
   userId: string
@@ -14,14 +15,23 @@ interface JWTPayload {
 }
 
 function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
+  // Reject guest tokens first
+  const guestRejection = rejectGuestTokens(request)
+  if (guestRejection) {
+    return null
+  }
+  
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return {
-        userId: decoded.userId,
-        role: decoded.role,
-        clientId: decoded.clientId
+      // Ensure this is a user token (has userId and role)
+      if (decoded.userId && decoded.role) {
+        return {
+          userId: decoded.userId,
+          role: decoded.role,
+          clientId: decoded.clientId
+        }
       }
     } catch (error) {
       console.error('Error decoding token:', error)
@@ -522,6 +532,12 @@ export async function GET(request: NextRequest) {
 // POST /api/products - Create a new product
 export async function POST(request: NextRequest) {
   try {
+    // Explicitly reject guest tokens
+    const guestRejection = rejectGuestTokens(request)
+    if (guestRejection) {
+      return guestRejection
+    }
+    
     const user = getUserFromRequest(request)
     
     if (!user) {

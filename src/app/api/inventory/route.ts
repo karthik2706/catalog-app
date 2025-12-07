@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { InventoryUpdateRequest } from '@/types'
 import jwt from 'jsonwebtoken'
+import { rejectGuestTokens } from '@/lib/guest-auth-guard'
 
 interface JWTPayload {
   userId: string
@@ -12,14 +13,23 @@ interface JWTPayload {
 }
 
 function getUserFromRequest(request: NextRequest): { userId: string; role: string; clientId?: string } | null {
+  // Reject guest tokens first
+  const guestRejection = rejectGuestTokens(request)
+  if (guestRejection) {
+    return null
+  }
+  
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JWTPayload
-      return {
-        userId: decoded.userId,
-        role: decoded.role,
-        clientId: decoded.clientId || null
+      // Ensure this is a user token (has userId and role)
+      if (decoded.userId && decoded.role) {
+        return {
+          userId: decoded.userId,
+          role: decoded.role,
+          clientId: decoded.clientId || null
+        }
       }
     } catch (error) {
       console.error('Error decoding token:', error)
@@ -31,6 +41,12 @@ function getUserFromRequest(request: NextRequest): { userId: string; role: strin
 // POST /api/inventory - Update inventory for a product
 export async function POST(request: NextRequest) {
   try {
+    // Explicitly reject guest tokens
+    const guestRejection = rejectGuestTokens(request)
+    if (guestRejection) {
+      return guestRejection
+    }
+    
     const user = getUserFromRequest(request)
     
     if (!user) {

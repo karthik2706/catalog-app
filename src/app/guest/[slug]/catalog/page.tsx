@@ -1,27 +1,120 @@
-'use client'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { prisma } from '@/lib/prisma'
+import jwt from 'jsonwebtoken'
+import GuestCatalogClient from './GuestCatalogClient'
 
-import { useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+interface PageProps {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
 
-export default function GuestCatalogRedirect() {
-  const params = useParams()
-  const router = useRouter()
-  const slug = params.slug as string
+interface GuestJWTPayload {
+  type: string
+  clientId: string
+  clientSlug: string
+  clientName: string
+}
 
-  useEffect(() => {
-    if (slug) {
-      router.replace(`/guest/catalog?slug=${encodeURIComponent(slug)}`)
-    } else {
-      router.replace('/guest')
+async function getGuestToken(slug: string): Promise<string | null> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(`guest_token_${slug}`)?.value
+  if (!token) return null
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as GuestJWTPayload
+    if (decoded.type === 'guest' && decoded.clientSlug === slug) {
+      return token
     }
-  }, [slug, router])
+  } catch (error) {
+    // Token invalid
+    return null
+  }
+  return null
+}
+
+async function getClientInfo(slug: string) {
+  try {
+    const client = await prisma.client.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logo: true,
+        guestAccessEnabled: true,
+      }
+    })
+    return client
+  } catch (error) {
+    console.error('Error fetching client:', error)
+    return null
+  }
+}
+
+export async function generateMetadata({ params }: PageProps) {
+  const { slug } = await params
+  const client = await getClientInfo(slug)
+  
+  return {
+    title: client ? `${client.name} - Catalog` : 'Guest Catalog',
+    description: client ? `Browse products from ${client.name}` : 'Guest catalog',
+  }
+}
+
+export default async function GuestCatalogPage({ params, searchParams }: PageProps) {
+  const { slug } = await params
+  const searchParamsObj = await searchParams
+
+  // Check authentication
+  const token = await getGuestToken(slug)
+  if (!token) {
+    redirect(`/guest/${slug}`)
+  }
+
+  // Verify client exists and guest access is enabled
+  const client = await getClientInfo(slug)
+  if (!client || !client.guestAccessEnabled) {
+    redirect(`/guest/${slug}`)
+  }
+
+  // Get initial query params
+  const page = searchParamsObj.page ? parseInt(searchParamsObj.page as string) : 1
+  const search = (searchParamsObj.search as string) || ''
+  const category = (searchParamsObj.category as string) || ''
+
+  // Fetch initial data for SSR
+  const cookieStore = await cookies()
+  const clientCookie = cookieStore.get(`guest_client_${slug}`)?.value
+  let clientInfo = null
+  if (clientCookie) {
+    try {
+      clientInfo = JSON.parse(clientCookie)
+    } catch (e) {
+      // Use from DB if cookie parse fails
+      clientInfo = {
+        id: client.id,
+        name: client.name,
+        slug: client.slug,
+        logo: client.logo
+      }
+    }
+  } else {
+    clientInfo = {
+      id: client.id,
+      name: client.name,
+      slug: client.slug,
+      logo: client.logo
+    }
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Redirecting...</p>
-      </div>
-    </div>
+    <GuestCatalogClient
+      slug={slug}
+      initialClientInfo={clientInfo}
+      initialPage={page}
+      initialSearch={search}
+      initialCategory={category}
+    />
   )
 }

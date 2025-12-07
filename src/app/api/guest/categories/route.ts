@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
+import { cookies } from 'next/headers'
 
 interface GuestJWTPayload {
   type: string
@@ -9,8 +10,20 @@ interface GuestJWTPayload {
   clientName: string
 }
 
-function getGuestFromRequest(request: NextRequest): { clientId: string } | null {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+async function getGuestFromRequest(request: NextRequest): Promise<{ clientId: string } | null> {
+  // Try Authorization header first (for client-side requests)
+  let token = request.headers.get('authorization')?.replace('Bearer ', '')
+  
+  // If no token in header, try to get from cookie (for SSR)
+  if (!token) {
+    const { searchParams } = new URL(request.url)
+    const slug = searchParams.get('slug')
+    if (slug) {
+      const cookieStore = await cookies()
+      token = cookieStore.get(`guest_token_${slug}`)?.value || null
+    }
+  }
+  
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as GuestJWTPayload
@@ -26,10 +39,39 @@ function getGuestFromRequest(request: NextRequest): { clientId: string } | null 
   return null
 }
 
+// Reject all write operations - guest users are read-only
+export async function POST() {
+  return NextResponse.json(
+    { error: 'Guest users have read-only access' },
+    { status: 403 }
+  )
+}
+
+export async function PUT() {
+  return NextResponse.json(
+    { error: 'Guest users have read-only access' },
+    { status: 403 }
+  )
+}
+
+export async function PATCH() {
+  return NextResponse.json(
+    { error: 'Guest users have read-only access' },
+    { status: 403 }
+  )
+}
+
+export async function DELETE() {
+  return NextResponse.json(
+    { error: 'Guest users have read-only access' },
+    { status: 403 }
+  )
+}
+
 // GET /api/guest/categories - Get categories for guest view
 export async function GET(request: NextRequest) {
   try {
-    const guest = getGuestFromRequest(request)
+    const guest = await getGuestFromRequest(request)
     
     if (!guest) {
       return NextResponse.json(
