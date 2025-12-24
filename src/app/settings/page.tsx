@@ -42,6 +42,7 @@ import {
   X,
   Eye,
   Share2,
+  Store,
 } from 'lucide-react'
 
 interface User {
@@ -887,6 +888,7 @@ export default function SettingsPage() {
                   {[
                     { id: 'general', label: 'General Settings', icon: SettingsIcon, shortLabel: 'General' },
                     { id: 'guest-access', label: 'Guest Access', icon: Share2, shortLabel: 'Guest' },
+                    { id: 'shopify', label: 'Shopify Integration', icon: Store, shortLabel: 'Shopify' },
                     { id: 'categories', label: 'Category Management', icon: Tag, shortLabel: 'Categories' },
                     ...(isUser ? [] : [{ id: 'users', label: 'User Management', icon: Users, shortLabel: 'Users' }]),
                     ...(isSuperAdmin ? [{ id: 'clients', label: 'Client Management', icon: Building2, shortLabel: 'Clients' }] : []),
@@ -965,8 +967,8 @@ export default function SettingsPage() {
                             className={`w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${(isUser || isManager) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                             disabled={isUser || isManager}
                           >
-                            {currencies.map((currency) => (
-                              <option key={currency.id} value={currency.code}>
+                            {Array.from(new Map(currencies.map((c, i) => [`${c.id || c.code || i}`, c])).values()).map((currency, index) => (
+                              <option key={`currency-main-${currency.id || currency.code || 'unknown'}-${index}`} value={currency.code}>
                                 {currency.symbol} {currency.code} - {currency.name}
                               </option>
                             ))}
@@ -1022,6 +1024,32 @@ export default function SettingsPage() {
               {activeTab === 'guest-access' && (
                 <FadeIn delay={0.15}>
                   <GuestAccessSettings />
+                </FadeIn>
+              )}
+
+              {/* Shopify Integration */}
+              {activeTab === 'shopify' && (
+                <FadeIn delay={0.15}>
+                  <Card className="card-hover">
+                    <CardHeader className="p-4 sm:p-6">
+                      <CardTitle className="flex items-center space-x-2">
+                        <Store className="w-4 h-4 sm:w-5 sm:h-5 text-primary-600" />
+                        <span className="text-base sm:text-lg">Shopify Integration</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6">
+                      <p className="text-sm text-slate-600 mb-4">
+                        Connect your Shopify store to sync products and inventory automatically.
+                      </p>
+                      <Button
+                        onClick={() => router.push('/settings/shopify')}
+                        className="flex items-center space-x-2"
+                      >
+                        <Store className="w-4 h-4" />
+                        <span>Configure Shopify Integration</span>
+                      </Button>
+                    </CardContent>
+                  </Card>
                 </FadeIn>
               )}
 
@@ -1534,8 +1562,8 @@ export default function SettingsPage() {
                   className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select Currency</option>
-                  {currencies.map((currency) => (
-                    <option key={currency.id} value={currency.id}>
+                  {Array.from(new Map(currencies.map((c, i) => [`${c.id || c.code || i}`, c])).values()).map((currency, index) => (
+                    <option key={`currency-select-${currency.id || currency.code || 'unknown'}-${index}`} value={currency.id}>
                       {currency.name} ({currency.symbol} {currency.code})
                     </option>
                   ))}
@@ -2013,8 +2041,8 @@ export default function SettingsPage() {
                   className="w-full px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select Currency</option>
-                  {currencies.map((currency) => (
-                    <option key={currency.id} value={currency.id}>
+                  {Array.from(new Map(currencies.map((c, i) => [`${c.id || c.code || i}`, c])).values()).map((currency, index) => (
+                    <option key={`currency-select-${currency.id || currency.code || 'unknown'}-${index}`} value={currency.id}>
                       {currency.name} ({currency.symbol} {currency.code})
                     </option>
                   ))}

@@ -57,6 +57,7 @@ model Client {
   apiKeys          ApiKey[]           @relation("ClientApiKeys")
   categories       Category[]         @relation("ClientCategories")
   settings         ClientSettings?    @relation("ClientSettings")
+  shopifyIntegration ShopifyIntegration? @relation("ClientShopifyIntegration")
   country          Country?           @relation("ClientCountry", fields: [countryId], references: [id])
   currency         Currency?          @relation("ClientCurrency", fields: [currencyId], references: [id])
   inventoryHistory InventoryHistory[] @relation("ClientInventoryHistory")
@@ -121,6 +122,8 @@ model Product {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   allowPreorder    Boolean            @default(false)
+  shopifyProductId String?            // Shopify product ID
+  shopifyVariantId String?            // Shopify variant ID
   inventoryHistory InventoryHistory[] @relation("ProductInventoryHistory")
   media            Media[]            @relation("DirectProductMedia")
   productMedia     ProductMedia[]     @relation("ProductMediaRelations")
@@ -128,6 +131,7 @@ model Product {
   client           Client             @relation("ClientProducts", fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([sku, clientId])
+  @@index([shopifyProductId])
   @@map("products")
 }
 
@@ -294,6 +298,27 @@ model FrameEmbedding {
   frame     VideoFrame            @relation(fields: [frameId], references: [id], onDelete: Cascade)
 
   @@map("frame_embeddings")
+}
+
+model ShopifyIntegration {
+  id                    String   @id @default(cuid())
+  clientId              String   @unique
+  shopDomain            String   // e.g., "mystore.myshopify.com"
+  accessToken           String   // Encrypted Shopify access token
+  apiKey                String?  // Optional: API key for admin API
+  apiSecret             String?  // Optional: API secret
+  isActive              Boolean  @default(false)
+  autoSync              Boolean  @default(true)  // Auto-sync on product create/update
+  syncInventory         Boolean  @default(true)  // Sync inventory from Shopify
+  webhookSecret         String?  // Webhook verification secret
+  lastSyncAt            DateTime?
+  lastSyncStatus        String?  // "success" | "error" | "pending"
+  lastSyncError         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  client                Client   @relation("ClientShopifyIntegration", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("shopify_integrations")
 }
 
 enum Role {

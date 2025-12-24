@@ -6,6 +6,7 @@ import { processMediaForEmbedding } from '@/lib/embeddings'
 import { generateSignedUrl } from '@/lib/aws'
 import jwt from 'jsonwebtoken'
 import { rejectGuestTokens } from '@/lib/guest-auth-guard'
+import { syncProductToShopifyIfEnabled } from '@/lib/shopify-sync'
 
 interface JWTPayload {
   userId: string
@@ -407,6 +408,13 @@ export async function PUT(
         // Process embeddings asynchronously (don't wait for completion)
         processMediaForEmbedding(mediaItems).catch(error => {
           console.error('Error processing media embeddings:', error)
+        })
+      }
+
+      // Sync to Shopify if enabled (async, don't wait)
+      if (user.clientId) {
+        syncProductToShopifyIfEnabled(product.id, user.clientId).catch(error => {
+          console.error('Error syncing product to Shopify:', error)
         })
       }
 

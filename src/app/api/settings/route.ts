@@ -102,6 +102,14 @@ export async function GET(request: NextRequest) {
           autoReorder: false,
           emailNotifications: true,
           smsNotifications: false,
+        },
+        include: {
+          client: {
+            include: {
+              country: true,
+              currency: true
+            }
+          }
         }
       })
     }

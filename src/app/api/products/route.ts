@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken'
 import { generateSignedUrl } from '@/lib/aws'
 import { processMediaForEmbedding } from '@/lib/embeddings'
 import { rejectGuestTokens } from '@/lib/guest-auth-guard'
+import { syncProductToShopifyIfEnabled } from '@/lib/shopify-sync'
 
 interface JWTPayload {
   userId: string
@@ -740,6 +741,11 @@ export async function POST(request: NextRequest) {
           console.error('Error processing media embeddings:', error)
         })
       }
+
+      // Sync to Shopify if enabled (async, don't wait)
+      syncProductToShopifyIfEnabled(product.id, clientId).catch(error => {
+        console.error('Error syncing product to Shopify:', error)
+      })
 
       // Convert BigInt fields to strings for JSON serialization
       const serializedProduct = JSON.parse(JSON.stringify(product, (key, value) =>
