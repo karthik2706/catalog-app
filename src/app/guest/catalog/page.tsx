@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { X, ChevronLeft, ChevronRight, ChevronDown, Menu as MenuIcon, Home, Search } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, ChevronDown, Menu as MenuIcon, Home, Search, ArrowRight } from 'lucide-react'
 
 interface Product {
   id: string
@@ -853,7 +853,7 @@ function GuestCatalogPageContent() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {products.map((product) => {
                 const images = getProductImages(product)
                 const imageCount = images.length
@@ -862,7 +862,7 @@ function GuestCatalogPageContent() {
                 const displayImage = imageCount > 0 ? images[currentIndex] : null
 
                 return (
-                  <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                  <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
                     <div 
                       className={`aspect-square relative bg-gray-100 ${displayImage ? 'cursor-pointer' : ''}`}
                       onClick={() => displayImage && openImageModal(product, currentIndex)}
@@ -921,24 +921,38 @@ function GuestCatalogPageContent() {
                         </>
                       )}
                     </div>
-                    <CardContent className="p-3 sm:p-4">
-                      <h3 className="font-semibold text-base sm:text-lg mb-1 line-clamp-2">
-                        {product.name}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-500 mb-2">{product.sku}</p>
-                      {product.description && (
-                        <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
-                          {product.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-base sm:text-lg font-bold text-blue-600">
-                          {formatPrice(Number(product.price))}
-                        </span>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
-                          {product.category}
-                        </span>
+                    <CardContent className="p-3 sm:p-4 flex flex-col h-full">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-sm sm:text-base mb-1 line-clamp-2">
+                          {product.name}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-500 mb-2">{product.sku}</p>
+                        {product.description && (
+                          <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
+                            {product.description}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="text-base sm:text-lg font-bold text-blue-600">
+                            {formatPrice(Number(product.price))}
+                          </span>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
+                            {product.category}
+                          </span>
+                        </div>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/guest/${slug}/products/${product.id}`)
+                        }}
+                        className="w-full flex items-center justify-center gap-2 mt-auto"
+                      >
+                        View
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
                     </CardContent>
                   </Card>
                 )

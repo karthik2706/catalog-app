@@ -5,7 +5,8 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { X, ChevronLeft, ChevronRight, ChevronDown, Menu as MenuIcon, Home, Search } from 'lucide-react'
+import { useGuestCart } from '@/contexts/GuestCartContext'
+import { X, ChevronLeft, ChevronRight, ChevronDown, Menu as MenuIcon, Home, Search, ShoppingCart, ArrowRight, LogOut } from 'lucide-react'
 
 interface Product {
   id: string
@@ -165,6 +166,7 @@ export default function GuestCatalogClient({
   const searchParams = useSearchParams()
   const router = useRouter()
   const [token, setToken] = useState<string | null>(null)
+  const { getItemCount } = useGuestCart()
 
   // Initialize state from URL params on mount and when URL changes
   useEffect(() => {
@@ -698,8 +700,8 @@ export default function GuestCatalogClient({
       <header className="bg-white shadow-sm border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-[10px] py-3 sm:py-4">
           {/* Top Row */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
-            <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
+          <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
               {/* Home Link */}
               <button
                 onClick={handleMobileHome}
@@ -724,14 +726,31 @@ export default function GuestCatalogClient({
                 <p className="text-xs sm:text-sm text-gray-500">Guest View</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="w-full sm:w-auto flex-shrink-0"
-            >
-              Logout
-            </Button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/guest/${slug}/cart`)}
+                className="relative flex items-center justify-center p-2 hover:bg-gray-100 rounded-md transition-colors flex-shrink-0"
+                aria-label="Cart"
+              >
+                <ShoppingCart className="w-5 h-5 text-gray-700" />
+                {getItemCount() > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {getItemCount()}
+                  </span>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="flex items-center justify-center p-2 hover:bg-gray-100 rounded-md transition-colors flex-shrink-0"
+                aria-label="Logout"
+              >
+                <LogOut className="w-5 h-5 text-gray-700" />
+              </Button>
+            </div>
           </div>
 
           {/* Categories Navigation - Hamburger Menu (Desktop only, mobile has footer menu) */}
@@ -837,7 +856,7 @@ export default function GuestCatalogClient({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {products.map((product) => {
                 const images = getProductImages(product)
                 const imageCount = images.length
@@ -846,10 +865,13 @@ export default function GuestCatalogClient({
                 const displayImage = imageCount > 0 ? images[currentIndex] : null
 
                 return (
-                  <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                  <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col" onClick={() => router.push(`/guest/${slug}/products/${product.id}`)}>
                     <div 
                       className={`aspect-square relative bg-gray-100 ${displayImage ? 'cursor-pointer' : ''}`}
-                      onClick={() => displayImage && openImageModal(product, currentIndex)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (displayImage) openImageModal(product, currentIndex)
+                      }}
                     >
                       {displayImage ? (
                         <img
@@ -902,24 +924,40 @@ export default function GuestCatalogClient({
                         </>
                       )}
                     </div>
-                    <CardContent className="p-3 sm:p-4">
-                      <h3 className="font-semibold text-base sm:text-lg mb-1 line-clamp-2">
-                        {product.name}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-500 mb-2">{product.sku}</p>
-                      {product.description && (
-                        <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
-                          {product.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-base sm:text-lg font-bold text-blue-600">
-                          {formatPrice(Number(product.price))}
-                        </span>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded flex-shrink-0">
-                          {product.category}
-                        </span>
+                    <CardContent className="p-3 sm:p-4 flex flex-col h-full">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-sm sm:text-base mb-1 line-clamp-2 hover:text-blue-600">
+                          {product.name}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-500 mb-2">{product.sku}</p>
+                        {product.description && (
+                          <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
+                            {product.description}
+                          </p>
+                        )}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span className="text-base sm:text-lg font-bold text-blue-600">
+                              {formatPrice(Number(product.price))}
+                            </span>
+                          </div>
+                          <label className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded inline-block">
+                            {product.category}
+                          </label>
+                        </div>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/guest/${slug}/products/${product.id}`)
+                        }}
+                        className="w-full flex items-center justify-center gap-2 mt-auto"
+                      >
+                        View
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
                     </CardContent>
                   </Card>
                 )

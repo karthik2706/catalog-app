@@ -28,6 +28,7 @@ import {
   Activity,
   Database,
   Shield,
+  ShoppingBag,
 } from 'lucide-react'
 
 const drawerWidth = 280
@@ -56,6 +57,12 @@ const menuItems: MenuItem[] = [
     icon: Package, 
     path: '/products',
     description: 'Manage products'
+  },
+  { 
+    text: 'Orders', 
+    icon: ShoppingBag, 
+    path: '/orders',
+    description: 'View and manage customer orders'
   },
   { 
     text: 'Inventory', 

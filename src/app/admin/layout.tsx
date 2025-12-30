@@ -91,7 +91,22 @@ const quickActions = [
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const pathname = usePathname();
+
+  // Get user role from JWT token
+  const getUserRole = () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role;
+      }
+    } catch (error) {
+      console.error('Error parsing JWT token:', error);
+    }
+    return null;
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -100,6 +115,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     
     handleResize();
     window.addEventListener('resize', handleResize);
+    
+    // Get user role on mount
+    const role = getUserRole();
+    setUserRole(role);
+    
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -107,6 +127,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     if (href === '/admin') return pathname === '/admin';
     return pathname.startsWith(href);
   };
+
 
   const Sidebar = () => (
     <div className="flex flex-col h-screen bg-white border-r border-gray-200">
@@ -134,6 +155,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navigation.map((item) => {
+          // Skip items the user doesn't have permission to see
+          if (!canSeeNavigationItem(item.href)) {
+            return null;
+          }
+          
           const Icon = item.icon;
           return (
             <Link

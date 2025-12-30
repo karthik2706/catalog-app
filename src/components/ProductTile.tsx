@@ -416,8 +416,8 @@ export default function ProductTile({ product, clientCurrency, onInventoryClick 
         </div>
 
         <div className="space-y-2">
-          {/* Product Media - 16:9 aspect ratio */}
-          <div className="w-full aspect-video bg-slate-100 rounded-lg overflow-hidden relative">
+          {/* Product Media - Square aspect ratio */}
+          <div className="w-full aspect-square bg-slate-100 rounded-lg overflow-hidden relative">
             {isLoading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
