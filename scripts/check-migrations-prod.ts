@@ -62,10 +62,22 @@ async function checkMigrations() {
     log(`Production DB: ${prodDbUrl.substring(0, 50)}...`, 'blue')
     log('')
 
+    // Fix SSL connection for Prisma.io databases
+    let dbUrl = prodDbUrl
+    if (dbUrl.includes('db.prisma.io')) {
+      // Remove sslmode parameter and let Prisma handle SSL
+      dbUrl = dbUrl.replace(/\?sslmode=[^&]*/, '').replace(/&sslmode=[^&]*/, '')
+      if (!dbUrl.includes('?')) {
+        dbUrl += '?sslmode=require'
+      } else if (!dbUrl.includes('sslmode')) {
+        dbUrl += '&sslmode=require'
+      }
+    }
+
     const prisma = new PrismaClient({
       datasources: {
         db: {
-          url: prodDbUrl,
+          url: dbUrl,
         },
       },
     })
