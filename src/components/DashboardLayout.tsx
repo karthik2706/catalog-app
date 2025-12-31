@@ -177,9 +177,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   const Sidebar = () => (
-    <div className="h-full bg-white border-r border-slate-200/50 flex flex-col min-w-0">
+    <div className="h-full bg-white border-r border-slate-200/50 flex flex-col min-w-0 overflow-hidden">
       {/* Logo */}
-      <div className="card-spacing border-b border-slate-200/50">
+      <div className="card-spacing border-b border-slate-200/50 flex-shrink-0">
         <div className="flex items-center space-x-3 min-w-0">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center flex-shrink-0">
             <ShoppingCart className="w-6 h-6 text-white" />
@@ -191,8 +191,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 card-spacing list-spacing min-w-0">
+      {/* Navigation - Scrollable */}
+      <nav className="flex-1 card-spacing list-spacing min-w-0 overflow-y-auto min-h-0">
         {menuItems.map((item) => {
           // Check if user has admin access for admin-only items
           const isAdmin = user?.role === 'MASTER_ADMIN' || user?.role === 'ADMIN'
@@ -233,7 +233,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </nav>
 
       {/* User Info */}
-      <div className="card-spacing border-t border-slate-200/50 min-w-0">
+      <div className="card-spacing border-t border-slate-200/50 min-w-0 flex-shrink-0">
         <div className="flex items-center space-x-3 p-3 rounded-xl bg-slate-50 min-w-0">
           <div className="w-10 h-10 bg-gradient-to-br from-slate-600 to-slate-700 rounded-full flex items-center justify-center flex-shrink-0">
             <User className="w-5 h-5 text-white" />

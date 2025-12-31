@@ -28,13 +28,23 @@ try {
     throw new Error('Failed to initialize Prisma client')
   }
 
-  // Test the connection
+  // Test the connection asynchronously (don't block initialization)
+  // Connection will be established on first query
   prisma.$connect().catch((error) => {
-    console.error('Failed to connect to database:', error)
+    console.error('⚠️  Failed to connect to database:', error.message)
+    console.error('💡 Make sure PostgreSQL is running and DATABASE_URL is correct')
+    // Don't throw - let it fail on first query instead
   })
 
 } catch (error: any) {
-  console.error('Error initializing Prisma client:', error)
+  console.error('❌ Error initializing Prisma client:', error)
+  // In development, provide helpful error message
+  if (process.env.NODE_ENV === 'development') {
+    console.error('💡 Troubleshooting:')
+    console.error('   1. Check if PostgreSQL is running: pg_isready')
+    console.error('   2. Verify DATABASE_URL in .env.local')
+    console.error('   3. Run: npx prisma db push (if database schema is not up to date)')
+  }
   throw new Error(`Failed to initialize Prisma client: ${error?.message || 'Unknown error'}`)
 }
 

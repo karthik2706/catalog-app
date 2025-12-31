@@ -38,6 +38,19 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Test database connection first
+    try {
+      await prisma.$queryRaw`SELECT 1`
+    } catch (dbError: any) {
+      console.error('Database connection error:', dbError)
+      // Return default settings if database is unavailable
+      return NextResponse.json({
+        client: {
+          currency: { code: 'USD', symbol: '$' }
+        }
+      })
+    }
+
     // For super admin, return global settings or default settings
     if (user.role === 'MASTER_ADMIN') {
       const defaultSettings = {

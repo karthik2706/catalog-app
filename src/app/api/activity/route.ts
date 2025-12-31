@@ -38,6 +38,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Test database connection first
+    try {
+      await prisma.$queryRaw`SELECT 1`
+    } catch (dbError: any) {
+      console.error('Database connection error:', dbError)
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed',
+          message: process.env.NODE_ENV === 'development' 
+            ? dbError.message 
+            : 'Please check your database configuration'
+        },
+        { status: 503 }
+      )
+    }
+
     const isSuperAdmin = user.role === 'MASTER_ADMIN'
     const whereClause = isSuperAdmin ? {} : { clientId: user.clientId }
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '10')
