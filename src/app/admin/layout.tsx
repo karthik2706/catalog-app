@@ -128,6 +128,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return pathname.startsWith(href);
   };
 
+  // Check if user can see navigation item based on role
+  const canSeeNavigationItem = (href: string): boolean => {
+    // All admin routes require admin access
+    // Only MASTER_ADMIN and ADMIN roles can access admin panel
+    if (!userRole) {
+      return false;
+    }
+    
+    const adminRoles = ['MASTER_ADMIN', 'ADMIN'];
+    if (!adminRoles.includes(userRole)) {
+      return false;
+    }
+    
+    // All navigation items are visible to admins
+    return true;
+  };
 
   const Sidebar = () => (
     <div className="flex flex-col h-screen bg-white border-r border-gray-200">
