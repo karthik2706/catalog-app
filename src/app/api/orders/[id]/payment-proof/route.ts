@@ -113,9 +113,24 @@ export async function POST(
       )
     }
 
+    // Check AWS configuration
+    if (!process.env.S3_BUCKET_NAME) {
+      return NextResponse.json(
+        { error: 'S3_BUCKET_NAME environment variable is not configured' },
+        { status: 500 }
+      )
+    }
+
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+      return NextResponse.json(
+        { error: 'AWS credentials are not configured' },
+        { status: 500 }
+      )
+    }
+
     // Generate S3 key
     const timestamp = Date.now()
-    const fileExtension = file.name.split('.').pop()
+    const fileExtension = file.name.split('.').pop() || 'bin'
     const sanitizedOrderNumber = order.orderNumber.replace(/[^a-zA-Z0-9]/g, '-')
     const fileName = `payment-proof-${sanitizedOrderNumber}-${timestamp}.${fileExtension}`
     const s3Key = `clients/${order.clientId}/orders/${sanitizedOrderNumber}/payment-proof/${fileName}`
@@ -131,21 +146,32 @@ export async function POST(
       .trim()
       .substring(0, 255) // Limit length
     
-    const putObjectCommand = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: s3Key,
-      Body: buffer,
-      ContentType: file.type,
-      Metadata: {
-        'client-id': order.clientId,
-        'order-id': order.id,
-        'order-number': order.orderNumber,
-        'file-type': 'payment-proof',
-        'original-name': sanitizedFileName
-      }
-    })
+    try {
+      const putObjectCommand = new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: s3Key,
+        Body: buffer,
+        ContentType: file.type,
+        Metadata: {
+          'client-id': order.clientId,
+          'order-id': order.id,
+          'order-number': order.orderNumber,
+          'file-type': 'payment-proof',
+          'original-name': sanitizedFileName
+        }
+      })
 
-    await s3Client.send(putObjectCommand)
+      await s3Client.send(putObjectCommand)
+    } catch (s3Error: any) {
+      console.error('S3 upload error:', s3Error)
+      return NextResponse.json(
+        { 
+          error: 'Failed to upload file to S3',
+          message: process.env.NODE_ENV === 'development' ? s3Error.message : 'Please check AWS configuration'
+        },
+        { status: 500 }
+      )
+    }
 
     // Generate signed URL for the uploaded file (max 7 days for S3 presigned URLs)
     const signedUrl = await generateSignedUrl(s3Key, 7 * 24 * 60 * 60) // 7 days expiry

@@ -240,41 +240,18 @@ export async function PATCH(
     // Check if user has permission to update
     const isAdmin = user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'MASTER_ADMIN'
     
-    // Regular users can only update payment fields, not status or notes
-    // But they can update ANY order (not restricted to their client)
-    if (!isAdmin) {
-      // Check if user is trying to update non-payment fields
-      if (status !== undefined || notes !== undefined) {
-        return NextResponse.json(
-          { error: 'Insufficient permissions. Only payment details can be updated.' },
-          { status: 403 }
-        )
-      }
-      
-      // Regular users can only update payment fields
-      if (paymentUTR === undefined && paymentTransactionNumber === undefined && paymentProofUrl === undefined) {
-        return NextResponse.json(
-          { error: 'No payment fields provided' },
-          { status: 400 }
-        )
-      }
-    } else {
+    // Regular users can update any order (status, notes, payment fields)
+    // Admins can update orders in their client (or any order for MASTER_ADMIN)
+    if (isAdmin && user.role !== 'MASTER_ADMIN' && user.clientId) {
       // Admins: Filter by client if not super admin
-      if (user.role !== 'MASTER_ADMIN' && user.clientId) {
-        where.clientId = user.clientId
-      }
+      where.clientId = user.clientId
     }
+    // Regular users: No client filtering - can update any order
 
     const updateData: any = {}
     
-    // Only admins can update status
+    // Anyone can update status (regular users and admins)
     if (status !== undefined) {
-      if (!isAdmin) {
-        return NextResponse.json(
-          { error: 'Insufficient permissions to update order status' },
-          { status: 403 }
-        )
-      }
       const validStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
       if (!validStatuses.includes(status)) {
         return NextResponse.json(
@@ -285,18 +262,12 @@ export async function PATCH(
       updateData.status = status
     }
     
-    // Only admins can update notes
+    // Anyone can update notes (regular users and admins)
     if (notes !== undefined) {
-      if (!isAdmin) {
-        return NextResponse.json(
-          { error: 'Insufficient permissions to update notes' },
-          { status: 403 }
-        )
-      }
       updateData.notes = notes
     }
     
-    // Payment fields can be updated by anyone (users updating their own orders)
+    // Payment fields can be updated by anyone
     if (paymentUTR !== undefined) {
       updateData.paymentUTR = paymentUTR || null
     }
@@ -305,6 +276,22 @@ export async function PATCH(
     }
     if (paymentProofUrl !== undefined) {
       updateData.paymentProofUrl = paymentProofUrl || null
+    }
+
+    // Test database connection first
+    try {
+      await prisma.$queryRaw`SELECT 1`
+    } catch (dbError: any) {
+      console.error('Database connection error:', dbError)
+      return NextResponse.json(
+        { 
+          error: 'Database connection failed',
+          message: process.env.NODE_ENV === 'development' 
+            ? dbError.message 
+            : 'Please check your database configuration'
+        },
+        { status: 503 }
+      )
     }
 
     // Fetch current order to check status change
@@ -326,7 +313,7 @@ export async function PATCH(
 
     if (!currentOrder) {
       return NextResponse.json(
-        { error: 'Order not found' },
+        { error: 'Order not found or access denied' },
         { status: 404 }
       )
     }
