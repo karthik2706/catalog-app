@@ -123,6 +123,14 @@ export async function POST(
     // Upload to S3
     const buffer = Buffer.from(await file.arrayBuffer())
     
+    // Sanitize file name for metadata (remove invalid characters for HTTP headers)
+    // HTTP headers can't contain certain characters like newlines, tabs, etc.
+    const sanitizedFileName = file.name
+      .replace(/[\r\n\t]/g, ' ') // Replace newlines and tabs with spaces
+      .replace(/[^\x20-\x7E]/g, '') // Remove non-printable ASCII characters
+      .trim()
+      .substring(0, 255) // Limit length
+    
     const putObjectCommand = new PutObjectCommand({
       Bucket: process.env.S3_BUCKET_NAME,
       Key: s3Key,
@@ -133,7 +141,7 @@ export async function POST(
         'order-id': order.id,
         'order-number': order.orderNumber,
         'file-type': 'payment-proof',
-        'original-name': file.name
+        'original-name': sanitizedFileName
       }
     })
 
