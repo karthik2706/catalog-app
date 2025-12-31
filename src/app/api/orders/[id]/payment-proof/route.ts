@@ -60,18 +60,16 @@ export async function POST(
       )
     }
 
-    // Only admin and manager can upload payment proof
-    if (user.role !== 'ADMIN' && user.role !== 'MANAGER' && user.role !== 'MASTER_ADMIN') {
-      return NextResponse.json(
-        { error: 'Insufficient permissions' },
-        { status: 403 }
-      )
-    }
-
+    // Check if user has permission to upload payment proof
+    const isAdmin = user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'MASTER_ADMIN'
+    
+    // Regular users can upload payment proof for any order
+    // Admins can upload for orders in their client (or any order for MASTER_ADMIN)
     const where: any = { id }
-
-    // Filter by client if not super admin
-    if (user.role !== 'MASTER_ADMIN' && user.clientId) {
+    
+    // Only filter by client for admins (not MASTER_ADMIN)
+    // Regular users can upload payment proof for any order
+    if (isAdmin && user.role !== 'MASTER_ADMIN' && user.clientId) {
       where.clientId = user.clientId
     }
 
