@@ -43,6 +43,12 @@ async function getClientInfo(slug: string) {
         slug: true,
         logo: true,
         guestAccessEnabled: true,
+        currency: {
+          select: {
+            code: true,
+            symbol: true
+          }
+        }
       }
     })
     return client
@@ -96,7 +102,8 @@ export default async function GuestCatalogPage({ params, searchParams }: PagePro
         id: client.id,
         name: client.name,
         slug: client.slug,
-        logo: client.logo
+        logo: client.logo,
+        currency: client.currency
       }
     }
   } else {
@@ -104,7 +111,8 @@ export default async function GuestCatalogPage({ params, searchParams }: PagePro
       id: client.id,
       name: client.name,
       slug: client.slug,
-      logo: client.logo
+      logo: client.logo,
+      currency: client.currency
     }
   }
 
@@ -115,6 +123,7 @@ export default async function GuestCatalogPage({ params, searchParams }: PagePro
       initialPage={page}
       initialSearch={search}
       initialCategory={category}
+      currencyCode={client.currency?.code || 'USD'}
     />
   )
 }

@@ -49,12 +49,14 @@ interface GuestOrderConfirmationClientProps {
     slug: string
     logo: string | null
   }
+  currencyCode?: string
 }
 
 export default function GuestOrderConfirmationClient({
   slug,
   orderId,
-  clientInfo
+  clientInfo,
+  currencyCode = 'USD'
 }: GuestOrderConfirmationClientProps) {
   const router = useRouter()
   const [order, setOrder] = useState<Order | null>(null)
@@ -117,7 +119,7 @@ export default function GuestOrderConfirmationClient({
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: currencyCode
     }).format(price)
   }
 
@@ -243,7 +245,7 @@ export default function GuestOrderConfirmationClient({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total:</span>
-                  <span className="font-bold text-blue-600 text-lg">{formatPrice(order.total)}</span>
+                  <span className="font-bold text-blue-600 text-lg">{formatPrice(Number(order.total))}</span>
                 </div>
               </div>
             </CardContent>
@@ -317,8 +319,8 @@ export default function GuestOrderConfirmationClient({
                     <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">{formatPrice(item.subtotal)}</p>
-                    <p className="text-sm text-gray-500">{formatPrice(item.price)} each</p>
+                    <p className="font-semibold text-gray-900">{formatPrice(Number(item.subtotal))}</p>
+                    <p className="text-sm text-gray-500">{formatPrice(Number(item.price))} each</p>
                   </div>
                 </div>
               ))}
@@ -328,11 +330,23 @@ export default function GuestOrderConfirmationClient({
             <div className="mt-6 pt-6 border-t border-gray-200 space-y-2">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal</span>
-                <span>{formatPrice(order.subtotal)}</span>
+                <span>{formatPrice(Number(order.subtotal))}</span>
               </div>
+              {order.tax && Number(order.tax) > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Tax</span>
+                  <span>{formatPrice(Number(order.tax))}</span>
+                </div>
+              )}
+              {order.shipping && Number(order.shipping) > 0 && (
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  <span>{formatPrice(Number(order.shipping))}</span>
+                </div>
+              )}
               <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-200">
                 <span>Total</span>
-                <span>{formatPrice(order.total)}</span>
+                <span>{formatPrice(Number(order.total))}</span>
               </div>
             </div>
           </CardContent>

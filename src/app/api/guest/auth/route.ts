@@ -14,9 +14,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find client by slug
+    // Find client by slug with currency
     const client = await prisma.client.findUnique({
-      where: { slug }
+      where: { slug },
+      include: {
+        currency: {
+          select: {
+            code: true,
+            symbol: true
+          }
+        }
+      }
     })
 
     if (!client) {
@@ -61,7 +69,8 @@ export async function POST(request: NextRequest) {
         id: client.id,
         name: client.name,
         slug: client.slug,
-        logo: client.logo
+        logo: client.logo,
+        currency: client.currency
       }
     })
   } catch (error) {

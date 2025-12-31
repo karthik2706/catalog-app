@@ -45,6 +45,12 @@ async function getClientInfo(slug: string) {
         slug: true,
         logo: true,
         guestAccessEnabled: true,
+        currency: {
+          select: {
+            code: true,
+            symbol: true
+          }
+        }
       }
     })
     return client
@@ -90,6 +96,7 @@ export default async function GuestCartPage({ params }: PageProps) {
     <GuestCartClient
       slug={slug}
       clientInfo={clientInfo}
+      currencyCode={client.currency?.code || 'USD'}
     />
   )
 }

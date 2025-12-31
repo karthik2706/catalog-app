@@ -131,6 +131,7 @@ interface GuestCatalogClientProps {
   initialPage?: number
   initialSearch?: string
   initialCategory?: string
+  currencyCode?: string
 }
 
 export default function GuestCatalogClient({
@@ -138,7 +139,8 @@ export default function GuestCatalogClient({
   initialClientInfo,
   initialPage = 1,
   initialSearch = '',
-  initialCategory = ''
+  initialCategory = '',
+  currencyCode = 'USD'
 }: GuestCatalogClientProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -457,7 +459,7 @@ export default function GuestCatalogClient({
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: currencyCode
     }).format(price)
   }
 

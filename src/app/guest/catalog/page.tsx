@@ -133,6 +133,7 @@ function GuestCatalogPageContent() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [clientInfo, setClientInfo] = useState<any>(null)
+  const [currencyCode, setCurrencyCode] = useState<string>('USD')
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
@@ -252,7 +253,12 @@ function GuestCatalogPageContent() {
     // Load client info
     const storedClient = localStorage.getItem(`guest_client_${slug}`)
     if (storedClient) {
-      setClientInfo(JSON.parse(storedClient))
+      const parsed = JSON.parse(storedClient)
+      setClientInfo(parsed)
+      // Extract currency code from stored client info
+      if (parsed.currency?.code) {
+        setCurrencyCode(parsed.currency.code)
+      }
     }
 
     const loadData = async () => {
@@ -458,7 +464,7 @@ function GuestCatalogPageContent() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: currencyCode
     }).format(price)
   }
 

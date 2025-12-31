@@ -65,6 +65,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [token, setToken] = useState<string | null>(null)
+  const [clientCurrency, setClientCurrency] = useState<string>('USD')
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token')
@@ -110,13 +111,30 @@ export default function OrdersPage() {
       }
     }
 
+    const fetchClientCurrency = async () => {
+      try {
+        const response = await fetch('/api/settings', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+        const data = await response.json()
+        if (response.ok && data.client?.currency?.code) {
+          setClientCurrency(data.client.currency.code)
+        }
+      } catch (err) {
+        console.error('Error fetching client currency:', err)
+      }
+    }
+
     fetchOrders()
+    fetchClientCurrency()
   }, [token, page, statusFilter, router])
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: clientCurrency
     }).format(price)
   }
 
@@ -254,7 +272,7 @@ export default function OrdersPage() {
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <div className="text-2xl font-bold text-blue-600">
-                          {formatPrice(order.total)}
+                          {formatPrice(Number(order.total))}
                         </div>
                         <Button
                           variant="outline"

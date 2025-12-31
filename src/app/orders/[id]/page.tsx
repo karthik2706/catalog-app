@@ -86,6 +86,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [paymentTransactionNumber, setPaymentTransactionNumber] = useState('')
   const [uploadingProof, setUploadingProof] = useState(false)
   const [paymentFile, setPaymentFile] = useState<File | null>(null)
+  const [clientCurrency, setClientCurrency] = useState<string>('USD')
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token')
@@ -98,6 +99,22 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     if (!token) return
+
+    const fetchClientCurrency = async () => {
+      try {
+        const response = await fetch('/api/settings', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+        const data = await response.json()
+        if (response.ok && data.client?.currency?.code) {
+          setClientCurrency(data.client.currency.code)
+        }
+      } catch (err) {
+        console.error('Error fetching client currency:', err)
+      }
+    }
 
     const fetchOrder = async () => {
       try {
@@ -125,6 +142,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
 
     fetchOrder()
+    fetchClientCurrency()
   }, [token, id, router])
 
   useEffect(() => {
@@ -321,7 +339,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: clientCurrency
     }).format(price)
   }
 
@@ -429,8 +447,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-gray-900">{formatPrice(item.subtotal)}</p>
-                        <p className="text-sm text-gray-500">{formatPrice(item.price)} each</p>
+                        <p className="font-semibold text-gray-900">{formatPrice(Number(item.subtotal))}</p>
+                        <p className="text-sm text-gray-500">{formatPrice(Number(item.price))} each</p>
                       </div>
                     </div>
                   ))}
@@ -440,11 +458,23 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 <div className="mt-6 pt-6 border-t border-gray-200 space-y-2">
                   <div className="flex justify-between text-gray-600">
                     <span>Subtotal</span>
-                    <span>{formatPrice(order.subtotal)}</span>
+                    <span>{formatPrice(Number(order.subtotal))}</span>
                   </div>
+                  {order.tax && Number(order.tax) > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Tax</span>
+                      <span>{formatPrice(Number(order.tax))}</span>
+                    </div>
+                  )}
+                  {order.shipping && Number(order.shipping) > 0 && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Shipping</span>
+                      <span>{formatPrice(Number(order.shipping))}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-200">
                     <span>Total</span>
-                    <span>{formatPrice(order.total)}</span>
+                    <span>{formatPrice(Number(order.total))}</span>
                   </div>
                 </div>
               </CardContent>

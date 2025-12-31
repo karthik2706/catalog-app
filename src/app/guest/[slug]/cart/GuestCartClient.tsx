@@ -15,11 +15,13 @@ interface GuestCartClientProps {
     slug: string
     logo: string | null
   }
+  currencyCode?: string
 }
 
 export default function GuestCartClient({
   slug,
-  clientInfo
+  clientInfo,
+  currencyCode = 'USD'
 }: GuestCartClientProps) {
   const router = useRouter()
   const { items, removeItem, updateQuantity, getTotal, clearCart } = useGuestCart()
@@ -36,7 +38,7 @@ export default function GuestCartClient({
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: currencyCode
     }).format(price)
   }
 

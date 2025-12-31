@@ -16,6 +16,7 @@ interface GuestCheckoutClientProps {
     slug: string
     logo: string | null
   }
+  currencyCode?: string
 }
 
 interface ShippingAddress {
@@ -37,7 +38,8 @@ interface FormErrors {
 
 export default function GuestCheckoutClient({
   slug,
-  clientInfo
+  clientInfo,
+  currencyCode = 'USD'
 }: GuestCheckoutClientProps) {
   const router = useRouter()
   const { items, getTotal, clearCart } = useGuestCart()
@@ -209,7 +211,7 @@ export default function GuestCheckoutClient({
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: currencyCode
     }).format(price)
   }
 
