@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
 import ImageModal from '@/components/ImageModal'
 import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { useAuth } from '@/components/AuthProvider'
 
 interface OrderItem {
   id: string
@@ -65,6 +66,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const { id } = use(params)
+  const { user: authUser } = useAuth()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
@@ -87,6 +89,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [uploadingProof, setUploadingProof] = useState(false)
   const [paymentFile, setPaymentFile] = useState<File | null>(null)
   const [clientCurrency, setClientCurrency] = useState<string>('USD')
+  const [editingShippingAddress, setEditingShippingAddress] = useState(false)
+  const [shippingAddressForm, setShippingAddressForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: ''
+  })
+  const [editingCustomerInfo, setEditingCustomerInfo] = useState(false)
+  const [customerInfoForm, setCustomerInfoForm] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  })
+
+  // Check if user can edit shipping address (all authenticated users)
+  const canEditShippingAddress = !!authUser
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token')
@@ -225,6 +248,28 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (order) {
       setPaymentUTR(order.paymentUTR || '')
       setPaymentTransactionNumber(order.paymentTransactionNumber || '')
+      
+      // Initialize customer information form
+      setCustomerInfoForm({
+        name: order.customerName || '',
+        email: order.customerEmail || '',
+        phone: order.customerPhone || ''
+      })
+      
+      // Initialize shipping address form
+      if (order.shippingAddress) {
+        setShippingAddressForm({
+          firstName: order.shippingAddress.firstName || '',
+          lastName: order.shippingAddress.lastName || '',
+          phone: order.shippingAddress.phone || order.customerPhone || '',
+          addressLine1: order.shippingAddress.addressLine1 || '',
+          addressLine2: order.shippingAddress.addressLine2 || '',
+          city: order.shippingAddress.city || '',
+          state: order.shippingAddress.state || '',
+          zipCode: order.shippingAddress.zipCode || '',
+          country: order.shippingAddress.country || ''
+        })
+      }
     }
   }, [order])
 
@@ -333,6 +378,95 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       alert('Failed to upload payment proof')
     } finally {
       setUploadingProof(false)
+    }
+  }
+
+  const handleCustomerInfoUpdate = async () => {
+    if (!token || !order) return
+
+    // Validate required fields
+    if (!customerInfoForm.name || !customerInfoForm.email || !customerInfoForm.phone) {
+      alert('Please fill in all required customer information fields')
+      return
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(customerInfoForm.email)) {
+      alert('Please enter a valid email address')
+      return
+    }
+
+    setUpdating(true)
+    try {
+      const response = await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customerName: customerInfoForm.name,
+          customerEmail: customerInfoForm.email,
+          customerPhone: customerInfoForm.phone
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update customer information')
+      }
+
+      const data = await response.json()
+      setOrder(data.order)
+      setEditingCustomerInfo(false)
+      alert('Customer information updated successfully')
+    } catch (error: any) {
+      console.error('Error updating customer information:', error)
+      alert(error.message || 'Failed to update customer information')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handleShippingAddressUpdate = async () => {
+    if (!token || !order) return
+
+    // Validate required fields
+    if (!shippingAddressForm.firstName || !shippingAddressForm.addressLine1 || 
+        !shippingAddressForm.city || !shippingAddressForm.state || 
+        !shippingAddressForm.zipCode || !shippingAddressForm.country) {
+      alert('Please fill in all required address fields')
+      return
+    }
+
+    setUpdating(true)
+    try {
+      const response = await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          shippingAddress: shippingAddressForm
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update shipping address')
+      }
+
+      const data = await response.json()
+      setOrder(data.order)
+      setEditingShippingAddress(false)
+      alert('Shipping address updated successfully')
+    } catch (error: any) {
+      console.error('Error updating shipping address:', error)
+      alert(error.message || 'Failed to update shipping address')
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -483,38 +617,282 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             {/* Customer Information */}
             <Card>
               <CardContent className="p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Customer Information</h2>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="text-gray-600 font-medium">Name:</span>
-                    <p className="text-gray-900">{order.customerName}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 font-medium">Email:</span>
-                    <p className="text-gray-900">{order.customerEmail}</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-600 font-medium">Phone:</span>
-                    <p className="text-gray-900">{order.customerPhone}</p>
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">Customer Information</h2>
+                  {canEditShippingAddress && !editingCustomerInfo && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingCustomerInfo(true)}
+                    >
+                      Edit
+                    </Button>
+                  )}
                 </div>
+                
+                {editingCustomerInfo && canEditShippingAddress ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={customerInfoForm.name}
+                        onChange={(e) => setCustomerInfoForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={customerInfoForm.email}
+                        onChange={(e) => setCustomerInfoForm(prev => ({ ...prev, email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={customerInfoForm.phone}
+                        onChange={(e) => setCustomerInfoForm(prev => ({ ...prev, phone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        onClick={handleCustomerInfoUpdate}
+                        disabled={updating}
+                      >
+                        {updating ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditingCustomerInfo(false)
+                          // Reset form to original values
+                          if (order) {
+                            setCustomerInfoForm({
+                              name: order.customerName || '',
+                              email: order.customerEmail || '',
+                              phone: order.customerPhone || ''
+                            })
+                          }
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <span className="text-gray-600 font-medium">Name:</span>
+                      <p className="text-gray-900">{order.customerName}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 font-medium">Email:</span>
+                      <p className="text-gray-900">{order.customerEmail}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 font-medium">Phone:</span>
+                      <p className="text-gray-900">{order.customerPhone}</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             {/* Shipping Address */}
             <Card>
               <CardContent className="p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Shipping Address</h2>
-                <div className="text-sm text-gray-700">
-                  <p className="font-medium">{shippingAddress.firstName} {shippingAddress.lastName}</p>
-                  <p>{shippingAddress.addressLine1}</p>
-                  {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
-                  <p>{shippingAddress.city}, {shippingAddress.state} {shippingAddress.zipCode}</p>
-                  <p>{shippingAddress.country}</p>
-                  {(shippingAddress.phone || order.customerPhone) && (
-                    <p className="text-gray-600 mt-2">Mobile: {shippingAddress.phone || order.customerPhone}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">Shipping Address</h2>
+                  {canEditShippingAddress && !editingShippingAddress && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingShippingAddress(true)}
+                    >
+                      Edit
+                    </Button>
                   )}
                 </div>
+                
+                {editingShippingAddress && canEditShippingAddress ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          First Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingAddressForm.firstName}
+                          onChange={(e) => setShippingAddressForm(prev => ({ ...prev, firstName: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingAddressForm.lastName}
+                          onChange={(e) => setShippingAddressForm(prev => ({ ...prev, lastName: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Mobile Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={shippingAddressForm.phone}
+                        onChange={(e) => setShippingAddressForm(prev => ({ ...prev, phone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Address Line 1 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingAddressForm.addressLine1}
+                        onChange={(e) => setShippingAddressForm(prev => ({ ...prev, addressLine1: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Address Line 2
+                      </label>
+                      <input
+                        type="text"
+                        value={shippingAddressForm.addressLine2}
+                        onChange={(e) => setShippingAddressForm(prev => ({ ...prev, addressLine2: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          City <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingAddressForm.city}
+                          onChange={(e) => setShippingAddressForm(prev => ({ ...prev, city: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          State/Province <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingAddressForm.state}
+                          onChange={(e) => setShippingAddressForm(prev => ({ ...prev, state: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          ZIP/Postal Code <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingAddressForm.zipCode}
+                          onChange={(e) => setShippingAddressForm(prev => ({ ...prev, zipCode: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Country <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={shippingAddressForm.country}
+                          onChange={(e) => setShippingAddressForm(prev => ({ ...prev, country: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        onClick={handleShippingAddressUpdate}
+                        disabled={updating}
+                      >
+                        {updating ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditingShippingAddress(false)
+                          // Reset form to original values
+                          if (order?.shippingAddress) {
+                            setShippingAddressForm({
+                              firstName: order.shippingAddress.firstName || '',
+                              lastName: order.shippingAddress.lastName || '',
+                              phone: order.shippingAddress.phone || order.customerPhone || '',
+                              addressLine1: order.shippingAddress.addressLine1 || '',
+                              addressLine2: order.shippingAddress.addressLine2 || '',
+                              city: order.shippingAddress.city || '',
+                              state: order.shippingAddress.state || '',
+                              zipCode: order.shippingAddress.zipCode || '',
+                              country: order.shippingAddress.country || ''
+                            })
+                          }
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-700">
+                    <p className="font-medium">{shippingAddress.firstName} {shippingAddress.lastName}</p>
+                    <p>{shippingAddress.addressLine1}</p>
+                    {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
+                    <p>{shippingAddress.city}, {shippingAddress.state} {shippingAddress.zipCode}</p>
+                    <p>{shippingAddress.country}</p>
+                    {(shippingAddress.phone || order.customerPhone) && (
+                      <p className="text-gray-600 mt-2">Mobile: {shippingAddress.phone || order.customerPhone}</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

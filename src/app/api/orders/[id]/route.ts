@@ -233,7 +233,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { status, notes, paymentUTR, paymentTransactionNumber, paymentProofUrl } = body
+    const { status, notes, paymentUTR, paymentTransactionNumber, paymentProofUrl, shippingAddress, billingAddress, customerName, customerEmail, customerPhone } = body
 
     const where: any = { id }
 
@@ -276,6 +276,27 @@ export async function PATCH(
     }
     if (paymentProofUrl !== undefined) {
       updateData.paymentProofUrl = paymentProofUrl || null
+    }
+    
+    // Shipping address can be updated by any authenticated user
+    if (shippingAddress !== undefined) {
+      updateData.shippingAddress = shippingAddress
+    }
+    
+    // Billing address can be updated by any authenticated user
+    if (billingAddress !== undefined) {
+      updateData.billingAddress = billingAddress
+    }
+    
+    // Customer information can be updated by any authenticated user
+    if (customerName !== undefined) {
+      updateData.customerName = customerName
+    }
+    if (customerEmail !== undefined) {
+      updateData.customerEmail = customerEmail
+    }
+    if (customerPhone !== undefined) {
+      updateData.customerPhone = customerPhone
     }
 
     // Test database connection first
