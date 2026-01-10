@@ -2,7 +2,6 @@
 
 # Stop any existing embedding services
 echo "Stopping existing embedding services..."
-pkill -f "python3 mock-embedding-service.py"
 pkill -f "python3 real-embedding-service.py"
 pkill -f "python3 embedding-service-fastapi.py"
 pkill -f "uvicorn"

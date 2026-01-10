@@ -511,6 +511,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   {shippingAddress.addressLine2 && <p>{shippingAddress.addressLine2}</p>}
                   <p>{shippingAddress.city}, {shippingAddress.state} {shippingAddress.zipCode}</p>
                   <p>{shippingAddress.country}</p>
+                  {(shippingAddress.phone || order.customerPhone) && (
+                    <p className="text-gray-600 mt-2">Mobile: {shippingAddress.phone || order.customerPhone}</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
