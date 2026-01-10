@@ -42,3 +42,5 @@ next-env.d.ts
 
 /generated/prisma
 /scripts
+.env*.local
+/s3-backups
