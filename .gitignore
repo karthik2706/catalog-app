@@ -44,3 +44,4 @@ next-env.d.ts
 /scripts
 .env*.local
 /s3-backups
+/backups

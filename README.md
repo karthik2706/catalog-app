@@ -30,6 +30,14 @@ A comprehensive React + Next.js application for managing retail products and inv
 
 ### 1. Clone and Install Dependencies
 
+**Quick Setup (Recommended):**
+```bash
+git clone <repository-url>
+cd stock-mind
+./scripts/setup/setup.sh
+```
+
+**Manual Setup:**
 ```bash
 git clone <repository-url>
 cd stock-mind
@@ -143,6 +151,12 @@ The application will be available at `http://localhost:3000`
 
 ### Vercel Deployment
 
+**Using Deployment Script:**
+```bash
+./scripts/deployment/deploy.sh
+```
+
+**Manual Deployment:**
 1. Push your code to GitHub
 2. Connect your repository to Vercel
 3. Set environment variables in Vercel dashboard
@@ -208,6 +222,18 @@ npx prisma db push
 ## License
 
 This project is licensed under the MIT License.
+
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](./docs/) directory:
+
+- **[Setup Guides](./docs/setup/)** - AWS, database, and configuration setup
+- **[API Documentation](./docs/api/)** - Complete API reference
+- **[Deployment](./docs/deployment/)** - Production deployment guides
+- **[Features](./docs/features/)** - Feature documentation and implementation guides
+- **[Audits](./docs/audits/)** - Code audit reports and reviews
+
+See the [Documentation Index](./docs/README.md) for a complete overview.
 
 ## Support
 
