@@ -129,30 +129,18 @@ export default function BulkMediaUpload({ onUploadComplete, className = '' }: Bu
     })
   }
 
+  // Vercel/serverless body limit ~4.5 MB; keep batch under 4 MB to be safe
+  const MAX_BATCH_BYTES = 4 * 1024 * 1024
+  const MAX_FILE_BYTES = 50 * 1024 * 1024 // 50MB per file
+
   const uploadFiles = async () => {
     if (files.length === 0) return
 
-    // Client-side validation
-    const maxFileSize = 50 * 1024 * 1024 // 50MB per file
-    const maxTotalSize = 20 * 1024 * 1024 // 20MB total
-    
-    let totalSize = 0
-    const oversizedFiles = []
-    
-    for (const fileObj of files) {
-      if (fileObj.file.size > maxFileSize) {
-        oversizedFiles.push(`${fileObj.file.name} (${(fileObj.file.size / 1024 / 1024).toFixed(1)}MB)`)
-      }
-      totalSize += fileObj.file.size
-    }
-    
+    const oversizedFiles = files.filter(f => f.file.size > MAX_FILE_BYTES)
     if (oversizedFiles.length > 0) {
-      alert(`Files too large:\n${oversizedFiles.join('\n')}\n\nMaximum file size: 50MB per file`)
-      return
-    }
-    
-    if (totalSize > maxTotalSize) {
-      alert(`Total upload size too large: ${(totalSize / 1024 / 1024).toFixed(1)}MB\n\nMaximum total size: 20MB\n\nPlease upload files individually or reduce file sizes.`)
+      alert(
+        `Files too large:\n${oversizedFiles.map(f => `${f.file.name} (${(f.file.size / 1024 / 1024).toFixed(1)}MB)`).join('\n')}\n\nMaximum file size: 50MB per file. Upload large files one at a time.`
+      )
       return
     }
 
@@ -160,72 +148,163 @@ export default function BulkMediaUpload({ onUploadComplete, className = '' }: Bu
     const finalFolder = showCustomFolder && customFolder.trim() ? customFolder.trim() : folder
 
     try {
-      const formData = new FormData()
-      files.forEach(fileObj => {
-        formData.append('files', fileObj.file)
-      })
-      formData.append('folder', finalFolder)
-
-      const response = await fetch('/api/media/bulk-upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      // Check if response is ok before parsing JSON
-      if (!response.ok) {
-        let errorMessage = 'Upload failed'
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`
-        } catch (parseError) {
-          // If we can't parse JSON, use status text
-          errorMessage = `HTTP ${response.status}: ${response.statusText}`
-          if (response.status === 413) {
-            errorMessage = 'File too large. Please reduce file size or upload files individually.'
+      // Build batches so each request stays under 4 MB (Vercel limit)
+      const batches: UploadFile[][] = []
+      let currentBatch: UploadFile[] = []
+      let currentSize = 0
+      for (const fileObj of files) {
+        const size = fileObj.file.size
+        if (size > MAX_BATCH_BYTES) {
+          if (currentBatch.length) {
+            batches.push(currentBatch)
+            currentBatch = []
+            currentSize = 0
           }
+          batches.push([fileObj])
+          continue
         }
-        throw new Error(errorMessage)
+        if (currentSize + size > MAX_BATCH_BYTES && currentBatch.length) {
+          batches.push(currentBatch)
+          currentBatch = []
+          currentSize = 0
+        }
+        currentBatch.push(fileObj)
+        currentSize += size
+      }
+      if (currentBatch.length) batches.push(currentBatch)
+
+      const allResults: { id: string; url: string; s3Key: string; name: string }[] = []
+      const allErrors: string[] = []
+      const getFileType = (file: File): 'image' | 'video' | 'audio' | 'document' => {
+        if (file.type.startsWith('image/')) return 'image'
+        if (file.type.startsWith('video/')) return 'video'
+        if (file.type.startsWith('audio/')) return 'audio'
+        return 'document'
       }
 
-      const result = await response.json()
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i]
+        const isLargeSingleFile = batch.length === 1 && batch[0].file.size > MAX_BATCH_BYTES
 
-      if (result.success) {
-        // Update files with upload results
-        setFiles(prev => prev.map(fileObj => {
-          const uploadResult = result.results.find((r: any) => r.name === fileObj.file.name)
-          if (uploadResult) {
-            return {
-              ...fileObj,
-              uploading: false,
-              uploaded: true,
-              result: {
-                id: uploadResult.id,
-                url: uploadResult.url,
-                s3Key: uploadResult.s3Key
-              }
-            }
+        if (isLargeSingleFile) {
+          const fileObj = batch[0]
+          const file = fileObj.file
+          const fileType = getFileType(file)
+          const presignedRes = await fetch('/api/media/presigned-bulk', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              folder: finalFolder,
+              fileName: file.name,
+              fileType,
+              fileSize: file.size,
+              mimeType: file.type,
+            }),
+          })
+          if (!presignedRes.ok) {
+            const errData = await presignedRes.json().catch(() => ({}))
+            throw new Error(errData.message || errData.error || 'Failed to get upload URL')
           }
-          return fileObj
-        }))
-
-        // Show errors if any
-        if (result.errors && result.errors.length > 0) {
-          console.error('Upload errors:', result.errors)
+          const { signedUrl, key } = await presignedRes.json()
+          const putRes = await fetch(signedUrl, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          })
+          if (!putRes.ok) {
+            throw new Error(`Upload to storage failed: ${putRes.status}`)
+          }
+          const registerRes = await fetch('/api/media/register-bulk', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              key,
+              fileName: file.name,
+              fileType,
+              fileSize: file.size,
+              mimeType: file.type,
+            }),
+          })
+          if (!registerRes.ok) {
+            const errData = await registerRes.json().catch(() => ({}))
+            throw new Error(errData.error || 'Failed to register file')
+          }
+          const regData = await registerRes.json()
+          if (regData.success && regData.result) {
+            allResults.push({
+              id: regData.result.id,
+              name: regData.result.name,
+              url: regData.result.url,
+              s3Key: regData.result.s3Key,
+            })
+          }
+          continue
         }
 
-        onUploadComplete?.()
-      } else {
-        throw new Error(result.error || 'Upload failed')
+        const formData = new FormData()
+        batch.forEach(fileObj => formData.append('files', fileObj.file))
+        formData.append('folder', finalFolder)
+
+        const response = await fetch('/api/media/bulk-upload', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        })
+
+        if (!response.ok) {
+          let errMsg = `Batch ${i + 1}/${batches.length}: `
+          try {
+            const data = await response.json()
+            errMsg += data.message || data.error || response.statusText
+          } catch {
+            errMsg += response.status === 413
+              ? 'Request too large. Batches are limited to 4 MB.'
+              : response.statusText
+          }
+          throw new Error(errMsg)
+        }
+
+        const result = await response.json()
+        if (result.success && result.results?.length) {
+          allResults.push(...result.results)
+          if (result.errors?.length) allErrors.push(...result.errors)
+        } else {
+          throw new Error(result.error || `Batch ${i + 1} failed`)
+        }
       }
+
+      setFiles(prev => prev.map(fileObj => {
+        const uploadResult = allResults.find((r: { name: string }) => r.name === fileObj.file.name)
+        if (uploadResult) {
+          return {
+            ...fileObj,
+            uploading: false,
+            uploaded: true,
+            result: {
+              id: uploadResult.id,
+              url: uploadResult.url,
+              s3Key: uploadResult.s3Key,
+            },
+          }
+        }
+        return fileObj
+      }))
+
+      if (allErrors.length) console.error('Upload errors:', allErrors)
+      onUploadComplete?.()
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Upload failed'
       console.error('Upload error:', error)
       setFiles(prev => prev.map(fileObj => ({
         ...fileObj,
         uploading: false,
-        error: error.message
+        error: message,
       })))
     } finally {
       setUploading(false)

@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // Handle 413 errors for bulk upload endpoint
+  // Allow bulk upload up to 100MB (must match api/media/bulk-upload and Vercel/server body limit)
   if (request.nextUrl.pathname === '/api/media/bulk-upload') {
     const contentLength = request.headers.get('content-length')
-    
+    const maxSizeMB = 100
     if (contentLength) {
       const sizeInMB = parseInt(contentLength) / (1024 * 1024)
-      
-      // Increased limit to 20MB for media uploads
-      if (sizeInMB > 20) {
+      if (sizeInMB > maxSizeMB) {
         return NextResponse.json(
           {
             error: 'Request too large',
             message: 'Upload size exceeds server limits',
-            maxSize: '20MB',
+            maxSize: `${maxSizeMB}MB`,
             currentSize: `${sizeInMB.toFixed(2)}MB`,
             suggestion: 'Please reduce file size or upload files individually'
           },
