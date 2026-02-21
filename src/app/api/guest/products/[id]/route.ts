@@ -198,7 +198,8 @@ export async function GET(
         media: processedMedia,
         thumbnailUrl: thumbnailUrl || images[0]?.url || videos[0]?.url,
         allowPreorder: product.allowPreorder,
-        stockLevel: product.stockLevel, // Show stock level to guests
+        stockLevel: product.stockLevel,
+        variations: product.variations ?? [],
       }
     })
   } catch (error) {

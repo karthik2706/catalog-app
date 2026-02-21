@@ -7,6 +7,12 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { isVideoUrl } from '@/lib/guest-media'
 import { CheckCircle, ArrowLeft, ShoppingBag, ShoppingCart, Home, Menu as MenuIcon, Search } from 'lucide-react'
 
+interface OrderItemVariation {
+  name?: string
+  value?: string
+  priceAdjustment?: number
+}
+
 interface OrderItem {
   id: string
   productId: string
@@ -15,6 +21,7 @@ interface OrderItem {
   price: number
   quantity: number
   subtotal: number
+  variations?: OrderItemVariation[]
   product?: {
     id: string
     name: string
@@ -328,6 +335,23 @@ export default function GuestOrderConfirmationClient({
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">{item.productName}</h3>
                     <p className="text-sm text-gray-500">SKU: {item.productSku}</p>
+                    {item.variations && Array.isArray(item.variations) && item.variations.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {item.variations.map((v: OrderItemVariation, i: number) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-xs text-gray-600"
+                          >
+                            {v.name && v.value ? `${v.name}: ${v.value}` : JSON.stringify(v)}
+                            {v.priceAdjustment != null && Number(v.priceAdjustment) !== 0 && (
+                              <span className="ml-1 text-blue-600">
+                                ({Number(v.priceAdjustment) > 0 ? '+' : ''}{formatPrice(Number(v.priceAdjustment))})
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                   </div>
                   <div className="text-right">

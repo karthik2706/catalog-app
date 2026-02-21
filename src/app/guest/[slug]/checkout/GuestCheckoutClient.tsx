@@ -208,7 +208,8 @@ export default function GuestCheckoutClient({
           items: items.map(item => ({
             productId: item.productId,
             quantity: item.quantity,
-            price: item.price
+            price: item.price,
+            ...(item.variations && item.variations.length > 0 && { variations: item.variations }),
           })),
           customer: {
             name: formData.lastName.trim() 
@@ -544,6 +545,13 @@ export default function GuestCheckoutClient({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-gray-900 truncate mb-1">{item.name}</p>
+                          {item.variations && item.variations.length > 0 && (
+                            <p className="text-xs text-gray-500 mb-1">
+                              {item.variations.map((v: { name?: string; value?: string }, i: number) =>
+                                v.name && v.value ? `${v.name}: ${v.value}` : ''
+                              ).filter(Boolean).join(' · ')}
+                            </p>
+                          )}
                           <p className="text-xs text-gray-500 mb-2">Qty: {item.quantity}</p>
                           <p className="font-semibold text-sm text-gray-900">
                             {formatPrice(item.price * item.quantity)}

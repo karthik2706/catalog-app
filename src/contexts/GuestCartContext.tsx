@@ -2,6 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 
+export interface CartItemVariation {
+  name?: string
+  value?: string
+  priceAdjustment?: number
+}
+
 export interface CartItem {
   id: string
   productId: string
@@ -11,22 +17,33 @@ export interface CartItem {
   quantity: number
   thumbnailUrl?: string
   imageUrl?: string
+  variations?: CartItemVariation[]
 }
 
 interface CartContextType {
   items: CartItem[]
   addItem: (item: Omit<CartItem, 'id'>) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  removeItem: (itemId: string) => void
+  updateQuantity: (itemId: string, quantity: number) => void
   clearCart: () => void
   getTotal: () => number
   getItemCount: () => number
-  getItemQuantity: (productId: string) => number
+  /** Quantity for productId; if variations provided, only for that variant. */
+  getItemQuantity: (productId: string, variations?: CartItemVariation[]) => number
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
 const CART_STORAGE_KEY = 'guest_cart'
+
+/** Canonical key for matching same product + same variant (for merge on add). */
+function variationsKey(variations?: CartItemVariation[]): string {
+  if (!variations?.length) return ''
+  const sorted = [...variations].sort((a, b) =>
+    (a.name ?? '').localeCompare(b.name ?? '') || (a.value ?? '').localeCompare(b.value ?? '')
+  )
+  return JSON.stringify(sorted)
+}
 
 export function GuestCartProvider({ children, slug }: { children: React.ReactNode; slug: string }) {
   const storageKey = `${CART_STORAGE_KEY}_${slug}`
@@ -60,45 +77,39 @@ export function GuestCartProvider({ children, slug }: { children: React.ReactNod
 
   const addItem = useCallback((item: Omit<CartItem, 'id'>) => {
     setItems(prev => {
-      const existingIndex = prev.findIndex(i => i.productId === item.productId)
-      
+      const key = variationsKey(item.variations)
+      const existingIndex = prev.findIndex(
+        i => i.productId === item.productId && variationsKey(i.variations) === key
+      )
       if (existingIndex >= 0) {
-        // Update quantity if item already exists
         const updated = [...prev]
         updated[existingIndex] = {
           ...updated[existingIndex],
           quantity: updated[existingIndex].quantity + item.quantity
         }
         return updated
-      } else {
-        // Add new item
-        const newItem: CartItem = {
-          ...item,
-          id: `${item.productId}-${Date.now()}`
-        }
-        return [...prev, newItem]
       }
+      const newItem: CartItem = {
+        ...item,
+        id: `${item.productId}-${key ? key.slice(0, 32) : ''}-${Date.now()}`
+      }
+      return [...prev, newItem]
     })
   }, [])
 
-  const removeItem = useCallback((productId: string) => {
-    setItems(prev => prev.filter(item => item.productId !== productId))
+  const removeItem = useCallback((itemId: string) => {
+    setItems(prev => prev.filter(item => item.id !== itemId))
   }, [])
 
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
+  const updateQuantity = useCallback((itemId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeItem(productId)
+      setItems(prev => prev.filter(item => item.id !== itemId))
       return
     }
-    
     setItems(prev =>
-      prev.map(item =>
-        item.productId === productId
-          ? { ...item, quantity }
-          : item
-      )
+      prev.map(item => (item.id === itemId ? { ...item, quantity } : item))
     )
-  }, [removeItem])
+  }, [])
 
   const clearCart = useCallback(() => {
     setItems([])
@@ -112,9 +123,15 @@ export function GuestCartProvider({ children, slug }: { children: React.ReactNod
     return items.reduce((count, item) => count + item.quantity, 0)
   }, [items])
 
-  const getItemQuantity = useCallback((productId: string) => {
-    const item = items.find(i => i.productId === productId)
-    return item ? item.quantity : 0
+  const getItemQuantity = useCallback((productId: string, variations?: CartItemVariation[]) => {
+    const key = variationsKey(variations)
+    if (key !== undefined && key !== '') {
+      const item = items.find(
+        i => i.productId === productId && variationsKey(i.variations) === key
+      )
+      return item ? item.quantity : 0
+    }
+    return items.filter(i => i.productId === productId).reduce((sum, i) => sum + i.quantity, 0)
   }, [items])
 
   return (

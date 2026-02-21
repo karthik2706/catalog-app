@@ -9,6 +9,23 @@ import { ArrowLeft, ShoppingCart, Plus, Minus, X, Home, Menu as MenuIcon, Search
 
 type MediaItem = { url: string; isVideo: boolean }
 
+interface ProductVariation {
+  name?: string
+  value?: string
+  priceAdjustment?: number
+}
+
+/** Group product variations by name (e.g. Color -> [Black, White], Size -> [S, M, L]). */
+function groupVariationsByName(variations: ProductVariation[]): Record<string, ProductVariation[]> {
+  const map: Record<string, ProductVariation[]> = {}
+  for (const v of variations) {
+    const name = v.name ?? 'Option'
+    if (!map[name]) map[name] = []
+    map[name].push(v)
+  }
+  return map
+}
+
 interface Product {
   id: string
   name: string
@@ -23,6 +40,7 @@ interface Product {
   thumbnailUrl?: string
   allowPreorder: boolean
   stockLevel: number
+  variations?: ProductVariation[]
 }
 
 interface GuestProductDetailClientProps {
@@ -51,6 +69,8 @@ export default function GuestProductDetailClient({
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const [mediaModalOpen, setMediaModalOpen] = useState(false)
   const [token, setToken] = useState<string | null>(null)
+  /** Selected variation option per name (e.g. { Color: { value: 'Black', ... }, Size: { value: 'M', ... } }). */
+  const [selectedVariations, setSelectedVariations] = useState<Record<string, ProductVariation>>({})
 
   const getProductMedia = (p: Product | null): MediaItem[] => {
     if (!p) return []
@@ -130,10 +150,18 @@ export default function GuestProductDetailClient({
         }
 
         const data = await response.json()
-        setProduct(data.product)
-        const cartQuantity = getItemQuantity(productId)
-        if (cartQuantity > 0) {
-          setQuantity(cartQuantity)
+        const p = data.product as Product
+        setProduct(p)
+        if (p.variations && Array.isArray(p.variations) && p.variations.length > 0) {
+          const groups = groupVariationsByName(p.variations)
+          const initial: Record<string, ProductVariation> = {}
+          for (const name of Object.keys(groups)) {
+            const opts = groups[name]
+            if (opts.length) initial[name] = opts[0]
+          }
+          setSelectedVariations(initial)
+        } else {
+          setSelectedVariations({})
         }
       } catch (error) {
         console.error('Error fetching product:', error)
@@ -143,23 +171,40 @@ export default function GuestProductDetailClient({
     }
 
     fetchProduct()
-  }, [token, productId, slug, router, getItemQuantity])
+  }, [token, productId, slug, router])
+
+  const selectedVariationsList = Object.values(selectedVariations)
+  const effectivePrice = product
+    ? Number(product.price) +
+      selectedVariationsList.reduce((sum, v) => sum + (Number(v.priceAdjustment) || 0), 0)
+    : 0
+
+  useEffect(() => {
+    if (!product) return
+    const cartQty =
+      selectedVariationsList.length > 0
+        ? getItemQuantity(product.id, selectedVariationsList)
+        : getItemQuantity(product.id)
+    setQuantity((q) => (cartQty > 0 ? cartQty : q < 1 ? 1 : q))
+  }, [product?.id, JSON.stringify(selectedVariationsList), getItemQuantity])
 
   const handleAddToCart = () => {
     if (!product) return
+    const hasVariations = product.variations && Array.isArray(product.variations) && product.variations.length > 0
+    if (hasVariations && selectedVariationsList.length === 0) return
     const media = getProductMedia(product)
     const firstUrl = media[0]?.url ?? product.thumbnailUrl ?? (Array.isArray(product.images) && product.images[0] ? (typeof product.images[0] === 'string' ? product.images[0] : (product.images[0] as { url: string }).url) : undefined)
     addItem({
       productId: product.id,
       name: product.name,
       sku: product.sku,
-      price: Number(product.price),
+      price: effectivePrice,
       quantity: quantity,
       thumbnailUrl: product.thumbnailUrl || firstUrl,
-      imageUrl: firstUrl
+      imageUrl: firstUrl,
+      variations: selectedVariationsList.length > 0 ? selectedVariationsList : undefined,
     })
 
-    // Show feedback or redirect to cart
     router.push(`/guest/${slug}/cart`)
   }
 
@@ -351,7 +396,12 @@ export default function GuestProductDetailClient({
                 </div>
               )}
               <div className="text-2xl sm:text-3xl font-bold text-blue-600 mb-4">
-                {formatPrice(Number(product.price))}
+                {formatPrice(effectivePrice)}
+                {selectedVariationsList.length > 0 && effectivePrice !== Number(product.price) && (
+                  <span className="text-base font-normal text-gray-500 ml-2">
+                    (base {formatPrice(Number(product.price))})
+                  </span>
+                )}
               </div>
             </div>
 
@@ -367,6 +417,54 @@ export default function GuestProductDetailClient({
                 <p className="text-sm text-red-600 font-medium">Out of Stock</p>
               )}
             </div>
+
+            {/* Product Variations – select one option per variation name */}
+            {product.variations && Array.isArray(product.variations) && product.variations.length > 0 && (() => {
+              const groups = groupVariationsByName(product.variations)
+              const names = Object.keys(groups)
+              if (names.length === 0) return null
+              return (
+                <div className="mb-4 space-y-3">
+                  {names.map((name) => {
+                    const options = groups[name]
+                    const selected = selectedVariations[name]
+                    return (
+                      <div key={name}>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2">{name}</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {options.map((opt: ProductVariation, idx: number) => {
+                            const isSelected =
+                              selected?.value === opt.value && selected?.name === opt.name
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedVariations((prev) => ({ ...prev, [name]: opt }))
+                                }
+                                className={`inline-flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                                  isSelected
+                                    ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                                }`}
+                              >
+                                {opt.value ?? 'Option'}
+                                {opt.priceAdjustment != null && Number(opt.priceAdjustment) !== 0 && (
+                                  <span className="ml-1 text-blue-600">
+                                    {Number(opt.priceAdjustment) > 0 ? '+' : ''}
+                                    {formatPrice(Number(opt.priceAdjustment))}
+                                  </span>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
 
             {/* Add to Cart Section */}
             <div className="mb-6 border-t border-gray-200 pt-6">

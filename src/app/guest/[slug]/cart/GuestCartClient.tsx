@@ -188,7 +188,7 @@ export default function GuestCartClient({
                             </div>
                             <button
                               type="button"
-                              onClick={() => removeItem(item.productId)}
+                              onClick={() => removeItem(item.id)}
                               className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors flex-shrink-0"
                               aria-label="Remove item"
                             >
@@ -214,7 +214,7 @@ export default function GuestCartClient({
                               <div className="flex items-center border border-gray-300 rounded-lg bg-white">
                                 <button
                                   type="button"
-                                  onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
                                   className="p-2 hover:bg-gray-100 active:bg-gray-200 transition-colors"
                                   aria-label="Decrease quantity"
                                 >
@@ -223,7 +223,7 @@ export default function GuestCartClient({
                                 <span className="px-3 sm:px-4 py-2 text-sm font-medium min-w-[3rem] text-center">{item.quantity}</span>
                                 <button
                                   type="button"
-                                  onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
                                   className="p-2 hover:bg-gray-100 active:bg-gray-200 transition-colors"
                                   aria-label="Increase quantity"
                                 >
