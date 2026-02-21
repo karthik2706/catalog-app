@@ -34,26 +34,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const clientId = user.clientId
-    if (!clientId) {
-      return NextResponse.json(
-        { error: 'Client ID is required' },
-        { status: 400 }
-      )
-    }
-
     const { mediaIds, productId, isPrimary } = await request.json()
-
-    if (!mediaIds || !Array.isArray(mediaIds) || mediaIds.length === 0) {
-      return NextResponse.json(
-        { error: 'Media IDs are required' },
-        { status: 400 }
-      )
-    }
 
     if (!productId) {
       return NextResponse.json(
         { error: 'Product ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Resolve clientId: use from JWT, or for MASTER_ADMIN get from product
+    let clientId = user.clientId
+    if (!clientId && user.role === 'MASTER_ADMIN') {
+      const productForClient = await prisma.product.findUnique({
+        where: { id: productId },
+        select: { clientId: true }
+      })
+      if (productForClient) clientId = productForClient.clientId
+    }
+    if (!clientId) {
+      return NextResponse.json(
+        { error: 'Client ID is required' },
         { status: 400 }
       )
     }
@@ -69,6 +70,19 @@ export async function POST(request: NextRequest) {
         { error: 'Product not found' },
         { status: 404 }
       )
+    }
+
+    // Allow empty mediaIds to mean "unassign all media from this product"
+    if (!mediaIds || !Array.isArray(mediaIds) || mediaIds.length === 0) {
+      await prisma.productMedia.deleteMany({
+        where: { productId: productId }
+      })
+      return NextResponse.json({
+        success: true,
+        message: 'Successfully unassigned all media from product',
+        product: { id: product.id, name: product.name, sku: product.sku },
+        assignedMedia: []
+      })
     }
 
     // Verify media assets belong to client
@@ -208,17 +222,25 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const clientId = user.clientId
+    const { searchParams } = new URL(request.url)
+    const mediaIds = searchParams.get('mediaIds')?.split(',')
+    const productId = searchParams.get('productId')
+
+    // Resolve clientId for MASTER_ADMIN when productId is provided
+    let clientId = user.clientId
+    if (!clientId && user.role === 'MASTER_ADMIN' && productId) {
+      const productForClient = await prisma.product.findUnique({
+        where: { id: productId },
+        select: { clientId: true }
+      })
+      if (productForClient) clientId = productForClient.clientId
+    }
     if (!clientId) {
       return NextResponse.json(
         { error: 'Client ID is required' },
         { status: 400 }
       )
     }
-
-    const { searchParams } = new URL(request.url)
-    const mediaIds = searchParams.get('mediaIds')?.split(',')
-    const productId = searchParams.get('productId')
 
     if (!mediaIds || mediaIds.length === 0) {
       return NextResponse.json(
