@@ -368,6 +368,7 @@ model OrderItem {
   price       Decimal  @db.Decimal(10, 2) // Store price at time of order
   quantity    Int
   subtotal    Decimal  @db.Decimal(10, 2)
+  isPreorder  Boolean  @default(false)    // True if product had Allow Preorders at order time
   createdAt   DateTime @default(now())
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)

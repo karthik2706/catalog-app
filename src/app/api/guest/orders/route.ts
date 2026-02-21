@@ -129,7 +129,8 @@ export async function POST(request: NextRequest) {
           name: true,
           sku: true,
           price: true,
-          stockLevel: true
+          stockLevel: true,
+          allowPreorder: true
         }
       })
 
@@ -163,7 +164,8 @@ export async function POST(request: NextRequest) {
                 productSku: product.sku,
                 price: item.price,
                 quantity: item.quantity,
-                subtotal: item.price * item.quantity
+                subtotal: item.price * item.quantity,
+                isPreorder: product.allowPreorder === true
               }
             })
           }
