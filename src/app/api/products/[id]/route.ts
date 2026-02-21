@@ -337,15 +337,19 @@ export async function PUT(
         where: { id },
         data: {
           ...restUpdateData,
-          // Handle categories if provided (support both categoryId and categoryIds)
-          ...((categoryId || categoryIds) && {
-            categories: {
-              deleteMany: {}, // Remove all existing category associations
-              create: (categoryId ? [categoryId] : categoryIds || []).map((catId: string) => ({
-                categoryId: catId
-              }))
+          // Handle categories: prefer multiple categoryIds, fallback to single categoryId
+          ...(function () {
+            const ids = Array.isArray(categoryIds) && categoryIds.length > 0
+              ? categoryIds
+              : (categoryId ? [categoryId] : [])
+            if (ids.length === 0) return {}
+            return {
+              categories: {
+                deleteMany: {},
+                create: ids.map((catId: string) => ({ categoryId: catId }))
+              }
             }
-          }),
+          })(),
           // Handle media updates
           ...(body.images || body.videos ? {
             productMedia: {

@@ -209,7 +209,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (category) {
-      where.categoryId = category
+      const categoryCondition = {
+        OR: [
+          { categoryId: category },
+          { categories: { some: { categoryId: category } } },
+        ],
+      }
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, categoryCondition]
+        delete where.OR
+      } else {
+        where.OR = categoryCondition.OR
+      }
     }
 
     // Build orderBy

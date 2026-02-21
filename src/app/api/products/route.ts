@@ -311,7 +311,18 @@ export async function GET(request: NextRequest) {
       }
 
       if (filters.category) {
-        where.categoryId = filters.category
+        const categoryCondition = {
+          OR: [
+            { categoryId: filters.category },
+            { categories: { some: { categoryId: filters.category } } },
+          ],
+        }
+        if (where.OR) {
+          where.AND = [{ OR: where.OR }, categoryCondition]
+          delete where.OR
+        } else {
+          where.OR = categoryCondition.OR
+        }
       }
 
       if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
@@ -638,11 +649,10 @@ export async function POST(request: NextRequest) {
             (images && images.length > 0 && images[0].url ? images[0].url : null) ||
             // Don't use video URLs as thumbnails - they should be handled by the upload-media API
             null,
-          categories: body.categoryIds ? {
-            create: body.categoryIds.map((categoryId: string) => ({
-              categoryId
-            }))
-          } : undefined,
+          // Store one or multiple categories in product_categories
+          categories: (Array.isArray(body.categoryIds) && body.categoryIds.length > 0)
+            ? { create: body.categoryIds.map((cid: string) => ({ categoryId: cid })) }
+            : (body.categoryId ? { create: [{ categoryId: body.categoryId }] } : undefined),
           // Create media entries and ProductMedia relationships
           productMedia: {
             create: [
