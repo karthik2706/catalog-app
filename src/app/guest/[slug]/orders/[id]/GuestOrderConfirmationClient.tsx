@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
+import { isVideoUrl } from '@/lib/guest-media'
 import { CheckCircle, ArrowLeft, ShoppingBag, ShoppingCart, Home, Menu as MenuIcon, Search } from 'lucide-react'
 
 interface OrderItem {
@@ -307,11 +308,22 @@ export default function GuestOrderConfirmationClient({
               {order.items.map((item) => (
                 <div key={item.id} className="flex gap-4 pb-4 border-b border-gray-200 last:border-0">
                   {item.product?.thumbnailUrl && (
-                    <img
-                      src={item.product.thumbnailUrl}
-                      alt={item.productName}
-                      className="w-20 h-20 object-cover rounded-md"
-                    />
+                    <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0 bg-gray-100">
+                      {isVideoUrl(item.product.thumbnailUrl) ? (
+                        <video
+                          src={item.product.thumbnailUrl}
+                          muted
+                          playsInline
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={item.product.thumbnailUrl}
+                          alt={item.productName}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
                   )}
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">{item.productName}</h3>

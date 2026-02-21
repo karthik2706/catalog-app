@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
 import { useGuestCart } from '@/contexts/GuestCartContext'
+import { isVideoUrl } from '@/lib/guest-media'
 import { ArrowLeft, ShoppingCart, Plus, Minus, Trash2, Home, X, Menu as MenuIcon, Search } from 'lucide-react'
 
 interface GuestCartClientProps {
@@ -152,11 +153,20 @@ export default function GuestCartClient({
                           onClick={() => router.push(`/guest/${slug}/products/${item.productId}`)}
                         >
                           {item.thumbnailUrl || item.imageUrl ? (
-                            <img
-                              src={item.thumbnailUrl || item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                            />
+                            isVideoUrl(item.thumbnailUrl || item.imageUrl!) ? (
+                              <video
+                                src={item.thumbnailUrl || item.imageUrl!}
+                                muted
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src={item.thumbnailUrl || item.imageUrl!}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            )
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-400">
                               <ShoppingCart className="w-8 h-8 sm:w-10 sm:h-10" />

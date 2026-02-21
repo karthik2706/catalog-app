@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
 import ImageModal from '@/components/ImageModal'
+import { isVideoUrl } from '@/lib/guest-media'
 import { ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { useAuth } from '@/components/AuthProvider'
 
@@ -560,16 +561,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         onClick={() => handleImageClick(item)}
                       >
                         {item.product?.thumbnailUrl ? (
-                          <img
-                            src={item.product.thumbnailUrl}
-                            alt={item.productName}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              // Hide image on error, show placeholder
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                            }}
-                          />
+                          isVideoUrl(item.product.thumbnailUrl) ? (
+                            <video
+                              src={item.product.thumbnailUrl}
+                              muted
+                              playsInline
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <img
+                              src={item.product.thumbnailUrl}
+                              alt={item.productName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                              }}
+                            />
+                          )
                         ) : null}
                         {(!item.product?.thumbnailUrl || item.product?.thumbnailUrl === '') && (
                           <Package className="w-8 h-8 text-gray-400" />

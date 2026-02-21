@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent } from '@/components/ui/Card'
 import { useGuestCart } from '@/contexts/GuestCartContext'
+import { isVideoUrl } from '@/lib/guest-media'
 import { ArrowLeft, ShoppingCart, User, MapPin, FileText, Package, CheckCircle2, Home, Menu as MenuIcon, Search } from 'lucide-react'
 
 interface GuestCheckoutClientProps {
@@ -456,11 +457,20 @@ export default function GuestCheckoutClient({
                         {/* Product Thumbnail */}
                         <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                           {item.thumbnailUrl || item.imageUrl ? (
-                            <img
-                              src={item.thumbnailUrl || item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                            />
+                            isVideoUrl(item.thumbnailUrl || item.imageUrl!) ? (
+                              <video
+                                src={item.thumbnailUrl || item.imageUrl!}
+                                muted
+                                playsInline
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src={item.thumbnailUrl || item.imageUrl!}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            )
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-400">
                               <Package className="w-6 h-6" />
