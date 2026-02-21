@@ -70,11 +70,6 @@ export async function GET(
                 sku: true,
                 thumbnailUrl: true,
                 productMedia: {
-                  where: {
-                    media: {
-                      kind: 'image'
-                    }
-                  },
                   include: {
                     media: {
                       select: {
@@ -85,9 +80,10 @@ export async function GET(
                     }
                   },
                   take: 1,
-                  orderBy: {
-                    isPrimary: 'desc'
-                  }
+                  orderBy: [
+                    { isPrimary: 'desc' },
+                    { sortOrder: 'asc' }
+                  ]
                 }
               }
             }
