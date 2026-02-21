@@ -42,6 +42,14 @@ export default function ClientsPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
 
+  // Get auth headers for API calls (required for admin endpoints)
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
+
   // Get user role from JWT token
   const getUserRole = () => {
     try {
@@ -86,7 +94,9 @@ export default function ClientsPage() {
 
   const fetchClients = async () => {
     try {
-      const response = await fetch('/api/admin/clients');
+      const response = await fetch('/api/admin/clients', {
+        headers: getAuthHeaders(),
+      });
       if (response.ok) {
         const data = await response.json();
         setClients(data.clients || []);
@@ -104,9 +114,7 @@ export default function ClientsPage() {
     try {
       const response = await fetch('/api/admin/clients', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(formData),
       });
 
@@ -146,16 +154,16 @@ export default function ClientsPage() {
     try {
       const response = await fetch(`/api/admin/clients/${editingClient.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(formData),
       });
 
       if (response.ok) {
         const data = await response.json();
-        setClients(clients.map(client => 
-          client.id === editingClient.id ? data : client
+        setClients(clients.map(client =>
+          client.id === editingClient.id
+            ? { ...data, _count: editingClient._count }
+            : client
         ));
         setShowEditForm(false);
         setEditingClient(null);
@@ -177,6 +185,7 @@ export default function ClientsPage() {
     try {
       const response = await fetch(`/api/admin/clients/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
 
       if (response.ok) {
@@ -305,7 +314,7 @@ export default function ClientsPage() {
                   <span className="text-gray-600">Users:</span>
                   <div className="flex items-center space-x-1">
                     <Users className="w-4 h-4 text-gray-400" />
-                    <span>{client._count.users}</span>
+                    <span>{client._count?.users ?? 0}</span>
                   </div>
                 </div>
                 
@@ -313,7 +322,7 @@ export default function ClientsPage() {
                   <span className="text-gray-600">Products:</span>
                   <div className="flex items-center space-x-1">
                     <Package className="w-4 h-4 text-gray-400" />
-                    <span>{client._count.products}</span>
+                    <span>{client._count?.products ?? 0}</span>
                   </div>
                 </div>
 

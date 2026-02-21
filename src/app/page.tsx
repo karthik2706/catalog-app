@@ -138,7 +138,6 @@ export default function DashboardPage() {
   }
 
   if (!user) {
-    router.push('/login')
     return null
   }
 
