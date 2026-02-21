@@ -50,6 +50,12 @@ async function getClientInfo(slug: string) {
             code: true,
             symbol: true
           }
+        },
+        country: {
+          select: {
+            name: true,
+            code: true
+          }
         }
       }
     })
@@ -97,6 +103,8 @@ export default async function GuestCheckoutPage({ params }: PageProps) {
       slug={slug}
       clientInfo={clientInfo}
       currencyCode={client.currency?.code || 'USD'}
+      defaultCountry={client.country?.name ?? 'India'}
+      defaultCountryCode={client.country?.code ?? 'IN'}
     />
   )
 }

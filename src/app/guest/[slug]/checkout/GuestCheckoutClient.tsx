@@ -9,6 +9,66 @@ import { useGuestCart } from '@/contexts/GuestCartContext'
 import { isVideoUrl } from '@/lib/guest-media'
 import { ArrowLeft, ShoppingCart, User, MapPin, FileText, Package, CheckCircle2, Home, Menu as MenuIcon, Search } from 'lucide-react'
 
+/** Zip/postal validation and display per country code (ISO 3166-1 alpha-2) */
+function getZipConfig(countryCode: string) {
+  const code = (countryCode || 'IN').toUpperCase()
+  switch (code) {
+    case 'IN':
+      return {
+        label: 'PIN Code',
+        maxLength: 6,
+        pattern: /^\d{6}$/,
+        errorRequired: 'PIN code is required',
+        errorInvalid: 'Please enter a valid 6-digit PIN code',
+        formatInput: (v: string) => v.replace(/\D/g, '').slice(0, 6),
+      }
+    case 'US':
+      return {
+        label: 'ZIP Code',
+        maxLength: 10, // 12345 or 12345-6789
+        pattern: /^\d{5}(-\d{4})?$/,
+        errorRequired: 'ZIP code is required',
+        errorInvalid: 'Please enter a valid ZIP code (5 digits or 12345-6789)',
+        formatInput: (v: string) => {
+          const s = v.replace(/[^\d-]/g, '').replace(/-+/g, '-')
+          if (s.includes('-')) {
+            const [a, b] = s.split('-')
+            return ((a || '').slice(0, 5) + '-' + (b || '').slice(0, 4)).slice(0, 10)
+          }
+          return s.slice(0, 10)
+        },
+      }
+    case 'GB':
+    case 'UK':
+      return {
+        label: 'Postcode',
+        maxLength: 8,
+        pattern: /^[A-Za-z]{1,2}\d[A-Za-z\d]?\s*\d[A-Za-z]{2}$/i,
+        errorRequired: 'Postcode is required',
+        errorInvalid: 'Please enter a valid UK postcode',
+        formatInput: (v: string) => v.trim().toUpperCase().slice(0, 8),
+      }
+    case 'CA':
+      return {
+        label: 'Postal Code',
+        maxLength: 7,
+        pattern: /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/i,
+        errorRequired: 'Postal code is required',
+        errorInvalid: 'Please enter a valid postal code (e.g. A1A 1A1)',
+        formatInput: (v: string) => v.trim().toUpperCase().replace(/\s+/g, ' ').slice(0, 7),
+      }
+    default:
+      return {
+        label: 'Postal / ZIP Code',
+        maxLength: 12,
+        pattern: /^[\w\s-]{3,12}$/,
+        errorRequired: 'Postal code is required',
+        errorInvalid: 'Please enter a valid postal code (3–12 characters)',
+        formatInput: (v: string) => v.trim().slice(0, 12),
+      }
+  }
+}
+
 interface GuestCheckoutClientProps {
   slug: string
   clientInfo: {
@@ -18,6 +78,8 @@ interface GuestCheckoutClientProps {
     logo: string | null
   }
   currencyCode?: string
+  defaultCountry?: string
+  defaultCountryCode?: string
 }
 
 interface ShippingAddress {
@@ -40,8 +102,11 @@ interface FormErrors {
 export default function GuestCheckoutClient({
   slug,
   clientInfo,
-  currencyCode = 'USD'
+  currencyCode = 'USD',
+  defaultCountry = 'India',
+  defaultCountryCode = 'IN',
 }: GuestCheckoutClientProps) {
+  const zipConfig = getZipConfig(defaultCountryCode)
   const router = useRouter()
   const { items, getTotal, clearCart } = useGuestCart()
   const [loading, setLoading] = useState(false)
@@ -59,7 +124,7 @@ export default function GuestCheckoutClient({
     city: '',
     state: '',
     zipCode: '',
-    country: 'India',
+    country: defaultCountry,
   })
 
   useEffect(() => {
@@ -110,9 +175,9 @@ export default function GuestCheckoutClient({
     if (!formData.city.trim()) newErrors.city = 'City is required'
     if (!formData.state.trim()) newErrors.state = 'State is required'
     if (!formData.zipCode.trim()) {
-      newErrors.zipCode = 'PIN code is required'
-    } else if (!/^\d{6}$/.test(formData.zipCode)) {
-      newErrors.zipCode = 'Please enter a valid 6-digit PIN code'
+      newErrors.zipCode = zipConfig.errorRequired
+    } else if (!zipConfig.pattern.test(formData.zipCode.trim())) {
+      newErrors.zipCode = zipConfig.errorInvalid
     }
     if (!formData.country.trim()) newErrors.country = 'Country is required'
 
@@ -361,12 +426,12 @@ export default function GuestCheckoutClient({
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Input
-                        label="PIN Code"
+                        label={zipConfig.label}
                         value={formData.zipCode}
-                        onChange={(e) => handleChange('zipCode', e.target.value.replace(/\D/g, ''))}
+                        onChange={(e) => handleChange('zipCode', zipConfig.formatInput(e.target.value))}
                         error={errors.zipCode}
                         required
-                        maxLength={6}
+                        maxLength={zipConfig.maxLength}
                       />
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
