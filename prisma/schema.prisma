@@ -52,6 +52,7 @@ model Client {
   plan             Plan               @default(STARTER)
   guestPassword    String?
   guestAccessEnabled Boolean          @default(false)
+  guestPasswordRequired Boolean       @default(true)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   apiKeys          ApiKey[]           @relation("ClientApiKeys")

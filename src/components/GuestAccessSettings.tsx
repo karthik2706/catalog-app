@@ -11,6 +11,7 @@ export default function GuestAccessSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [guestAccessEnabled, setGuestAccessEnabled] = useState(false)
+  const [guestPasswordRequired, setGuestPasswordRequired] = useState(true)
   const [guestPassword, setGuestPassword] = useState('')
   const [guestUrl, setGuestUrl] = useState('')
   const [hasPassword, setHasPassword] = useState(false)
@@ -34,6 +35,7 @@ export default function GuestAccessSettings() {
       if (response.ok) {
         const data = await response.json()
         setGuestAccessEnabled(data.guestAccessEnabled)
+        setGuestPasswordRequired(data.guestPasswordRequired ?? true)
         setGuestUrl(data.guestUrl || '')
         setHasPassword(data.hasPassword)
       }
@@ -45,7 +47,7 @@ export default function GuestAccessSettings() {
   }
 
   const handleSave = async () => {
-    if (guestAccessEnabled && !guestPassword && !hasPassword) {
+    if (guestAccessEnabled && guestPasswordRequired && !guestPassword && !hasPassword) {
       setMessage({ type: 'error', text: 'Please enter a password' })
       return
     }
@@ -63,6 +65,7 @@ export default function GuestAccessSettings() {
         },
         body: JSON.stringify({
           guestAccessEnabled,
+          guestPasswordRequired,
           ...(guestPassword && { guestPassword })
         })
       })
@@ -119,7 +122,7 @@ export default function GuestAccessSettings() {
       <CardHeader className="p-4 sm:p-6">
         <CardTitle className="text-base sm:text-lg">Guest Access</CardTitle>
         <CardDescription className="text-xs sm:text-sm">
-          Allow guests to view your catalog with a simple password
+          Allow guests to view your catalog
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -128,7 +131,7 @@ export default function GuestAccessSettings() {
           <div className="space-y-0.5">
             <Label htmlFor="guest-access" className="text-xs sm:text-sm">Enable Guest Access</Label>
             <p className="text-xs sm:text-sm text-gray-500">
-              Allow anyone with the password to view your catalog
+              Allow anyone with the link to view your catalog
             </p>
           </div>
           <Switch
@@ -138,40 +141,96 @@ export default function GuestAccessSettings() {
           />
         </div>
 
-        {/* Password Settings */}
         {guestAccessEnabled && (
           <div className="space-y-4 border-t pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="guest-password" className="text-xs sm:text-sm">
-                {hasPassword ? 'Change Password (leave blank to keep current)' : 'Set Password'}
-              </Label>
-              <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
-                <Input
-                  id="guest-password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter a password"
-                  value={guestPassword}
-                  onChange={(e) => setGuestPassword(e.target.value)}
-                  className="flex-1 text-xs sm:text-sm"
-                />
-                <Button
+            {/* Password Required Toggle */}
+            <div className="space-y-3">
+              <Label className="text-xs sm:text-sm font-medium">Access Protection</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-xs sm:text-sm w-full sm:w-auto"
+                  onClick={() => setGuestPasswordRequired(false)}
+                  className={`relative flex flex-col items-start gap-1.5 rounded-lg border-2 p-4 text-left transition-all ${
+                    !guestPasswordRequired
+                      ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
                 >
-                  {showPassword ? 'Hide' : 'Show'}
-                </Button>
-                <Button
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                      !guestPasswordRequired ? 'border-blue-600 bg-blue-600' : 'border-gray-300'
+                    }`}>
+                      {!guestPasswordRequired && (
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Open Access</span>
+                  </div>
+                  <p className="text-xs text-gray-500 pl-7">
+                    Anyone with the link can view the catalog without a password
+                  </p>
+                </button>
+
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={generateRandomPassword}
-                  className="text-xs sm:text-sm w-full sm:w-auto"
+                  onClick={() => setGuestPasswordRequired(true)}
+                  className={`relative flex flex-col items-start gap-1.5 rounded-lg border-2 p-4 text-left transition-all ${
+                    guestPasswordRequired
+                      ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
                 >
-                  Generate
-                </Button>
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${
+                      guestPasswordRequired ? 'border-blue-600 bg-blue-600' : 'border-gray-300'
+                    }`}>
+                      {guestPasswordRequired && (
+                        <div className="h-2 w-2 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">Password Protected</span>
+                  </div>
+                  <p className="text-xs text-gray-500 pl-7">
+                    Guests must enter a password to access the catalog
+                  </p>
+                </button>
               </div>
             </div>
+
+            {/* Password Settings — only shown when password is required */}
+            {guestPasswordRequired && (
+              <div className="space-y-2">
+                <Label htmlFor="guest-password" className="text-xs sm:text-sm">
+                  {hasPassword ? 'Change Password (leave blank to keep current)' : 'Set Password'}
+                </Label>
+                <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
+                  <Input
+                    id="guest-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter a password"
+                    value={guestPassword}
+                    onChange={(e) => setGuestPassword(e.target.value)}
+                    className="flex-1 text-xs sm:text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-xs sm:text-sm w-full sm:w-auto"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={generateRandomPassword}
+                    className="text-xs sm:text-sm w-full sm:w-auto"
+                  >
+                    Generate
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Guest URL */}
             {guestUrl && (
@@ -193,7 +252,9 @@ export default function GuestAccessSettings() {
                   </Button>
                 </div>
                 <p className="text-xs sm:text-sm text-gray-500">
-                  Share this URL with guests along with the password
+                  {guestPasswordRequired
+                    ? 'Share this URL with guests along with the password'
+                    : 'Share this URL — guests can access directly without a password'}
                 </p>
               </div>
             )}
@@ -223,4 +284,3 @@ export default function GuestAccessSettings() {
     </Card>
   )
 }
-

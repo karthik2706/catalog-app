@@ -27,7 +27,6 @@ async function getGuestToken(slug: string): Promise<string | null> {
       return token
     }
   } catch (error) {
-    // Token invalid
     return null
   }
   return null
@@ -43,6 +42,7 @@ async function getClientInfo(slug: string) {
         slug: true,
         logo: true,
         guestAccessEnabled: true,
+        guestPasswordRequired: true,
         currency: {
           select: {
             code: true,
@@ -72,24 +72,21 @@ export default async function GuestCatalogPage({ params, searchParams }: PagePro
   const { slug } = await params
   const searchParamsObj = await searchParams
 
-  // Check authentication
-  const token = await getGuestToken(slug)
-  if (!token) {
-    redirect(`/guest/${slug}`)
-  }
-
-  // Verify client exists and guest access is enabled
   const client = await getClientInfo(slug)
   if (!client || !client.guestAccessEnabled) {
     redirect(`/guest/${slug}`)
   }
 
-  // Get initial query params
+  const token = await getGuestToken(slug)
+
+  if (!token) {
+    redirect(`/guest/${slug}`)
+  }
+
   const page = searchParamsObj.page ? parseInt(searchParamsObj.page as string) : 1
   const search = (searchParamsObj.search as string) || ''
   const category = (searchParamsObj.category as string) || ''
 
-  // Fetch initial data for SSR
   const cookieStore = await cookies()
   const clientCookie = cookieStore.get(`guest_client_${slug}`)?.value
   let clientInfo = null
@@ -97,7 +94,6 @@ export default async function GuestCatalogPage({ params, searchParams }: PagePro
     try {
       clientInfo = JSON.parse(clientCookie)
     } catch (e) {
-      // Use from DB if cookie parse fails
       clientInfo = {
         id: client.id,
         name: client.name,

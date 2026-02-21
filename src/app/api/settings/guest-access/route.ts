@@ -27,22 +27,18 @@ function getUserFromRequest(request: NextRequest): { userId: string; role: strin
 }
 
 function getBaseUrl(request: NextRequest): string {
-  // Try NEXTAUTH_URL first (set in production)
   if (process.env.NEXTAUTH_URL) {
     return process.env.NEXTAUTH_URL
   }
   
-  // Try NEXT_PUBLIC_APP_URL
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL
   }
   
-  // Derive from request headers
   const host = request.headers.get('host')
   
   if (host) {
-    // Determine protocol from headers (Vercel sets x-forwarded-proto)
-    let protocol = 'https' // Default to https for production
+    let protocol = 'https'
     const forwardedProto = request.headers.get('x-forwarded-proto')
     const forwardedSsl = request.headers.get('x-forwarded-ssl')
     
@@ -51,13 +47,12 @@ function getBaseUrl(request: NextRequest): string {
     } else if (forwardedSsl === 'on') {
       protocol = 'https'
     } else if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      protocol = 'http' // Use http for localhost
+      protocol = 'http'
     }
     
     return `${protocol}://${host}`
   }
   
-  // Fallback for development
   return 'http://localhost:3000'
 }
 
@@ -73,10 +68,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // For super admin, return default/empty settings
     if (user.role === 'MASTER_ADMIN') {
       return NextResponse.json({
         guestAccessEnabled: false,
+        guestPasswordRequired: true,
         hasPassword: false,
         slug: null,
         name: null,
@@ -84,7 +79,6 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // For regular users, clientId is required
     if (!user.clientId) {
       return NextResponse.json(
         { error: 'Client context required' },
@@ -96,6 +90,7 @@ export async function GET(request: NextRequest) {
       where: { id: user.clientId },
       select: {
         guestAccessEnabled: true,
+        guestPasswordRequired: true,
         guestPassword: true,
         slug: true,
         name: true
@@ -113,6 +108,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       guestAccessEnabled: client.guestAccessEnabled,
+      guestPasswordRequired: client.guestPasswordRequired,
       hasPassword: !!client.guestPassword,
       slug: client.slug,
       name: client.name,
@@ -139,7 +135,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // For super admin, guest access is not applicable
     if (user.role === 'MASTER_ADMIN') {
       return NextResponse.json(
         { error: 'Guest access is not available for super admin' },
@@ -147,7 +142,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // For regular users, clientId is required
     if (!user.clientId) {
       return NextResponse.json(
         { error: 'Client context required' },
@@ -155,9 +149,8 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const { guestAccessEnabled, guestPassword } = await request.json()
+    const { guestAccessEnabled, guestPasswordRequired, guestPassword } = await request.json()
 
-    // Validate inputs
     if (typeof guestAccessEnabled !== 'boolean') {
       return NextResponse.json(
         { error: 'Invalid guestAccessEnabled value' },
@@ -165,15 +158,24 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Update client settings
+    const updateData: Record<string, any> = {
+      guestAccessEnabled,
+    }
+
+    if (typeof guestPasswordRequired === 'boolean') {
+      updateData.guestPasswordRequired = guestPasswordRequired
+    }
+
+    if (guestPassword) {
+      updateData.guestPassword = guestPassword
+    }
+
     const updatedClient = await prisma.client.update({
       where: { id: user.clientId },
-      data: {
-        guestAccessEnabled,
-        ...(guestPassword && { guestPassword })
-      },
+      data: updateData,
       select: {
         guestAccessEnabled: true,
+        guestPasswordRequired: true,
         slug: true,
         name: true
       }
@@ -184,6 +186,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({
       success: true,
       guestAccessEnabled: updatedClient.guestAccessEnabled,
+      guestPasswordRequired: updatedClient.guestPasswordRequired,
       slug: updatedClient.slug,
       guestUrl: updatedClient.slug ? `${baseUrl}/guest/${updatedClient.slug}` : null
     })
@@ -195,4 +198,3 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
-

@@ -2,19 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
 
-// POST /api/guest/auth - Authenticate guest with password
+// POST /api/guest/auth - Authenticate guest with password (or without if not required)
 export async function POST(request: NextRequest) {
   try {
     const { slug, password } = await request.json()
 
-    if (!slug || !password) {
+    if (!slug) {
       return NextResponse.json(
-        { error: 'Client slug and password are required' },
+        { error: 'Client slug is required' },
         { status: 400 }
       )
     }
 
-    // Find client by slug with currency
     const client = await prisma.client.findUnique({
       where: { slug },
       include: {
@@ -34,7 +33,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if guest access is enabled
     if (!client.guestAccessEnabled) {
       return NextResponse.json(
         { error: 'Guest access is not enabled for this catalog' },
@@ -42,15 +40,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify password
-    if (client.guestPassword !== password) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      )
+    if (client.guestPasswordRequired) {
+      if (!password) {
+        return NextResponse.json(
+          { error: 'Password is required' },
+          { status: 400 }
+        )
+      }
+
+      if (client.guestPassword !== password) {
+        return NextResponse.json(
+          { error: 'Invalid credentials' },
+          { status: 401 }
+        )
+      }
     }
 
-    // Generate guest token
     const token = jwt.sign(
       {
         type: 'guest',
@@ -81,4 +86,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

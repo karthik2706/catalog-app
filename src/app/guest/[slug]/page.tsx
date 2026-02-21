@@ -17,6 +17,7 @@ async function getClientBySlug(slug: string) {
         slug: true,
         logo: true,
         guestAccessEnabled: true,
+        guestPasswordRequired: true,
       }
     })
     return client
@@ -39,12 +40,10 @@ export async function generateMetadata({ params }: PageProps) {
 export default async function GuestLoginPage({ params }: PageProps) {
   const { slug } = await params
   
-  // Check if already authenticated via cookie
   const cookieStore = await cookies()
   const guestToken = cookieStore.get(`guest_token_${slug}`)?.value
   
   if (guestToken) {
-    // Verify token is still valid
     try {
       const jwt = require('jsonwebtoken')
       const decoded = jwt.verify(guestToken, process.env.JWT_SECRET || 'your-secret-key')
@@ -56,7 +55,6 @@ export default async function GuestLoginPage({ params }: PageProps) {
     }
   }
 
-  // Fetch client info for SSR
   const client = await getClientBySlug(slug)
 
   if (!client) {
@@ -81,5 +79,12 @@ export default async function GuestLoginPage({ params }: PageProps) {
     )
   }
 
-  return <GuestLoginForm slug={slug} clientName={client.name} clientLogo={client.logo} />
+  return (
+    <GuestLoginForm
+      slug={slug}
+      clientName={client.name}
+      clientLogo={client.logo}
+      passwordRequired={client.guestPasswordRequired}
+    />
+  )
 }
