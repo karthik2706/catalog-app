@@ -209,7 +209,7 @@ export default function GuestCheckoutClient({
             productId: item.productId,
             quantity: item.quantity,
             price: item.price,
-            ...(item.variations && item.variations.length > 0 && { variations: item.variations }),
+            variations: Array.isArray(item.variations) ? item.variations : [],
           })),
           customer: {
             name: formData.lastName.trim() 

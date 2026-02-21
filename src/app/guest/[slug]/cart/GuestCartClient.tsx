@@ -184,6 +184,14 @@ export default function GuestCartClient({
                               >
                                 {item.name}
                               </h3>
+                              {item.variations && item.variations.length > 0 && (
+                                <p className="text-xs text-gray-600 mb-1">
+                                  {item.variations
+                                    .map((v) => (v.name && v.value ? `${v.name}: ${v.value}` : ''))
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                                </p>
+                              )}
                               <p className="text-xs text-gray-500">SKU: {item.sku}</p>
                             </div>
                             <button

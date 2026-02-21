@@ -15,13 +15,22 @@ interface ProductVariation {
   priceAdjustment?: number
 }
 
+/** Normalize any variation-like object to { name, value, priceAdjustment } for consistent handling. */
+function normalizeVariation(v: Record<string, unknown> | ProductVariation): ProductVariation {
+  const name = (v.name ?? v.variationName ?? v.type ?? 'Option') as string
+  const value = (v.value ?? v.optionValue ?? v.option ?? '') as string
+  const priceAdjustment = Number(v.priceAdjustment ?? v.price ?? 0) || 0
+  return { name, value, priceAdjustment }
+}
+
 /** Group product variations by name (e.g. Color -> [Black, White], Size -> [S, M, L]). */
 function groupVariationsByName(variations: ProductVariation[]): Record<string, ProductVariation[]> {
   const map: Record<string, ProductVariation[]> = {}
   for (const v of variations) {
-    const name = v.name ?? 'Option'
+    const norm = normalizeVariation(v as Record<string, unknown>)
+    const name = norm.name ?? 'Option'
     if (!map[name]) map[name] = []
-    map[name].push(v)
+    map[name].push(norm)
   }
   return map
 }
@@ -153,7 +162,8 @@ export default function GuestProductDetailClient({
         const p = data.product as Product
         setProduct(p)
         if (p.variations && Array.isArray(p.variations) && p.variations.length > 0) {
-          const groups = groupVariationsByName(p.variations)
+          const normalized = (p.variations as Record<string, unknown>[]).map(normalizeVariation)
+          const groups = groupVariationsByName(normalized)
           const initial: Record<string, ProductVariation> = {}
           for (const name of Object.keys(groups)) {
             const opts = groups[name]
@@ -194,6 +204,14 @@ export default function GuestProductDetailClient({
     if (hasVariations && selectedVariationsList.length === 0) return
     const media = getProductMedia(product)
     const firstUrl = media[0]?.url ?? product.thumbnailUrl ?? (Array.isArray(product.images) && product.images[0] ? (typeof product.images[0] === 'string' ? product.images[0] : (product.images[0] as { url: string }).url) : undefined)
+    const variationsToStore =
+      selectedVariationsList.length > 0
+        ? selectedVariationsList.map((v) => ({
+            name: v.name,
+            value: v.value,
+            priceAdjustment: v.priceAdjustment,
+          }))
+        : undefined
     addItem({
       productId: product.id,
       name: product.name,
@@ -202,7 +220,7 @@ export default function GuestProductDetailClient({
       quantity: quantity,
       thumbnailUrl: product.thumbnailUrl || firstUrl,
       imageUrl: firstUrl,
-      variations: selectedVariationsList.length > 0 ? selectedVariationsList : undefined,
+      variations: variationsToStore,
     })
 
     router.push(`/guest/${slug}/cart`)
@@ -420,7 +438,8 @@ export default function GuestProductDetailClient({
 
             {/* Product Variations – select one option per variation name */}
             {product.variations && Array.isArray(product.variations) && product.variations.length > 0 && (() => {
-              const groups = groupVariationsByName(product.variations)
+              const normalized = (product.variations as Record<string, unknown>[]).map(normalizeVariation)
+              const groups = groupVariationsByName(normalized)
               const names = Object.keys(groups)
               if (names.length === 0) return null
               return (

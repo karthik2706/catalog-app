@@ -166,7 +166,10 @@ export async function POST(request: NextRequest) {
                 quantity: item.quantity,
                 subtotal: item.price * item.quantity,
                 isPreorder: product.allowPreorder === true,
-                variations: Array.isArray(item.variations) ? item.variations : undefined,
+                variations:
+                  Array.isArray(item.variations) && item.variations.length > 0
+                    ? item.variations
+                    : undefined,
               }
             })
           }
