@@ -30,18 +30,20 @@ interface Category {
   children?: Category[]
 }
 
+export type MediaItem = { url: string; isVideo: boolean }
+
 interface ImageModalProps {
   isOpen: boolean
   onClose: () => void
-  images: string[]
+  media: MediaItem[]
   currentIndex: number
   onNext: () => void
   onPrevious: () => void
   productName: string
 }
 
-// Image Modal Component
-function ImageModal({ isOpen, onClose, images, currentIndex, onNext, onPrevious, productName }: ImageModalProps) {
+// Image/Video Modal Component
+function ImageModal({ isOpen, onClose, media, currentIndex, onNext, onPrevious, productName }: ImageModalProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return
@@ -65,9 +67,11 @@ function ImageModal({ isOpen, onClose, images, currentIndex, onNext, onPrevious,
     }
   }, [isOpen, onClose, onNext, onPrevious])
 
-  if (!isOpen || images.length === 0) return null
+  if (!isOpen || media.length === 0) return null
 
-  const hasMultiple = images.length > 1
+  const hasMultiple = media.length > 1
+  const current = media[currentIndex]
+  const isVideo = current?.isVideo ?? false
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
@@ -85,7 +89,7 @@ function ImageModal({ isOpen, onClose, images, currentIndex, onNext, onPrevious,
         <button
           onClick={onPrevious}
           className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          aria-label="Previous image"
+          aria-label="Previous"
         >
           <ChevronLeft className="w-8 h-8 text-white" />
         </button>
@@ -96,29 +100,39 @@ function ImageModal({ isOpen, onClose, images, currentIndex, onNext, onPrevious,
         <button
           onClick={onNext}
           className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          aria-label="Next image"
+          aria-label="Next"
         >
           <ChevronRight className="w-8 h-8 text-white" />
         </button>
       )}
 
-      {/* Image */}
+      {/* Image or Video */}
       <div className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center p-4">
-        <img
-          src={images[currentIndex]}
-          alt={productName}
-          className="max-w-full max-h-[95vh] object-contain"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement
-            target.src = '/placeholder-image.png'
-          }}
-        />
+        {isVideo ? (
+          <video
+            src={current.url}
+            controls
+            autoPlay
+            playsInline
+            className="max-w-full max-h-[95vh] object-contain"
+          />
+        ) : (
+          <img
+            src={current.url}
+            alt={productName}
+            className="max-w-full max-h-[95vh] object-contain"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement
+              target.src = '/placeholder-image.png'
+            }}
+          />
+        )}
       </div>
 
-      {/* Image Counter */}
+      {/* Counter */}
       {hasMultiple && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 rounded-full text-white text-sm">
-          {currentIndex + 1} / {images.length}
+          {currentIndex + 1} / {media.length}
         </div>
       )}
     </div>
@@ -158,9 +172,9 @@ export default function GuestCatalogClient({
   const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchDebounceTimer = useRef<NodeJS.Timeout | null>(null)
-  const [imageModal, setImageModal] = useState<{ isOpen: boolean; images: string[]; currentIndex: number; productName: string }>({
+  const [imageModal, setImageModal] = useState<{ isOpen: boolean; media: MediaItem[]; currentIndex: number; productName: string }>({
     isOpen: false,
-    images: [],
+    media: [],
     currentIndex: 0,
     productName: ''
   })
@@ -415,7 +429,7 @@ export default function GuestCatalogClient({
       let changed = Object.keys(prev).length !== products.length
 
       products.forEach((product) => {
-        const imageCount = getProductImages(product).length
+        const imageCount = getProductMedia(product).length
         const maxIndex = Math.max(0, imageCount - 1)
         const previousStored = prev[product.id] ?? 0
         const clampedIndex = Math.min(previousStored, maxIndex)
@@ -463,68 +477,77 @@ export default function GuestCatalogClient({
     }).format(price)
   }
 
-  // Get all available images for a product
-  const getProductImages = (product: Product): string[] => {
-    const images: string[] = []
-    
-    // Add images from media array first (these are processed with signed URLs)
-    if (product.media && Array.isArray(product.media)) {
-      product.media.forEach((mediaItem) => {
-        if (mediaItem.kind === 'image' || !mediaItem.kind) {
-          const url = mediaItem.url || mediaItem.URL || mediaItem.src
-          if (url && typeof url === 'string' && url.startsWith('http') && !images.includes(url)) {
-            images.push(url)
-          }
-        }
-      })
-    }
-    
-    // Add images from images array (processed with signed URLs from API)
-    if (product.images && Array.isArray(product.images)) {
-      product.images.forEach((img) => {
-        if (typeof img === 'string' && img.startsWith('http')) {
-          if (!images.includes(img)) images.push(img)
-        } else if (typeof img === 'object' && img !== null) {
-          const url = img.url || img.URL || img.src || img.imageUrl
-          if (url && typeof url === 'string' && url.startsWith('http') && !images.includes(url)) {
-            images.push(url)
-          }
-        }
-      })
-    }
-    
-    // Add thumbnailUrl if available and not already in images
-    if (product.thumbnailUrl && typeof product.thumbnailUrl === 'string' && product.thumbnailUrl.startsWith('http')) {
-      if (!images.includes(product.thumbnailUrl)) {
-        images.unshift(product.thumbnailUrl) // Add to beginning
-      }
-    }
-    
-    return images
+  const isVideoUrl = (url: string): boolean => {
+    const path = url.split('?')[0] || ''
+    return /\.(mp4|webm|mov|ogg|m4v)$/i.test(path)
   }
 
-  // Open image modal
-  const openImageModal = (product: Product, imageIndex: number = 0) => {
-    const images = getProductImages(product)
-    if (images.length > 0) {
+  // Get all media (images and videos) for a product in display order
+  const getProductMedia = (product: Product): MediaItem[] => {
+    const seen = new Set<string>()
+    const items: MediaItem[] = []
+
+    const add = (url: string | undefined, isVideo: boolean) => {
+      if (url && typeof url === 'string' && url.startsWith('http') && !seen.has(url)) {
+        seen.add(url)
+        items.push({ url, isVideo })
+      }
+    }
+
+    // Media array first (preserves sortOrder from API)
+    if (product.media && Array.isArray(product.media)) {
+      const sorted = [...product.media].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      sorted.forEach((m) => {
+        const url = m.url || m.URL || m.src
+        if (url) add(url, m.kind === 'video')
+      })
+    }
+
+    // Legacy images
+    if (product.images && Array.isArray(product.images)) {
+      product.images.forEach((img: any) => {
+        const url = typeof img === 'string' ? img : img?.url || img?.URL || img?.src || img?.imageUrl
+        add(url, false)
+      })
+    }
+
+    // Legacy videos
+    if (product.videos && Array.isArray(product.videos)) {
+      product.videos.forEach((v: any) => {
+        const url = typeof v === 'string' ? v : v?.url || v?.URL || v?.src
+        add(url, true)
+      })
+    }
+
+    // Thumbnail if not already included
+    if (product.thumbnailUrl && typeof product.thumbnailUrl === 'string' && product.thumbnailUrl.startsWith('http') && !seen.has(product.thumbnailUrl)) {
+      items.unshift({ url: product.thumbnailUrl, isVideo: isVideoUrl(product.thumbnailUrl) })
+    }
+
+    return items
+  }
+
+  const openImageModal = (product: Product, mediaIndex: number = 0) => {
+    const media = getProductMedia(product)
+    if (media.length > 0) {
       setImageModal({
         isOpen: true,
-        images,
-        currentIndex: Math.min(imageIndex, images.length - 1),
+        media,
+        currentIndex: Math.min(mediaIndex, media.length - 1),
         productName: product.name
       })
     }
   }
 
-  const handleCarouselNav = (productId: string, direction: 'next' | 'prev', imagesLength: number) => {
-    if (imagesLength <= 1) return
+  const handleCarouselNav = (productId: string, direction: 'next' | 'prev', mediaLength: number) => {
+    if (mediaLength <= 1) return
 
     setCarouselIndices((prev) => {
       const currentIndex = prev[productId] ?? 0
       const nextIndex =
         direction === 'next'
-          ? (currentIndex + 1) % imagesLength
-          : (currentIndex - 1 + imagesLength) % imagesLength
+          ? (currentIndex + 1) % mediaLength
+          : (currentIndex - 1 + mediaLength) % mediaLength
 
       if (nextIndex === currentIndex) {
         return prev
@@ -537,21 +560,20 @@ export default function GuestCatalogClient({
     })
   }
 
-  // Navigate images in modal
   const nextImage = () => {
-    if (imageModal.images.length > 0) {
+    if (imageModal.media.length > 0) {
       setImageModal(prev => ({
         ...prev,
-        currentIndex: (prev.currentIndex + 1) % prev.images.length
+        currentIndex: (prev.currentIndex + 1) % prev.media.length
       }))
     }
   }
 
   const previousImage = () => {
-    if (imageModal.images.length > 0) {
+    if (imageModal.media.length > 0) {
       setImageModal(prev => ({
         ...prev,
-        currentIndex: (prev.currentIndex - 1 + prev.images.length) % prev.images.length
+        currentIndex: (prev.currentIndex - 1 + prev.media.length) % prev.media.length
       }))
     }
   }
@@ -860,50 +882,63 @@ export default function GuestCatalogClient({
           <>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {products.map((product) => {
-                const images = getProductImages(product)
-                const imageCount = images.length
+                const media = getProductMedia(product)
+                const mediaCount = media.length
                 const rawIndex = carouselIndices[product.id] ?? 0
-                const currentIndex = imageCount > 0 ? Math.min(rawIndex, imageCount - 1) : 0
-                const displayImage = imageCount > 0 ? images[currentIndex] : null
+                const currentIndex = mediaCount > 0 ? Math.min(rawIndex, mediaCount - 1) : 0
+                const displayItem = mediaCount > 0 ? media[currentIndex] : null
 
                 return (
                   <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col" onClick={() => router.push(`/guest/${slug}/products/${product.id}`)}>
                     <div 
-                      className={`aspect-square relative bg-gray-100 ${displayImage ? 'cursor-pointer' : ''}`}
+                      className={`aspect-square relative bg-gray-100 ${displayItem ? 'cursor-pointer' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation()
-                        if (displayImage) openImageModal(product, currentIndex)
+                        if (displayItem) openImageModal(product, currentIndex)
                       }}
                     >
-                      {displayImage ? (
-                        <img
-                          src={displayImage}
-                          alt={product.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            // Silently handle image load failures - image will be hidden
-                            const target = e.target as HTMLImageElement
-                            target.style.display = 'none'
-                          }}
-                        />
+                      {displayItem ? (
+                        displayItem.isVideo ? (
+                          <video
+                            src={displayItem.url}
+                            muted
+                            playsInline
+                            loop
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              const target = e.target as HTMLVideoElement
+                              target.style.display = 'none'
+                            }}
+                          />
+                        ) : (
+                          <img
+                            src={displayItem.url}
+                            alt={product.name}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                            }}
+                          />
+                        )
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
                           <div className="text-center">
                             <svg className="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <p className="text-xs">No Image</p>
+                            <p className="text-xs">No Media</p>
                           </div>
                         </div>
                       )}
-                      {imageCount > 1 && displayImage && (
+                      {mediaCount > 1 && displayItem && (
                         <>
                           <button
                             type="button"
-                            aria-label="Previous image"
+                            aria-label="Previous"
                             onClick={(event) => {
                               event.stopPropagation()
-                              handleCarouselNav(product.id, 'prev', imageCount)
+                              handleCarouselNav(product.id, 'prev', mediaCount)
                             }}
                             className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white shadow-sm rounded-full p-2 transition-colors"
                           >
@@ -911,17 +946,17 @@ export default function GuestCatalogClient({
                           </button>
                           <button
                             type="button"
-                            aria-label="Next image"
+                            aria-label="Next"
                             onClick={(event) => {
                               event.stopPropagation()
-                              handleCarouselNav(product.id, 'next', imageCount)
+                              handleCarouselNav(product.id, 'next', mediaCount)
                             }}
                             className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white shadow-sm rounded-full p-2 transition-colors"
                           >
                             <ChevronRight className="w-4 h-4 text-gray-700" />
                           </button>
                           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-                            {currentIndex + 1} / {imageCount}
+                            {currentIndex + 1} / {mediaCount}
                           </div>
                         </>
                       )}
@@ -1053,7 +1088,7 @@ export default function GuestCatalogClient({
       <ImageModal
         isOpen={imageModal.isOpen}
         onClose={() => setImageModal(prev => ({ ...prev, isOpen: false }))}
-        images={imageModal.images}
+        media={imageModal.media}
         currentIndex={imageModal.currentIndex}
         onNext={nextImage}
         onPrevious={previousImage}

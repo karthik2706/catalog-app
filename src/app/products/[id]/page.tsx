@@ -89,100 +89,57 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         throw new Error(data.error || 'Failed to fetch product')
       }
 
-      // Refresh media URLs to use signed URLs for all media types
+      // Optional: refresh media URLs; never overwrite API response with empty (preserve videos/images)
       try {
-        console.log('Refreshing media URLs...')
-        
-        // Collect all media that needs refreshing (with deduplication)
         const allImages = [
-          ...(data.images || []),
+          ...initialImages,
           ...(data.mediaItems?.filter(m => 
             m.kind === 'image' ||
-            m.fileType?.startsWith('image/') || 
-            m.type?.startsWith('image/') ||
-            (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
+            m.fileType?.startsWith('image/') ||
+            (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test((m.url as string).split('?')[0] || ''))
           ) || [])
         ]
         const allVideos = [
-          ...(data.videos || []),
-          // Only include media table videos that aren't already in data.videos
+          ...initialVideos,
           ...(data.mediaItems?.filter(m => {
+            const urlPath = m.url?.split('?')[0] || ''
             const isVideo = m.kind === 'video' ||
-              m.fileType?.startsWith('video/') || 
-              m.type?.startsWith('video/') ||
-              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))
-            
+              m.fileType?.startsWith('video/') ||
+              (m.url && /\.(mp4|webm|mov)$/i.test(urlPath))
             if (!isVideo) return false
-            
-            // Check if this media record corresponds to a video already in data.videos
             const isDuplicate = (data.videos || []).some(video => 
               video.key === m.s3Key || video.id === m.id
             )
-            
             return !isDuplicate
           }) || [])
         ]
-        
-        const allMedia = [...allImages, ...allVideos].map(item => ({
-          ...item,
-          key: item.key || item.s3Key // Map s3Key to key for the refresh API
-        }))
+        const allMedia = [...allImages, ...allVideos]
+          .filter(item => item.key || item.s3Key)
+          .map(item => ({ ...item, key: item.key || item.s3Key }))
         
         if (allMedia.length > 0) {
-          console.log('Refreshing', allMedia.length, 'media items')
-          
-          const response = await fetch('/api/media/refresh-urls', {
+          const refreshResponse = await fetch('/api/media/refresh-urls', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ media: allMedia })
           })
           
-          if (response.ok) {
-            const result = await response.json()
-            const refreshedMedia = result.media
-            
-            // Separate back into images and videos (maintaining deduplication)
-            data.images = refreshedMedia.filter(m => 
-              m.kind === 'image' ||
-              m.fileType?.startsWith('image/') || 
-              m.type?.startsWith('image/') ||
-              (m.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(m.url))
-            )
-            
-            data.videos = refreshedMedia.filter(m => 
-              (m.kind === 'video' ||
-              m.fileType?.startsWith('video/') || 
-              m.type?.startsWith('video/') ||
-              (m.url && /\.(mp4|webm|mov)$/i.test(m.url))) &&
-              // Only include videos that have a 'key' property (from data.videos, not data.media)
-              m.key && !m.s3Key
-            )
-            
-            data.mediaItems = refreshedMedia.filter(m => 
-              m.kind !== 'image' && m.kind !== 'video' &&
-              !m.fileType?.startsWith('image/') && 
-              !m.fileType?.startsWith('video/') &&
-              !m.type?.startsWith('image/') && 
-              !m.type?.startsWith('video/') &&
-              !(m.url && /\.(jpg|jpeg|png|gif|webp|mp4|webm|mov)$/i.test(m.url))
-            )
-            
-            console.log('All media URLs refreshed successfully')
-            console.log('Media files loaded:', {
-              total: refreshedMedia.length,
-              images: data.images.length,
-              videos: data.videos.length,
-              mediaFiles: data.mediaItems.length
-            })
-          } else {
-            console.error('Failed to refresh media URLs:', response.statusText)
+          if (refreshResponse.ok) {
+            const result = await refreshResponse.json()
+            const refreshedMedia = (result.media || []) as any[]
+            const keyOf = (m: any) => String(m?.key ?? m?.s3Key ?? m?.id ?? '')
+
+            const newImages = refreshedMedia.filter(m => allImages.some(img => keyOf(img) === keyOf(m)))
+            const newVideos = refreshedMedia.filter(m => allVideos.some(vid => keyOf(vid) === keyOf(m)))
+            // Only overwrite when we got a non-empty result so we never clear API data
+            if (newImages.length > 0) data.images = newImages
+            if (newVideos.length > 0) data.videos = newVideos
+            const assignedKeys = new Set([...data.images, ...data.videos].map(keyOf))
+            data.mediaItems = refreshedMedia.filter(m => !assignedKeys.has(keyOf(m)))
           }
         }
       } catch (error) {
         console.error('Error refreshing media URLs:', error)
-        // Continue with original media if refresh fails
       }
       
       setProduct(data)
@@ -275,13 +232,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     }) || [])
   ]
   const mediaFiles = [...allImages, ...allVideos]
-  
-  // Debug logging
-  console.log('Media files loaded:', {
-    total: mediaFiles.length,
-    images: allImages.length,
-    videos: allVideos.length
-  })
 
   return (
     <DashboardLayout>
@@ -363,50 +313,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                             {mediaFiles.length > 0 && mediaFiles[selectedMediaIndex] ? (
                               (() => {
                                 const media = mediaFiles[selectedMediaIndex]
-                                const isVideo = media.fileType?.startsWith('video/') || 
+                                // S3 signed URLs have query params (e.g. .mp4?X-Amz-...); check path before ?
+                                const isVideo = media.kind === 'video' ||
+                                  media.fileType?.startsWith('video/') ||
                                   media.type?.startsWith('video/') ||
-                                  (media.url && /\.(mp4|webm|mov)$/i.test(media.url))
+                                  (media.url && /\.(mp4|webm|mov)$/i.test(media.url.split('?')[0] || ''))
                                 const displayUrl = media.url || product.thumbnailUrl
-                                
-                                // Debug logging for image URL
-                                console.log('Image display URL:', {
-                                  media,
-                                  displayUrl,
-                                  hasUrl: !!media.url,
-                                  hasThumbnailUrl: !!media.thumbnailUrl,
-                                  urlValue: media.url,
-                                  thumbnailUrlValue: media.thumbnailUrl
-                                })
-                                
+
                                 if (isVideo) {
-                                  console.log('Rendering video:', { 
-                                    media, 
-                                    url: media.url, 
-                                    key: media.key, 
-                                    retryCount: videoRetryCount,
-                                    hasUrl: !!media.url,
-                                    urlType: typeof media.url,
-                                    hasThumbnailUrl: !!media.thumbnailUrl
-                                  })
-                                  
-                                  // For videos, show thumbnail first with play button overlay
-                                  // This provides better UX and avoids video loading issues
                                   const thumbnailUrl = product.thumbnailUrl
-                                  
-                                  console.log('Video thumbnail check:', {
-                                    mediaThumbnailUrl: media.thumbnailUrl,
-                                    productThumbnailUrl: product.thumbnailUrl,
-                                    finalThumbnailUrl: thumbnailUrl,
-                                    isNull: thumbnailUrl === null,
-                                    isStringNull: thumbnailUrl === 'null'
-                                  })
-                                  
+
                                   if (thumbnailUrl && thumbnailUrl !== null && thumbnailUrl !== 'null') {
-                                    console.log('Using video thumbnail display:', {
-                                      thumbnailUrl: thumbnailUrl.substring(0, 80) + '...',
-                                      hasVideoUrl: !!media.url
-                                    })
-                                    
                                     return (
                                       <div className="relative w-full h-full">
                                         <img
@@ -414,15 +331,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                           alt={`${product.name} - Video Thumbnail`}
                                           className="w-full h-full object-cover"
                                           onError={(e) => {
-                                            console.error('Video thumbnail load error:', {
-                                              src: thumbnailUrl,
-                                              error: e
-                                            })
-                                            // Fallback to video if thumbnail fails
                                             e.currentTarget.style.display = 'none'
-                                          }}
-                                          onLoad={() => {
-                                            console.log('Video thumbnail loaded successfully:', thumbnailUrl.substring(0, 80) + '...')
                                           }}
                                         />
                                         
@@ -459,9 +368,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                     )
                                   }
                                   
-                                  // Fallback: Check if we have a valid video URL
                                   if (!media.url) {
-                                    console.error('No URL available for video:', media)
                                     return (
                                       <div className="w-full h-full flex items-center justify-center bg-red-100">
                                         <div className="text-center">
@@ -480,44 +387,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                         className="w-full h-full object-cover"
                                         controls
                                         preload="metadata"
-                                        onError={async (e) => {
-                                          console.error('Video load error:', e)
-                                          console.error('Video URL:', media.url)
-                                          console.error('Video key:', media.key)
-                                          console.error('Current retry count:', videoRetryCount)
-                                          console.error('Error details:', e.currentTarget.error)
-                                          
-                                          // Retry mechanism for video loading
+                                        onError={() => {
                                           if (videoRetryCount < 2) {
-                                            console.log(`Retrying video load (attempt ${videoRetryCount + 1})`)
                                             setVideoRetryCount(prev => prev + 1)
-                                            
-                                            // Force re-render by updating the key
-                                            setTimeout(() => {
-                                              console.log('Forcing video re-render')
-                                              setSelectedMediaIndex(selectedMediaIndex)
-                                            }, 1000)
+                                            setTimeout(() => setSelectedMediaIndex(selectedMediaIndex), 1000)
                                           } else {
-                                            console.error('Max retries reached for video:', media.url)
                                             setVideoLoading(false)
                                           }
                                         }}
-                                        onLoadStart={() => {
-                                          console.log('Video load started:', media.url)
-                                          setVideoLoading(true)
-                                        }}
+                                        onLoadStart={() => setVideoLoading(true)}
                                         onCanPlay={() => {
-                                          console.log('Video can play:', media.url)
                                           setVideoLoading(false)
-                                          setVideoRetryCount(0) // Reset retry count on successful load
+                                          setVideoRetryCount(0)
                                         }}
-                                        onLoadedData={() => {
-                                          console.log('Video data loaded:', media.url)
-                                          setVideoLoading(false)
-                                        }}
-                                        onLoadedMetadata={() => {
-                                          console.log('Video metadata loaded:', media.url)
-                                        }}
+                                        onLoadedData={() => setVideoLoading(false)}
                                       />
                                       
                                       {/* Loading indicator */}
@@ -538,7 +421,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                             <p className="text-sm text-red-600">Video failed to load</p>
                                             <button 
                                               onClick={() => {
-                                                console.log('Manual retry clicked')
                                                 setVideoRetryCount(0)
                                                 setVideoLoading(false)
                                               }}
@@ -559,23 +441,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                       alt="Product media"
                                       className="w-full h-full object-cover"
                                       onError={(e) => {
-                                        console.error('Image load error:', {
-                                          error: e,
-                                          target: e.target,
-                                          src: e.target?.src,
-                                          displayUrl,
-                                          media,
-                                          isVideo,
-                                          fileType: media.fileType || media.type
-                                        })
-                                        // Fall back to product thumbnailUrl if available
-                                        if (product.thumbnailUrl && e.target?.src !== product.thumbnailUrl) {
-                                          console.log('Falling back to product thumbnailUrl:', product.thumbnailUrl)
-                                          e.target.src = product.thumbnailUrl
+                                        if (product.thumbnailUrl && e.currentTarget.src !== product.thumbnailUrl) {
+                                          e.currentTarget.src = product.thumbnailUrl
                                         }
-                                      }}
-                                      onLoad={(e) => {
-                                        console.log('Image loaded successfully:', e.target?.src)
                                       }}
                                     />
                                   )
@@ -586,12 +454,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                 src={product.thumbnailUrl}
                                 alt="Product thumbnail"
                                 className="w-full h-full object-cover"
-                                onLoad={() => {
-                                  console.log('Product thumbnail loaded successfully:', product.thumbnailUrl)
-                                }}
-                                onError={(e) => {
-                                  console.error('Product thumbnail load error:', e)
-                                }}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
@@ -610,7 +472,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                 <button
                                   key={index}
                                   onClick={() => {
-                                    console.log('Thumbnail clicked:', { index, media, isVideo: media.fileType?.startsWith('video/') || media.type?.startsWith('video/') || (media.url && /\.(mp4|webm|mov)$/i.test(media.url)) })
                                     setSelectedMediaIndex(index)
                                     // Reset video loading state when switching media
                                     setVideoLoading(false)
@@ -623,9 +484,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                   }`}
                                 >
                                   {(() => {
-                                    const isVideo = media.fileType?.startsWith('video/') || 
+                                    const isVideo = media.kind === 'video' ||
+                                      media.fileType?.startsWith('video/') ||
                                       media.type?.startsWith('video/') ||
-                                      (media.url && /\.(mp4|webm|mov)$/i.test(media.url))
+                                      (media.url && /\.(mp4|webm|mov)$/i.test(media.url.split('?')[0] || ''))
                                     
                                     if (isVideo) {
                                       // For videos, show a video icon instead of trying to display the video file

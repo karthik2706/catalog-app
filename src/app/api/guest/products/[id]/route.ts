@@ -136,7 +136,8 @@ export async function GET(
 
     const images = processedMedia.filter(m => m.kind === 'image')
     const videos = processedMedia.filter(m => m.kind === 'video')
-    const thumbnailUrl = images.length > 0 ? images[0].url : product.thumbnailUrl
+    let thumbnailUrl = images.length > 0 ? images[0].url : product.thumbnailUrl
+    if (!thumbnailUrl && videos.length > 0) thumbnailUrl = videos[0].url
 
     // Process legacy images/videos if they exist
     let legacyImages: any[] = []
@@ -195,7 +196,7 @@ export async function GET(
         images: [...images.map(m => m.url), ...legacyImages.map(img => img.url || img).filter(Boolean)],
         videos: [...videos.map(m => m.url), ...legacyVideos.map(vid => vid.url || vid).filter(Boolean)],
         media: processedMedia,
-        thumbnailUrl: thumbnailUrl || images[0]?.url,
+        thumbnailUrl: thumbnailUrl || images[0]?.url || videos[0]?.url,
         allowPreorder: product.allowPreorder,
         stockLevel: product.stockLevel, // Show stock level to guests
       }

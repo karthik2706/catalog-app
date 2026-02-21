@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
 import { useGuestCart } from '@/contexts/GuestCartContext'
-import { ArrowLeft, ShoppingCart, Plus, Minus, X, Home, Menu as MenuIcon, Search } from 'lucide-react'
-import ImageModal from '@/components/ImageModal'
+import { ArrowLeft, ShoppingCart, Plus, Minus, X, Home, Menu as MenuIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+
+type MediaItem = { url: string; isVideo: boolean }
 
 interface Product {
   id: string
@@ -16,9 +17,9 @@ interface Product {
   price: number
   category: string
   categories?: Array<{ id: string; name: string; description?: string }>
-  images: string[]
-  videos: string[]
-  media?: any[]
+  images: string[] | { url: string }[]
+  videos: string[] | { url: string }[]
+  media?: Array<{ url?: string; kind?: string; sortOrder?: number }>
   thumbnailUrl?: string
   allowPreorder: boolean
   stockLevel: number
@@ -47,9 +48,45 @@ export default function GuestProductDetailClient({
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
-  const [imageModalOpen, setImageModalOpen] = useState(false)
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
+  const [mediaModalOpen, setMediaModalOpen] = useState(false)
   const [token, setToken] = useState<string | null>(null)
+
+  const getProductMedia = (p: Product | null): MediaItem[] => {
+    if (!p) return []
+    const seen = new Set<string>()
+    const items: MediaItem[] = []
+    const add = (url: string | undefined, isVideo: boolean) => {
+      if (url && typeof url === 'string' && url.startsWith('http') && !seen.has(url)) {
+        seen.add(url)
+        items.push({ url, isVideo })
+      }
+    }
+    if (p.media && Array.isArray(p.media)) {
+      const sorted = [...p.media].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      sorted.forEach((m) => {
+        const url = m.url
+        if (url) add(url, m.kind === 'video')
+      })
+    }
+    if (p.images?.length) {
+      p.images.forEach((img: string | { url: string }) => {
+        const url = typeof img === 'string' ? img : img?.url
+        add(url, false)
+      })
+    }
+    if (p.videos?.length) {
+      p.videos.forEach((v: string | { url: string }) => {
+        const url = typeof v === 'string' ? v : v?.url
+        add(url, true)
+      })
+    }
+    if (p.thumbnailUrl && typeof p.thumbnailUrl === 'string' && p.thumbnailUrl.startsWith('http') && !seen.has(p.thumbnailUrl)) {
+      const path = p.thumbnailUrl.split('?')[0] || ''
+      items.unshift({ url: p.thumbnailUrl, isVideo: /\.(mp4|webm|mov|ogg|m4v)$/i.test(path) })
+    }
+    return items
+  }
 
   useEffect(() => {
     const getToken = async () => {
@@ -110,15 +147,16 @@ export default function GuestProductDetailClient({
 
   const handleAddToCart = () => {
     if (!product) return
-
+    const media = getProductMedia(product)
+    const firstUrl = media[0]?.url ?? product.thumbnailUrl ?? (Array.isArray(product.images) && product.images[0] ? (typeof product.images[0] === 'string' ? product.images[0] : (product.images[0] as { url: string }).url) : undefined)
     addItem({
       productId: product.id,
       name: product.name,
       sku: product.sku,
       price: Number(product.price),
       quantity: quantity,
-      thumbnailUrl: product.thumbnailUrl || product.images[0],
-      imageUrl: product.images[0]
+      thumbnailUrl: product.thumbnailUrl || firstUrl,
+      imageUrl: firstUrl
     })
 
     // Show feedback or redirect to cart
@@ -161,8 +199,8 @@ export default function GuestProductDetailClient({
     )
   }
 
-  const images = product.images || []
-  const displayImage = images[selectedImageIndex] || product.thumbnailUrl
+  const media = getProductMedia(product)
+  const displayItem = media[selectedMediaIndex] ?? null
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -215,49 +253,78 @@ export default function GuestProductDetailClient({
 
       <main className="max-w-7xl mx-auto px-4 py-6 pb-20 sm:pb-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Image Gallery */}
+          {/* Media Gallery */}
           <div className="space-y-4">
-            {/* Main Image */}
+            {/* Main media (image or video) */}
             <Card className="overflow-hidden">
               <div className="aspect-square bg-gray-100 relative">
-                {displayImage ? (
-                  <img
-                    src={displayImage}
-                    alt={product.name}
-                    className="w-full h-full object-cover cursor-pointer"
-                    onClick={() => images.length > 0 && setImageModalOpen(true)}
-                  />
+                {displayItem ? (
+                  <>
+                    {displayItem.isVideo ? (
+                      <video
+                        src={displayItem.url}
+                        controls
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={displayItem.url}
+                        alt={product.name}
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => setMediaModalOpen(true)}
+                      />
+                    )}
+                    {media.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setMediaModalOpen(true)}
+                        className="absolute bottom-2 right-2 rounded bg-black/60 text-white text-xs px-2 py-1"
+                      >
+                        Expand
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400">
                     <div className="text-center">
                       <svg className="w-24 h-24 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <p className="text-sm">No Image</p>
+                      <p className="text-sm">No Media</p>
                     </div>
                   </div>
                 )}
               </div>
             </Card>
 
-            {/* Thumbnail Gallery */}
-            {images.length > 1 && (
+            {/* Thumbnail strip */}
+            {media.length > 1 && (
               <div className="grid grid-cols-4 gap-2">
-                {images.map((image, index) => (
+                {media.map((item, index) => (
                   <button
                     key={index}
-                    onClick={() => setSelectedImageIndex(index)}
+                    onClick={() => setSelectedMediaIndex(index)}
                     className={`aspect-square overflow-hidden rounded-md border-2 ${
-                      selectedImageIndex === index
+                      selectedMediaIndex === index
                         ? 'border-blue-600'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <img
-                      src={image}
-                      alt={`${product.name} ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    {item.isVideo ? (
+                      <video
+                        src={item.url}
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={item.url}
+                        alt={`${product.name} ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
                   </button>
                 ))}
               </div>
@@ -359,16 +426,57 @@ export default function GuestProductDetailClient({
         </div>
       </main>
 
-      {/* Image Modal */}
-      {imageModalOpen && images.length > 0 && (
-        <ImageModal
-          images={images}
-          currentIndex={selectedImageIndex}
-          onClose={() => setImageModalOpen(false)}
-          onNext={() => setSelectedImageIndex((prev) => (prev + 1) % images.length)}
-          onPrevious={() => setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length)}
-          productName={product.name}
-        />
+      {/* Media Modal (image or video) */}
+      {mediaModalOpen && media.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+          <button
+            onClick={() => setMediaModalOpen(false)}
+            className="absolute top-4 right-4 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full"
+            aria-label="Close"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          {media.length > 1 && (
+            <>
+              <button
+                onClick={() => setSelectedMediaIndex((prev) => (prev - 1 + media.length) % media.length)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full"
+                aria-label="Previous"
+              >
+                <ChevronLeft className="w-8 h-8 text-white" />
+              </button>
+              <button
+                onClick={() => setSelectedMediaIndex((prev) => (prev + 1) % media.length)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full"
+                aria-label="Next"
+              >
+                <ChevronRight className="w-8 h-8 text-white" />
+              </button>
+            </>
+          )}
+          <div className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center p-4">
+            {media[selectedMediaIndex]?.isVideo ? (
+              <video
+                src={media[selectedMediaIndex].url}
+                controls
+                autoPlay
+                playsInline
+                className="max-w-full max-h-[95vh] object-contain"
+              />
+            ) : (
+              <img
+                src={media[selectedMediaIndex]?.url}
+                alt={product.name}
+                className="max-w-full max-h-[95vh] object-contain"
+              />
+            )}
+          </div>
+          {media.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 rounded-full text-white text-sm">
+              {selectedMediaIndex + 1} / {media.length}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Mobile Sticky Footer */}

@@ -125,6 +125,9 @@ async function processMediaWithUrls(products: any[]): Promise<any[]> {
       if (!thumbnailUrl && processedImages.length > 0) {
         thumbnailUrl = processedImages[0].url
       }
+      if (!thumbnailUrl && processedVideos.length > 0) {
+        thumbnailUrl = processedVideos[0].url
+      }
       
       return {
         ...product,

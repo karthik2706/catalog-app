@@ -152,6 +152,52 @@ export async function GET(
         }
       }
 
+      // Legacy: include product.images and product.videos (JSON columns) with signed URLs
+      if (product.images && Array.isArray(product.images)) {
+        for (const image of product.images as any[]) {
+          const s3Key = image.key || image.s3Key
+          if (!s3Key) continue
+          try {
+            const signedUrl = await generateSignedUrl(s3Key, 7 * 24 * 60 * 60)
+            images.push({
+              id: image.id,
+              kind: 'image',
+              url: signedUrl,
+              s3Key,
+              key: s3Key,
+              ...image
+            })
+            if (!thumbnailUrl) thumbnailUrl = signedUrl
+          } catch (error) {
+            console.error(`Error generating signed URL for legacy image:`, error)
+          }
+        }
+      }
+      if (product.videos && Array.isArray(product.videos)) {
+        for (const video of product.videos as any[]) {
+          let s3Key = video.key || video.s3Key
+          if (!s3Key && video.url && video.url.includes('amazonaws.com')) {
+            const parts = video.url.split('amazonaws.com/')
+            if (parts.length > 1) s3Key = parts[1].split('?')[0]
+          }
+          if (!s3Key) continue
+          try {
+            const signedUrl = await generateSignedUrl(s3Key, 7 * 24 * 60 * 60)
+            videos.push({
+              id: video.id,
+              kind: 'video',
+              url: signedUrl,
+              s3Key,
+              key: s3Key,
+              thumbnailUrl: null,
+              ...video
+            })
+          } catch (error) {
+            console.error(`Error generating signed URL for legacy video:`, error)
+          }
+        }
+      }
+
       // Convert BigInt fields to strings for JSON serialization
       const serializedProduct = JSON.parse(JSON.stringify(product, (key, value) =>
         typeof value === 'bigint' ? value.toString() : value
