@@ -164,7 +164,8 @@ export default function GuestProductDetailClient({
   }
 
   const handleQuantityChange = (delta: number) => {
-    const newQuantity = Math.max(1, Math.min(product?.stockLevel || 999, quantity + delta))
+    const maxQ = product ? (product.allowPreorder ? 999 : (product.stockLevel ?? 999)) : 999
+    const newQuantity = Math.max(1, Math.min(maxQ, quantity + delta))
     setQuantity(newQuantity)
   }
 
@@ -201,6 +202,7 @@ export default function GuestProductDetailClient({
 
   const media = getProductMedia(product)
   const displayItem = media[selectedMediaIndex] ?? null
+  const maxQuantity = product.allowPreorder ? 999 : (product.stockLevel ?? 999)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -382,19 +384,18 @@ export default function GuestProductDetailClient({
                   <input
                     type="number"
                     min="1"
-                    max={product.stockLevel || 999}
+                    max={maxQuantity}
                     value={quantity}
                     onChange={(e) => {
                       const val = parseInt(e.target.value) || 1
-                      const max = product.stockLevel || 999
-                      setQuantity(Math.max(1, Math.min(max, val)))
+                      setQuantity(Math.max(1, Math.min(maxQuantity, val)))
                     }}
                     className="w-16 text-center border-0 focus:ring-0 focus:outline-none text-sm"
                   />
                   <button
                     type="button"
                     onClick={() => handleQuantityChange(1)}
-                    disabled={quantity >= (product.stockLevel || 999)}
+                    disabled={quantity >= maxQuantity}
                     className="p-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-4 h-4" />
