@@ -110,10 +110,11 @@ function ImageModal({ isOpen, onClose, media, currentIndex, onNext, onPrevious, 
       <div className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center p-4">
         {isVideo ? (
           <video
-            src={current.url}
+            src={`${current.url}#t=0.001`}
             controls
             autoPlay
             playsInline
+            preload="metadata"
             className="max-w-full max-h-[95vh] object-contain"
           />
         ) : (
@@ -900,10 +901,11 @@ export default function GuestCatalogClient({
                       {displayItem ? (
                         displayItem.isVideo ? (
                           <video
-                            src={displayItem.url}
+                            src={`${displayItem.url}#t=0.001`}
                             muted
                             playsInline
                             loop
+                            preload="metadata"
                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                             onError={(e) => {
                               const target = e.target as HTMLVideoElement

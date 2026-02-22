@@ -327,9 +327,10 @@ export default function GuestProductDetailClient({
                   <>
                     {displayItem.isVideo ? (
                       <video
-                        src={displayItem.url}
+                        src={`${displayItem.url}#t=0.001`}
                         controls
                         playsInline
+                        preload="metadata"
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -378,9 +379,10 @@ export default function GuestProductDetailClient({
                   >
                     {item.isVideo ? (
                       <video
-                        src={item.url}
+                        src={`${item.url}#t=0.001`}
                         muted
                         playsInline
+                        preload="metadata"
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -575,10 +577,11 @@ export default function GuestProductDetailClient({
           <div className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center p-4">
             {media[selectedMediaIndex]?.isVideo ? (
               <video
-                src={media[selectedMediaIndex].url}
+                src={`${media[selectedMediaIndex].url}#t=0.001`}
                 controls
                 autoPlay
                 playsInline
+                preload="metadata"
                 className="max-w-full max-h-[95vh] object-contain"
               />
             ) : (
