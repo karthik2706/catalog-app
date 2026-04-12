@@ -68,6 +68,28 @@ export async function GET(request: NextRequest) {
               height: true
             },
             orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }]
+          },
+          productMedia: {
+            where: {
+              media: {
+                kind: 'image',
+                status: 'completed'
+              }
+            },
+            select: {
+              isPrimary: true,
+              sortOrder: true,
+              media: {
+                select: {
+                  id: true,
+                  s3Key: true,
+                  altText: true,
+                  width: true,
+                  height: true
+                }
+              }
+            },
+            orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }]
           }
         },
         orderBy: [{ updatedAt: 'asc' }, { sku: 'asc' }],
@@ -79,8 +101,33 @@ export async function GET(request: NextRequest) {
 
     const formattedProducts = await Promise.all(
       products.map(async (product) => {
+        const mediaEntries = [
+          ...product.media.map((media) => ({
+            id: media.id,
+            s3Key: media.s3Key,
+            altText: media.altText,
+            isPrimary: media.isPrimary,
+            sortOrder: media.sortOrder,
+            width: media.width,
+            height: media.height
+          })),
+          ...product.productMedia.map((productMedia) => ({
+            id: productMedia.media.id,
+            s3Key: productMedia.media.s3Key,
+            altText: productMedia.media.altText,
+            isPrimary: productMedia.isPrimary,
+            sortOrder: productMedia.sortOrder,
+            width: productMedia.media.width,
+            height: productMedia.media.height
+          }))
+        ]
+
+        const uniqueMediaEntries = mediaEntries.filter(
+          (entry, index, entries) => entries.findIndex((candidate) => candidate.id === entry.id) === index
+        )
+
         const images = await Promise.all(
-          product.media.map(async (media) => ({
+          uniqueMediaEntries.map(async (media) => ({
             id: media.id,
             url: await generateSignedUrl(media.s3Key, SIGNED_URL_TTL_SECONDS),
             altText: media.altText,

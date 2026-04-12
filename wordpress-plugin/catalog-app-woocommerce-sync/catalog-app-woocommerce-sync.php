@@ -452,6 +452,14 @@ if (! class_exists('Catalog_App_WooCommerce_Sync')) {
 			$product->save();
 
 			$images = isset($remote_product['images']) && is_array($remote_product['images']) ? $remote_product['images'] : array();
+			if (empty($images) && ! empty($remote_product['thumbnailUrl'])) {
+				$images = array(
+					array(
+						'id' => isset($remote_product['id']) ? sanitize_text_field($remote_product['id']) . '-thumbnail' : '',
+						'url' => esc_url_raw($remote_product['thumbnailUrl']),
+					),
+				);
+			}
 			$this->sync_product_images($product->get_id(), $images);
 
 			return array(
@@ -476,7 +484,7 @@ if (! class_exists('Catalog_App_WooCommerce_Sync')) {
 		}
 
 		private function sync_product_images($product_id, $images) {
-			if (! function_exists('media_sideload_image')) {
+			if (! function_exists('download_url')) {
 				require_once ABSPATH . 'wp-admin/includes/file.php';
 				require_once ABSPATH . 'wp-admin/includes/media.php';
 				require_once ABSPATH . 'wp-admin/includes/image.php';
@@ -484,28 +492,49 @@ if (! class_exists('Catalog_App_WooCommerce_Sync')) {
 
 			$gallery_ids = array();
 			$featured_image_id = 0;
+			$seen_attachment_ids = array();
 
 			foreach ($images as $image) {
-				if (empty($image['url']) || empty($image['id'])) {
+				if (empty($image['url'])) {
 					continue;
 				}
 
-				$attachment_id = $this->get_attachment_id_by_remote_media_id($image['id']);
+				$attachment_id = 0;
+				$remote_media_id = ! empty($image['id']) ? sanitize_text_field($image['id']) : '';
+				$remote_url = esc_url_raw($image['url']);
+
+				if ($remote_media_id) {
+					$attachment_id = $this->get_attachment_id_by_remote_media_id($remote_media_id);
+				}
 
 				if (! $attachment_id) {
-					$attachment_id = media_sideload_image(esc_url_raw($image['url']), $product_id, null, 'id');
+					$attachment_id = $this->get_attachment_id_by_remote_url($remote_url);
+				}
+
+				if (! $attachment_id) {
+					$attachment_id = $this->import_remote_image($remote_url, $product_id, $remote_media_id);
 					if (is_wp_error($attachment_id)) {
 						$this->log('warning', 'Image import failed for product #' . $product_id . ': ' . $attachment_id->get_error_message());
 						continue;
 					}
-
-					update_post_meta($attachment_id, '_catalog_app_remote_media_id', sanitize_text_field($image['id']));
 				}
 
+				$attachment_id = (int) $attachment_id;
+				if (in_array($attachment_id, $seen_attachment_ids, true)) {
+					continue;
+				}
+
+				$seen_attachment_ids[] = $attachment_id;
+
+				if ($remote_media_id) {
+					update_post_meta($attachment_id, '_catalog_app_remote_media_id', $remote_media_id);
+				}
+				update_post_meta($attachment_id, '_catalog_app_remote_url', $remote_url);
+
 				if (0 === $featured_image_id) {
-					$featured_image_id = (int) $attachment_id;
+					$featured_image_id = $attachment_id;
 				} else {
-					$gallery_ids[] = (int) $attachment_id;
+					$gallery_ids[] = $attachment_id;
 				}
 			}
 
@@ -533,6 +562,51 @@ if (! class_exists('Catalog_App_WooCommerce_Sync')) {
 			);
 
 			return ! empty($query->posts) ? (int) $query->posts[0] : 0;
+		}
+
+		private function get_attachment_id_by_remote_url($remote_url) {
+			$query = new WP_Query(
+				array(
+					'post_type' => 'attachment',
+					'post_status' => 'inherit',
+					'posts_per_page' => 1,
+					'fields' => 'ids',
+					'meta_query' => array(
+						array(
+							'key' => '_catalog_app_remote_url',
+							'value' => esc_url_raw($remote_url),
+						),
+					),
+				)
+			);
+
+			return ! empty($query->posts) ? (int) $query->posts[0] : 0;
+		}
+
+		private function import_remote_image($remote_url, $product_id, $remote_media_id = '') {
+			$temp_file = download_url($remote_url, 30);
+			if (is_wp_error($temp_file)) {
+				return $temp_file;
+			}
+
+			$path = wp_parse_url($remote_url, PHP_URL_PATH);
+			$filename = $path ? wp_basename($path) : '';
+			if (! $filename) {
+				$filename = $remote_media_id ? 'catalog-app-' . $remote_media_id . '.jpg' : 'catalog-app-image.jpg';
+			}
+
+			$file_array = array(
+				'name' => sanitize_file_name($filename),
+				'tmp_name' => $temp_file,
+			);
+
+			$attachment_id = media_handle_sideload($file_array, $product_id);
+			if (is_wp_error($attachment_id)) {
+				@unlink($temp_file);
+				return $attachment_id;
+			}
+
+			return (int) $attachment_id;
 		}
 
 		public function handle_stock_change($product) {
