@@ -29,6 +29,7 @@ import {
   Database,
   Shield,
   ShoppingBag,
+  Store,
 } from 'lucide-react'
 
 const drawerWidth = 280
@@ -99,6 +100,12 @@ const menuItems: MenuItem[] = [
     icon: Settings, 
     path: '/settings',
     description: 'System configuration'
+  },
+  {
+    text: 'WooCommerce',
+    icon: Store,
+    path: '/settings/integrations/woocommerce',
+    description: 'WooCommerce catalog sync'
   },
   { 
     text: 'Admin Panel', 
