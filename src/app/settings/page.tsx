@@ -910,6 +910,15 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            <div className="mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm text-slate-700">
+                WooCommerce: live webhooks and catalog backfill.
+              </p>
+              <Button variant="outline" size="sm" type="button" onClick={() => router.push('/settings/integrations/woocommerce')}>
+                Open WooCommerce
+              </Button>
+            </div>
+
             {/* Tab Content */}
             <StaggerWrapper>
               {/* General Settings */}

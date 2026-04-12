@@ -38,32 +38,33 @@ model Currency {
 }
 
 model Client {
-  id               String             @id @default(cuid())
-  name             String
-  slug             String             @unique
-  domain           String?
-  email            String
-  phone            String?
-  address          String?
-  logo             String?
-  countryId        String?
-  currencyId       String?
-  isActive         Boolean            @default(true)
-  plan             Plan               @default(STARTER)
-  guestPassword    String?
-  guestAccessEnabled Boolean          @default(false)
-  guestPasswordRequired Boolean       @default(true)
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  apiKeys          ApiKey[]           @relation("ClientApiKeys")
-  categories       Category[]         @relation("ClientCategories")
-  settings         ClientSettings?    @relation("ClientSettings")
-  country          Country?           @relation("ClientCountry", fields: [countryId], references: [id])
-  currency         Currency?          @relation("ClientCurrency", fields: [currencyId], references: [id])
-  inventoryHistory InventoryHistory[] @relation("ClientInventoryHistory")
-  products         Product[]          @relation("ClientProducts")
-  users            User[]             @relation("ClientUsers")
-  orders           Order[]            @relation("ClientOrders")
+  id                     String                  @id @default(cuid())
+  name                   String
+  slug                   String                  @unique
+  domain                 String?
+  email                  String
+  phone                  String?
+  address                String?
+  logo                   String?
+  countryId              String?
+  currencyId             String?
+  isActive               Boolean                 @default(true)
+  plan                   Plan                    @default(STARTER)
+  guestPassword          String?
+  guestAccessEnabled     Boolean                 @default(false)
+  guestPasswordRequired  Boolean                 @default(true)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  apiKeys                ApiKey[]                @relation("ClientApiKeys")
+  categories             Category[]              @relation("ClientCategories")
+  settings               ClientSettings?         @relation("ClientSettings")
+  country                Country?                @relation("ClientCountry", fields: [countryId], references: [id])
+  currency               Currency?               @relation("ClientCurrency", fields: [currencyId], references: [id])
+  inventoryHistory       InventoryHistory[]      @relation("ClientInventoryHistory")
+  products               Product[]               @relation("ClientProducts")
+  users                  User[]                  @relation("ClientUsers")
+  orders                 Order[]                 @relation("ClientOrders")
+  wooCommerceConnections WooCommerceConnection[] @relation("ClientWooConnections")
 
   @@map("clients")
 }
@@ -128,6 +129,7 @@ model Product {
   productMedia     ProductMedia[]     @relation("ProductMediaRelations")
   categories       ProductCategory[]  @relation("ProductCategories")
   orderItems       OrderItem[]        @relation
+  wooMaps          WooProductMap[]
   client           Client             @relation("ClientProducts", fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([sku, clientId])
@@ -151,19 +153,20 @@ model InventoryHistory {
 }
 
 model Category {
-  id          String            @id @default(cuid())
-  name        String
-  description String?
-  isActive    Boolean           @default(true)
-  clientId    String
-  parentId    String?
-  sortOrder   Int               @default(0)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  client      Client            @relation("ClientCategories", fields: [clientId], references: [id], onDelete: Cascade)
-  parent      Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Category[]        @relation("CategoryHierarchy")
-  products    ProductCategory[] @relation("CategoryProducts")
+  id              String            @id @default(cuid())
+  name            String
+  description     String?
+  isActive        Boolean           @default(true)
+  clientId        String
+  parentId        String?
+  sortOrder       Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  client          Client            @relation("ClientCategories", fields: [clientId], references: [id], onDelete: Cascade)
+  parent          Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children        Category[]        @relation("CategoryHierarchy")
+  products        ProductCategory[] @relation("CategoryProducts")
+  wooCategoryMaps WooCategoryMap[]
 
   @@unique([name, clientId, parentId])
   @@map("categories")
@@ -331,27 +334,27 @@ enum OrderStatus {
 }
 
 model Order {
-  id                    String      @id @default(cuid())
-  orderNumber           String      @unique
-  clientId              String
-  status                OrderStatus @default(PENDING)
-  customerName          String
-  customerEmail         String
-  customerPhone         String
-  shippingAddress       Json        // Store full address as JSON
-  billingAddress        Json?       // Optional, defaults to shipping
-  notes                 String?
-  subtotal              Decimal     @db.Decimal(10, 2)
-  tax                   Decimal     @default(0) @db.Decimal(10, 2)
-  shipping              Decimal     @default(0) @db.Decimal(10, 2)
-  total                 Decimal     @db.Decimal(10, 2)
-  paymentUTR            String?     // UTR (Unique Transaction Reference) number
-  paymentTransactionNumber String?  // Transaction number
-  paymentProofUrl       String?     // URL to payment proof document/image
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-  client                Client      @relation("ClientOrders", fields: [clientId], references: [id], onDelete: Cascade)
-  items                 OrderItem[]
+  id                       String      @id @default(cuid())
+  orderNumber              String      @unique
+  clientId                 String
+  status                   OrderStatus @default(PENDING)
+  customerName             String
+  customerEmail            String
+  customerPhone            String
+  shippingAddress          Json // Store full address as JSON
+  billingAddress           Json? // Optional, defaults to shipping
+  notes                    String?
+  subtotal                 Decimal     @db.Decimal(10, 2)
+  tax                      Decimal     @default(0) @db.Decimal(10, 2)
+  shipping                 Decimal     @default(0) @db.Decimal(10, 2)
+  total                    Decimal     @db.Decimal(10, 2)
+  paymentUTR               String? // UTR (Unique Transaction Reference) number
+  paymentTransactionNumber String? // Transaction number
+  paymentProofUrl          String? // URL to payment proof document/image
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+  client                   Client      @relation("ClientOrders", fields: [clientId], references: [id], onDelete: Cascade)
+  items                    OrderItem[]
 
   @@index([clientId])
   @@index([orderNumber])
@@ -364,13 +367,13 @@ model OrderItem {
   id          String   @id @default(cuid())
   orderId     String
   productId   String
-  productName String   // Store product name at time of order
-  productSku  String   // Store SKU at time of order
+  productName String // Store product name at time of order
+  productSku  String // Store SKU at time of order
   price       Decimal  @db.Decimal(10, 2) // Store price at time of order
   quantity    Int
   subtotal    Decimal  @db.Decimal(10, 2)
-  isPreorder  Boolean  @default(false)    // True if product had Allow Preorders at order time
-  variations  Json?    // Product variations at time of order (name, value, priceAdjustment)
+  isPreorder  Boolean  @default(false) // True if product had Allow Preorders at order time
+  variations  Json? // Product variations at time of order (name, value, priceAdjustment)
   createdAt   DateTime @default(now())
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -378,4 +381,87 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
+}
+
+enum WooWebhookDeliveryStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model WooCommerceConnection {
+  id                   String               @id @default(cuid())
+  name                 String               @default("WooCommerce store")
+  clientId             String
+  siteUrl              String
+  consumerKeyEnc       String
+  consumerSecretEnc    String
+  webhookSecret        String
+  deliveryToken        String               @unique
+  isActive             Boolean              @default(true)
+  lastFullSyncAt       DateTime?
+  lastFullSyncError    String?
+  backfillPage         Int                  @default(1)
+  backfillComplete     Boolean              @default(false)
+  registeredWebhookIds Json?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  client               Client               @relation("ClientWooConnections", fields: [clientId], references: [id], onDelete: Cascade)
+  productMaps          WooProductMap[]
+  categoryMaps         WooCategoryMap[]
+  webhookDeliveries    WooWebhookDelivery[]
+
+  @@index([clientId])
+  @@map("woo_commerce_connections")
+}
+
+model WooProductMap {
+  id                  String                @id @default(cuid())
+  connectionId        String
+  wooResourceId       Int
+  wooParentResourceId Int?
+  productId           String                @unique
+  lastWooModifiedGmt  DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  connection          WooCommerceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  product             Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, wooResourceId])
+  @@index([connectionId, wooParentResourceId])
+  @@map("woo_product_maps")
+}
+
+model WooCategoryMap {
+  id           String                @id @default(cuid())
+  connectionId String
+  wooTermId    Int
+  categoryId   String
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  connection   WooCommerceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  category     Category              @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, wooTermId])
+  @@map("woo_category_maps")
+}
+
+model WooWebhookDelivery {
+  id           String                   @id @default(cuid())
+  connectionId String
+  deliveryId   String                   @unique
+  topic        String
+  resourceId   Int?
+  payload      Json
+  status       WooWebhookDeliveryStatus @default(PENDING)
+  errorMessage String?
+  attempts     Int                      @default(0)
+  createdAt    DateTime                 @default(now())
+  processedAt  DateTime?
+  connection   WooCommerceConnection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, status])
+  @@index([connectionId, createdAt])
+  @@map("woo_webhook_deliveries")
 }
